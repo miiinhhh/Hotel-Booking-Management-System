@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="HotelBooking.API/HotelBooking.API.csproj" />
+  <Project Path="HotelBooking.Application/HotelBooking.Application.csproj" />
+  <Project Path="HotelBooking.Domain/HotelBooking.Domain.csproj" />
+  <Project Path="HotelBooking.Infrastructure/HotelBooking.Infrastructure.csproj" />
+</Solution>
