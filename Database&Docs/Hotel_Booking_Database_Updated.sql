@@ -179,7 +179,7 @@ CREATE TABLE StaffAreaAssignments
 );
 
 -- =========================================================
--- 7. AMENITIES
+-- 7. AMENITIES -- tiện nghi: wifi, bể bơi, spa, gym, nhà hàng, bar, dịch vụ phòng, đưa đón sân bay, v.v. 
 -- =========================================================
 
 CREATE TABLE Amenities
@@ -371,7 +371,7 @@ CREATE TABLE Rooms
 );
 
 -- =========================================================
--- 13. ROOM_AMENITIES
+-- 13. ROOM_AMENITIES -- đồ dùng trong phòng: tivi, tủ lạnh, máy lạnh, máy sấy tóc, két sắt, bàn làm việc, v.v.
 -- =========================================================
 
 CREATE TABLE RoomAmenities
@@ -588,7 +588,7 @@ CREATE TABLE BookingGuests
 );
 
 -- =========================================================
--- 18. BOOKING_STATUS_HISTORY
+-- 18. BOOKING_STATUS_HISTORY 
 -- =========================================================
 
 CREATE TABLE BookingStatusHistory
@@ -818,7 +818,7 @@ CREATE TABLE Vouchers
 );
 
 -- =========================================================
--- 23. CANCELLATION_POLICIES
+-- 23. CANCELLATION_POLICIES -- chính sách hủy phòng: miễn phí, mất cọc, hoàn tiền 50%, hoàn tiền 100%, v.v.
 -- =========================================================
 
 CREATE TABLE CancellationPolicies
