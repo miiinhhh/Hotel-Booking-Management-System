@@ -1,6 +1,71 @@
-@HotelBooking.API_HostAddress = http://localhost:5131
+@baseUrl = http://localhost:5131
+@hotelId = 1
+@areaId = 1
+@roomTypeId = 1
+@roomId = 1
 
-GET {{HotelBooking.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Create type (replace IDs with existing active hotel / area)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}/room-types
+Content-Type: application/json
 
-###
+{
+  "name": "Deluxe",
+  "description": "Phong hai nguoi",
+  "basePrice": 500000,
+  "capacity": 2,
+  "numberOfBeds": 1
+}
+
+### List types
+GET {{baseUrl}}/api/hotels/{{hotelId}}/room-types
+
+### Get type
+GET {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
+
+### Update type price and capacity
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
+Content-Type: application/json
+
+{
+  "name": "Deluxe",
+  "description": null,
+  "basePrice": 750000,
+  "capacity": 3,
+  "numberOfBeds": 2
+}
+
+### Create room
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}/rooms
+Content-Type: application/json
+
+{
+  "roomTypeId": {{roomTypeId}},
+  "roomNumber": "101",
+  "floor": 1,
+  "status": "Available",
+  "description": null
+}
+
+### List rooms
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms
+
+### Get room
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
+
+### Update room
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
+Content-Type: application/json
+
+{
+  "roomTypeId": {{roomTypeId}},
+  "roomNumber": "101",
+  "floor": 1,
+  "status": "Maintenance",
+  "description": "Bao tri"
+}
+
+### Deactivate room before deactivating its type
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
+
+### Deactivate type
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
