@@ -1,6 +1,35 @@
-@HotelBooking.API_HostAddress = http://localhost:5131
+@HotelBooking.API_HostAddress = https://localhost:7131
 
-GET {{HotelBooking.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Register a Customer
+POST {{HotelBooking.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Nguyen Van A",
+  "email": "customer@example.com",
+  "password": "StrongPassword123!",
+  "phone": "0900000000"
+}
+
+### Login
+POST {{HotelBooking.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Authenticated profile (replace token)
+GET {{HotelBooking.API_HostAddress}}/api/me
+Authorization: Bearer {{accessToken}}
+
+### Staff-only resource
+GET {{HotelBooking.API_HostAddress}}/api/staff
+Authorization: Bearer {{accessToken}}
+
+### Admin-only resource
+GET {{HotelBooking.API_HostAddress}}/api/admin
+Authorization: Bearer {{accessToken}}
 
 ###

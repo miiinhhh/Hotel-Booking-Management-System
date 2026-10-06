@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    HOTEL BOOKING MANAGEMENT SYSTEM
    SQL SERVER DATABASE
    UPDATED VERSION
