@@ -1,0 +1,50 @@
+{
+  "scope": "Hotel CRUD only",
+  "baseBranch": "feature/hotel-management",
+  "baseCommit": "7e2556c3859e3e1de4065885ec7570b78ad33fa9",
+  "build": {
+    "result": "passed",
+    "warnings": 0,
+    "errors": 0
+  },
+  "integrationTests": {
+    "total": "16",
+    "executed": "16",
+    "passed": "16",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "postmanNewman": {
+    "requests": {
+      "total": 16,
+      "pending": 0,
+      "failed": 0
+    },
+    "assertions": {
+      "total": 23,
+      "pending": 0,
+      "failed": 0
+    },
+    "failureCount": 0
+  },
+  "persistenceDuringHttpTests": "SQLite in-memory via test-only WebApplicationFactory; production Program, HotelService and HotelRepository executed with Kestrel for Newman",
+  "sqlServerValidation": "EF Core SQL Server mapping/DDL generation tested; no live SQL Server connection or foreign-key delete scenario executed",
+  "notImplemented": [
+    "Room",
+    "Booking",
+    "Payment",
+    "JWT/Identity",
+    "Frontend"
+  ]
+}
