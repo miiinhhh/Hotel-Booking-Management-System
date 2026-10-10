@@ -14,6 +14,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems = [
     { id: 'kham-pha', label: 'Khám phá' },
+    { id: 'tim-kiem', label: 'Tìm kiếm' },
     { id: 'uu-dai', label: 'Ưu đãi' },
     { id: 'yeu-thich', label: 'Yêu thích', badge: favoritesCount },
   ];

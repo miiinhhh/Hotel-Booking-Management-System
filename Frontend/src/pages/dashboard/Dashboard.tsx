@@ -5,13 +5,23 @@ import { QuickFilters } from './components/QuickFilters';
 import { PopularDestinations } from './components/PopularDestinations';
 import { PrivilegeBanner } from './components/PrivilegeBanner';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onNavigateSearch?: (params: {
+    location: string;
+    dates: string;
+    guests: string;
+  }) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch }) => {
   const handleSearch = (searchParams: {
     location: string;
     dates: string;
     guests: string;
   }) => {
-    console.log('Searching hotels with params:', searchParams);
+    if (onNavigateSearch) {
+      onNavigateSearch(searchParams);
+    }
   };
 
   const handleFilterChange = (filterId: string) => {
