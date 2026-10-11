@@ -4,9 +4,13 @@ import Footer from './components/layout/Footer';
 import Dashboard from './pages/dashboard/Dashboard';
 import SearchPage from './pages/search/SearchPage';
 import HotelDetailPage from './pages/hotel-detail/HotelDetailPage';
+import BookingHistoryPage from './pages/booking-history/BookingHistoryPage';
+import CheckoutPage from './pages/checkout/CheckoutPage';
 import { MOCK_HOTEL_DETAIL } from './pages/hotel-detail/data/mockHotelDetail';
+import { DEFAULT_CHECKOUT_DATA } from './pages/checkout/data/mockCheckoutData';
 import { Hotel } from './pages/search/types';
-import { HotelDetail } from './pages/hotel-detail/types';
+import { HotelDetail, Room } from './pages/hotel-detail/types';
+import { CheckoutBookingData } from './pages/checkout/types';
 
 function App() {
   const [activeTab, setActiveTab] = useState('tim-kiem');
@@ -16,6 +20,8 @@ function App() {
     guests: '2 người lớn · 1 phòng',
   });
   const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail>(MOCK_HOTEL_DETAIL);
+  const [currentCheckoutData, setCurrentCheckoutData] =
+    useState<CheckoutBookingData>(DEFAULT_CHECKOUT_DATA);
 
   const handleSearchFromDashboard = (params: {
     location: string;
@@ -28,8 +34,6 @@ function App() {
   };
 
   const handleSelectHotelFromSearch = (hotel: Hotel) => {
-    // If the selected hotel is already InterContinental, use default detail
-    // Otherwise customize the detail view with the selected hotel's basic info
     if (hotel.id === 'intercontinental-danang') {
       setCurrentHotelDetail(MOCK_HOTEL_DETAIL);
     } else {
@@ -58,11 +62,37 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleNavigateToCheckout = (room?: Room, totalPrice?: number) => {
+    if (room && totalPrice) {
+      const deposit = Math.round((totalPrice * 30) / 100);
+      setCurrentCheckoutData({
+        ...DEFAULT_CHECKOUT_DATA,
+        hotelName: currentHotelDetail.name,
+        location: currentHotelDetail.address,
+        hotelImage: currentHotelDetail.galleryImages.hero.url,
+        roomName: room.name,
+        roomAmenities: room.features.map((f) => f.text).slice(0, 3),
+        totalPrice: totalPrice,
+        depositAmount: deposit,
+        remainingAmount: totalPrice - deposit,
+        originalPrice: totalPrice + 1000000,
+      });
+    }
+    setActiveTab('thanh-toan');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background font-body-md text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
       {/* Fixed Header */}
       <Header
-        activeTab={activeTab === 'chi-tiet-phong' ? 'tim-kiem' : activeTab}
+        activeTab={
+          activeTab === 'chi-tiet-phong'
+            ? 'tim-kiem'
+            : activeTab === 'thanh-toan'
+            ? 'dat-phong-cua-toi'
+            : activeTab
+        }
         onTabChange={(tab) => {
           setActiveTab(tab);
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -86,11 +116,34 @@ function App() {
             hotelData={currentHotelDetail}
             onNavigateHome={() => setActiveTab('kham-pha')}
             onNavigateSearch={() => setActiveTab('tim-kiem')}
+            onNavigateCheckout={handleNavigateToCheckout}
           />
         )}
 
         {activeTab === 'kham-pha' && (
           <Dashboard onNavigateSearch={handleSearchFromDashboard} />
+        )}
+
+        {activeTab === 'dat-phong-cua-toi' && (
+          <BookingHistoryPage
+            onNavigateHome={() => setActiveTab('kham-pha')}
+            onNavigateSearch={() => setActiveTab('tim-kiem')}
+            onNavigatePayment={() => {
+              setActiveTab('thanh-toan');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
+
+        {activeTab === 'thanh-toan' && (
+          <CheckoutPage
+            initialBookingData={currentCheckoutData}
+            onNavigateBack={() => setActiveTab('chi-tiet-phong')}
+            onBookingSuccess={(_bookingCode) => {
+              setActiveTab('dat-phong-cua-toi');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
       </div>
 

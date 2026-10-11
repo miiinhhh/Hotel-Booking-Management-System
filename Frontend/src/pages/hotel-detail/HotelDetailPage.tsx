@@ -14,12 +14,14 @@ interface HotelDetailPageProps {
   hotelData?: HotelDetail;
   onNavigateHome?: () => void;
   onNavigateSearch?: () => void;
+  onNavigateCheckout?: (room?: Room, totalPrice?: number) => void;
 }
 
 export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
   hotelData = MOCK_HOTEL_DETAIL,
   onNavigateHome,
   onNavigateSearch,
+  onNavigateCheckout,
 }) => {
   const [selectedRoomForModal, setSelectedRoomForModal] = useState<Room | null>(
     null
@@ -33,6 +35,10 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
     _selectedPackageId?: string,
     totalPrice?: number
   ) => {
+    if (onNavigateCheckout) {
+      onNavigateCheckout(room, totalPrice);
+      return;
+    }
     const formattedPrice = totalPrice?.toLocaleString('vi-VN') || '';
     setBookingSuccessMessage(
       `Đã chọn đặt "${room.name}" thành công! Tổng giá: ${formattedPrice}₫ cho ${hotelData.durationNights} đêm.`
