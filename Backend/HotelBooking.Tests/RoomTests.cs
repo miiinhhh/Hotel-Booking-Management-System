@@ -29,6 +29,78 @@ public sealed class RoomTests
     private static RoomTypeRequest TypeRequest => new("Deluxe", null, 500000, 2, 1);
     private static RoomRequest Request(int type, string number = "101", RoomStatus status = RoomStatus.Available) => new(type, number, 1, status, null);
 
+    [Fact]
+    public async Task TypeListDistinguishesMissingHotelFromEmptyHotel()
+    {
+        using var db = Database(); var service = Service(db);
+        Assert.Empty(await service.ListTypes(1, Ct));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.ListTypes(999, Ct));
+    }
+
+    [Fact]
+    public async Task TypeCrudPreservesHotelAndAreaAndUpdatesAllEditableFields()
+    {
+        using var db = Database(); var service = Service(db);
+        var created = await service.CreateType(1, 1, TypeRequest with { Name = " Deluxe ", Description = "Original" }, Ct);
+        var updated = await service.UpdateType(1, created.RoomTypeId,
+            new RoomTypeRequest(" Suite ", "Updated description", 1250000.50m, 4, 2), Ct);
+        db.ChangeTracker.Clear();
+        var loaded = await service.GetType(1, created.RoomTypeId, Ct);
+        Assert.Equal(updated, loaded);
+        Assert.Equal(1, loaded.HotelId);
+        Assert.Equal(1, loaded.AreaId);
+        Assert.Equal("Suite", loaded.Name);
+        Assert.Equal("Updated description", loaded.Description);
+        Assert.Equal(1250000.50m, loaded.BasePrice);
+        Assert.Equal(4, loaded.Capacity);
+        Assert.Equal(2, loaded.NumberOfBeds);
+        Assert.Single(await service.ListTypes(1, Ct));
+    }
+
+    [Fact]
+    public async Task TypeCannotBeReadUpdatedOrDeletedThroughAnotherHotel()
+    {
+        using var db = Database(); var service = Service(db);
+        var otherHotel = new Hotel(); db.Hotels.Add(otherHotel);
+        db.Entry(otherHotel).Property(x => x.HotelId).CurrentValue = 2;
+        db.Entry(otherHotel).Property(x => x.IsActive).CurrentValue = true;
+        await db.SaveChangesAsync(Ct);
+        var type = await service.CreateType(1, 1, TypeRequest, Ct);
+        await Assert.ThrowsAsync<NotFoundException>(() => service.GetType(2, type.RoomTypeId, Ct));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.UpdateType(2, type.RoomTypeId, TypeRequest, Ct));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.DeleteType(2, type.RoomTypeId, Ct));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.CreateType(2, 1, TypeRequest, Ct));
+        Assert.Empty(await service.ListTypes(2, Ct));
+        db.ChangeTracker.Clear();
+        Assert.True((await service.GetType(1, type.RoomTypeId, Ct)).IsActive);
+    }
+
+    [Fact]
+    public async Task DeactivatedTypeIsRetainedButCannotBeUpdatedOrAssignedToRooms()
+    {
+        using var db = Database(); var service = Service(db);
+        var type = await service.CreateType(1, 1, TypeRequest, Ct);
+        await service.DeleteType(1, type.RoomTypeId, Ct);
+        await service.DeleteType(1, type.RoomTypeId, Ct);
+        db.ChangeTracker.Clear();
+        Assert.False((await service.GetType(1, type.RoomTypeId, Ct)).IsActive);
+        Assert.Single(await service.ListTypes(1, Ct));
+        await Assert.ThrowsAsync<ConflictException>(() => service.UpdateType(1, type.RoomTypeId, TypeRequest, Ct));
+        await Assert.ThrowsAsync<ConflictException>(() => service.CreateRoom(1, 1, Request(type.RoomTypeId), Ct));
+    }
+
+    [Fact]
+    public async Task FailedTypeDeletionLeavesExistingRoomsAndTypeActive()
+    {
+        using var db = Database(); var service = Service(db);
+        var type = await service.CreateType(1, 1, TypeRequest, Ct);
+        var room = await service.CreateRoom(1, 1, Request(type.RoomTypeId), Ct);
+        await Assert.ThrowsAsync<ConflictException>(() => service.DeleteType(1, type.RoomTypeId, Ct));
+        db.ChangeTracker.Clear();
+        Assert.True((await service.GetType(1, type.RoomTypeId, Ct)).IsActive);
+        Assert.True((await service.GetRoom(1, room.RoomId, Ct)).IsActive);
+    }
+
     [Theory]
     [InlineData(-1, 2, 1)]
     [InlineData(10, 0, 1)]

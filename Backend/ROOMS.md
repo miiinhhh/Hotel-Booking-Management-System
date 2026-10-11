@@ -25,6 +25,10 @@ Schema dùng script `Database&Docs/Hotel_Booking_Database_Updated.sql`. Giá, s�
 
 Status gửi dạng chuỗi: Available, Occupied, Maintenance, Inactive. POST trả 201 kèm Location; DELETE trả 204. Lỗi dữ liệu trả 400, ID không thuộc hotel trả 404, trùng hoặc xung đột trả 409 dưới dạng ProblemDetails.
 
+RoomType Entity nằm trong `HotelBooking.Domain/Entities/RoomType.cs`. API danh sách loại phòng trả 404 nếu Hotel không tồn tại; Hotel tồn tại nhưng chưa có loại phòng trả 200 với danh sách rỗng. Các thao tác xem/sửa/xóa theo ID kiểm tra RoomType thuộc Hotel trên URL. Khi tạo, Area phải thuộc đúng Hotel và cả Hotel/Area phải đang hoạt động.
+
+DELETE loại phòng trả 409 khi vẫn còn Room active sử dụng loại đó. Khi không còn Room active, DELETE chỉ đặt IsActive = false, giữ nguyên các liên kết và dữ liệu; gọi DELETE lại vẫn trả 204. Loại phòng inactive vẫn xem được nhưng không được sửa hoặc gán cho Room mới.
+
 Số phòng duy nhất trong một Area (kể cả phòng inactive), tên loại phòng duy nhất trong Hotel + Area, đúng theo script SQL. RoomType phải thuộc cùng Hotel/Area với Room. Không đổi Hotel/Area khi sửa phòng hoặc loại phòng. Giá không âm và tối đa 2 chữ số thập phân; sức chứa/số giường > 0; tầng >= 0.
 
 DELETE là soft delete: giữ dữ liệu phục vụ booking. Phòng Occupied không được vô hiệu hóa hoặc thay đổi số phòng/loại phòng/tầng. RoomType có phòng active không được vô hiệu hóa. Danh sách trả cả dữ liệu inactive; cập nhật Room với status khác Inactive sẽ kích hoạt lại phòng nếu Hotel, Area và RoomType còn hoạt động.

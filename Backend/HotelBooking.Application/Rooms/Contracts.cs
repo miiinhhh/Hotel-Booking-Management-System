@@ -21,6 +21,7 @@ public sealed class ConflictException(string message) : Exception(message);
 
 public interface IRoomRepository
 {
+    Task<bool> HotelExistsAsync(int hotelId, CancellationToken ct);
     Task<bool> IsActiveHotelAsync(int hotelId, CancellationToken ct);
     Task<HotelArea?> FindAreaAsync(int areaId, CancellationToken ct);
     Task<RoomType?> FindTypeAsync(int id, CancellationToken ct);

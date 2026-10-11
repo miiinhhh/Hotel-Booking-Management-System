@@ -19,7 +19,11 @@ public sealed class RoomService(IRoomRepository repository)
         var room = await repository.FindRoomAsync(id, ct);
         return room is not null && room.RoomType.HotelId == hotelId ? room : throw new NotFoundException("Room not found in this hotel.");
     }
-    public async Task<IReadOnlyList<RoomTypeDto>> ListTypes(int hotelId, CancellationToken ct) => (await repository.ListTypesAsync(hotelId, ct)).Select(Map).ToList();
+    public async Task<IReadOnlyList<RoomTypeDto>> ListTypes(int hotelId, CancellationToken ct)
+    {
+        if (!await repository.HotelExistsAsync(hotelId, ct)) throw new NotFoundException("Hotel not found.");
+        return (await repository.ListTypesAsync(hotelId, ct)).Select(Map).ToList();
+    }
     public async Task<RoomTypeDto> GetType(int hotelId, int id, CancellationToken ct) => Map(await Type(hotelId, id, ct));
     public async Task<RoomTypeDto> CreateType(int hotelId, int areaId, RoomTypeRequest request, CancellationToken ct)
     {

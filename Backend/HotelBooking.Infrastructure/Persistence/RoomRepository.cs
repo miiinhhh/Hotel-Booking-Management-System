@@ -6,6 +6,7 @@ namespace HotelBooking.Infrastructure.Persistence;
 
 public sealed class RoomRepository(HotelBookingDbContext db) : IRoomRepository
 {
+    public Task<bool> HotelExistsAsync(int hotelId, CancellationToken ct) => db.Hotels.AnyAsync(x => x.HotelId == hotelId, ct);
     public Task<bool> IsActiveHotelAsync(int id, CancellationToken ct) => db.Hotels.AnyAsync(x => x.HotelId == id && x.IsActive, ct);
     public Task<HotelArea?> FindAreaAsync(int id, CancellationToken ct) => db.HotelAreas.SingleOrDefaultAsync(x => x.AreaId == id, ct);
     public Task<RoomType?> FindTypeAsync(int id, CancellationToken ct) => db.RoomTypes.SingleOrDefaultAsync(x => x.RoomTypeId == id, ct);
