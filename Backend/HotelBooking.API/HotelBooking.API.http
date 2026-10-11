@@ -1,3 +1,38 @@
+@HotelBooking.API_HostAddress = https://localhost:7131
+
+### Register a Customer
+POST {{HotelBooking.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Nguyen Van A",
+  "email": "customer@example.com",
+  "password": "StrongPassword123!",
+  "phone": "0900000000"
+}
+
+### Login
+POST {{HotelBooking.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Authenticated profile (replace token)
+GET {{HotelBooking.API_HostAddress}}/api/me
+Authorization: Bearer {{accessToken}}
+
+### Staff-only resource
+GET {{HotelBooking.API_HostAddress}}/api/staff
+Authorization: Bearer {{accessToken}}
+
+### Admin-only resource
+GET {{HotelBooking.API_HostAddress}}/api/admin
+Authorization: Bearer {{accessToken}}
+
+###
 @baseUrl = http://localhost:5131
 @hotelId = 1
 @areaId = 1
