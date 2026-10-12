@@ -4,9 +4,9 @@ namespace HotelBooking.Application.DTOs.Payment;
 
 public class PaymentResponse
 {
-    public Guid PaymentId { get; set; }
+    public long PaymentId { get; set; }
 
-    public Guid BookingId { get; set; }
+    public long BookingId { get; set; }
 
     public PaymentMethod PaymentMethod { get; set; }
 

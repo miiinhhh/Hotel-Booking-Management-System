@@ -1,3 +1,4 @@
+using HotelBooking.Application.DTOs.Common;
 using HotelBooking.Application.DTOs.Payment;
 
 namespace HotelBooking.Application.Interfaces;
@@ -8,12 +9,30 @@ public interface IPaymentService
         CreatePaymentRequest request);
 
     Task<PaymentResponse?> GetPaymentAsync(
-        Guid paymentId);
+        long paymentId);
 
     Task<IEnumerable<PaymentResponse>> GetPaymentsByBookingAsync(
-        Guid bookingId);
+        long bookingId);
 
     Task<PaymentResponse?> ConfirmPaymentAsync(
-        Guid paymentId,
+        long paymentId,
         ConfirmPaymentRequest request);
+
+    Task<PagedResult<PaymentHistoryDto>> GetMyPaymentHistoryAsync(
+        long customerId,
+        int page,
+        int pageSize);
+
+    Task<PagedResult<PaymentHistoryDto>> GetBookingPaymentHistoryAsync(
+        long bookingId,
+        long currentUserId,
+        bool isAdmin,
+        bool isStaff,
+        int page,
+        int pageSize);
+
+    Task<PagedResult<PaymentHistoryDto>> GetStaffPaymentHistoryAsync(
+        PaymentHistoryFilterRequest filter,
+        long staffUserId,
+        bool isAdmin);
 }

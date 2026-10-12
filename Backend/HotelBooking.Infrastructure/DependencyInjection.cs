@@ -37,6 +37,12 @@ public static class DependencyInjection
 
         services.AddScoped<IBookingRepository, BookingRepository>();
 
+        // Module Payment
+        services.AddScoped<System.Data.IDbConnection>(_ =>
+            new Microsoft.Data.SqlClient.SqlConnection(connectionString));
+
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+
         return services;
     }
 }

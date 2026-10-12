@@ -1,3 +1,4 @@
+using HotelBooking.Application.DTOs.Common;
 using HotelBooking.Application.DTOs.Payment;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
@@ -71,17 +72,7 @@ public class PaymentService : IPaymentService
                 $"Payment amount cannot exceed remaining amount: {remainingAmount:N0}.");
         }
 
-        if (request.PaymentType == PaymentType.Deposit)
-        {
-            if (request.PaymentMethod != PaymentMethod.BankTransfer)
-            {
-                throw new InvalidOperationException(
-                    "Deposit must be paid by bank transfer.");
-            }
-        }
-
-        if (request.PaymentType == PaymentType.Payment &&
-            request.PaymentMethod != PaymentMethod.BankTransfer &&
+        if (request.PaymentMethod != PaymentMethod.Deposit &&
             request.PaymentMethod != PaymentMethod.Cash)
         {
             throw new InvalidOperationException(
@@ -119,7 +110,7 @@ public class PaymentService : IPaymentService
     }
 
     public async Task<PaymentResponse?> GetPaymentAsync(
-        Guid paymentId)
+        long paymentId)
     {
         var payment =
             await _paymentRepository.GetByIdAsync(paymentId);
@@ -133,7 +124,7 @@ public class PaymentService : IPaymentService
     }
 
     public async Task<IEnumerable<PaymentResponse>>
-        GetPaymentsByBookingAsync(Guid bookingId)
+        GetPaymentsByBookingAsync(long bookingId)
     {
         var payments =
             await _paymentRepository.GetByBookingIdAsync(
@@ -143,7 +134,7 @@ public class PaymentService : IPaymentService
     }
 
     public async Task<PaymentResponse?> ConfirmPaymentAsync(
-        Guid paymentId,
+        long paymentId,
         ConfirmPaymentRequest request)
     {
         var payment =
@@ -208,6 +199,118 @@ public class PaymentService : IPaymentService
         return confirmedPayment == null
             ? null
             : MapToResponse(confirmedPayment);
+    }
+
+    public async Task<PagedResult<PaymentHistoryDto>> GetMyPaymentHistoryAsync(
+        long customerId,
+        int page,
+        int pageSize)
+    {
+        if (page < 1)
+        {
+            throw new ArgumentException("Page must be at least 1.");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            throw new ArgumentException("PageSize must be between 1 and 100.");
+        }
+
+        var (items, totalCount) = await _paymentRepository.GetCustomerPaymentHistoryAsync(
+            customerId,
+            page,
+            pageSize);
+
+        return new PagedResult<PaymentHistoryDto>(items, totalCount, page, pageSize);
+    }
+
+    public async Task<PagedResult<PaymentHistoryDto>> GetBookingPaymentHistoryAsync(
+        long bookingId,
+        long currentUserId,
+        bool isAdmin,
+        bool isStaff,
+        int page,
+        int pageSize)
+    {
+        if (bookingId <= 0)
+        {
+            throw new ArgumentException("BookingId must be greater than 0.");
+        }
+
+        if (page < 1)
+        {
+            throw new ArgumentException("Page must be at least 1.");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            throw new ArgumentException("PageSize must be between 1 and 100.");
+        }
+
+        var booking = await _paymentRepository.GetBookingCustomerAccessInfoAsync(bookingId);
+        if (booking == null)
+        {
+            throw new KeyNotFoundException("Booking not found.");
+        }
+
+        if (!isAdmin)
+        {
+            if (isStaff)
+            {
+                var isAssigned = await _paymentRepository.IsStaffAssignedToBookingAsync(bookingId, currentUserId);
+                if (!isAssigned)
+                {
+                    throw new UnauthorizedAccessException("You do not have permission to view payments for this booking.");
+                }
+            }
+            else if (booking.CustomerId != currentUserId)
+            {
+                throw new UnauthorizedAccessException("You do not have permission to view payments for this booking.");
+            }
+        }
+
+        var (items, totalCount) = await _paymentRepository.GetBookingPaymentHistoryAsync(
+            bookingId,
+            page,
+            pageSize);
+
+        return new PagedResult<PaymentHistoryDto>(items, totalCount, page, pageSize);
+    }
+
+    public async Task<PagedResult<PaymentHistoryDto>> GetStaffPaymentHistoryAsync(
+        PaymentHistoryFilterRequest filter,
+        long staffUserId,
+        bool isAdmin)
+    {
+        if (filter.Page < 1)
+        {
+            throw new ArgumentException("Page must be at least 1.");
+        }
+
+        if (filter.PageSize < 1 || filter.PageSize > 100)
+        {
+            throw new ArgumentException("PageSize must be between 1 and 100.");
+        }
+
+        if (filter.FromDate.HasValue && filter.ToDate.HasValue && filter.FromDate.Value > filter.ToDate.Value)
+        {
+            throw new ArgumentException("FromDate cannot be later than ToDate.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            if (!Enum.TryParse<PaymentStatus>(filter.Status.Trim(), true, out _))
+            {
+                throw new ArgumentException("Invalid payment status filter.");
+            }
+        }
+
+        var (items, totalCount) = await _paymentRepository.GetStaffPaymentHistoryAsync(
+            filter,
+            staffUserId,
+            isAdmin);
+
+        return new PagedResult<PaymentHistoryDto>(items, totalCount, filter.Page, filter.PageSize);
     }
 
     private static PaymentResponse MapToResponse(
