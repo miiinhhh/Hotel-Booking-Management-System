@@ -1,3 +1,4 @@
+using AuthDbContext = HotelBooking.Infrastructure.Data.HotelBookingDbContext;
 using HotelBooking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -13,10 +14,15 @@ namespace HotelBooking.HotelTests;
 public sealed class HotelApiFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection connection = new("Data Source=:memory:");
+    private readonly SqliteConnection authConnection = new("Data Source=:memory:");
 
     public HotelApiFactory()
     {
         connection.Open();
+        authConnection.Open();
+        authConnection.CreateFunction("SYSDATETIME", () => DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+        using var authContext = new AuthDbContext(new DbContextOptionsBuilder<AuthDbContext>().UseSqlite(authConnection).Options);
+        authContext.Database.EnsureCreated();
         using var context = new TestHotelDbContext(new DbContextOptionsBuilder<HotelDbContext>()
             .UseSqlite(connection).Options);
         context.Database.EnsureCreated();
@@ -27,6 +33,11 @@ public sealed class HotelApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Development");
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<AuthDbContext>();
+            services.RemoveAll<DbContextOptions<AuthDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<AuthDbContext>>();
+            services.AddScoped<AuthDbContext>(_ => new AuthDbContext(
+                new DbContextOptionsBuilder<AuthDbContext>().UseSqlite(authConnection).Options));
             services.RemoveAll<HotelDbContext>();
             services.RemoveAll<DbContextOptions<HotelDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<HotelDbContext>>();
@@ -38,7 +49,7 @@ public sealed class HotelApiFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (disposing) connection.Dispose();
+        if (disposing) { connection.Dispose(); authConnection.Dispose(); }
     }
 
     private sealed class TestHotelDbContext(DbContextOptions<HotelDbContext> options) : HotelDbContext(options)

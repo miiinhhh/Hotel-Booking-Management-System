@@ -1,6 +1,106 @@
-@HotelBooking.API_HostAddress = http://localhost:5131
+@HotelBooking.API_HostAddress = https://localhost:7131
 
-GET {{HotelBooking.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Register a Customer
+POST {{HotelBooking.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Nguyen Van A",
+  "email": "customer@example.com",
+  "password": "StrongPassword123!",
+  "phone": "0900000000"
+}
+
+### Login
+POST {{HotelBooking.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Authenticated profile (replace token)
+GET {{HotelBooking.API_HostAddress}}/api/me
+Authorization: Bearer {{accessToken}}
+
+### Staff-only resource
+GET {{HotelBooking.API_HostAddress}}/api/staff
+Authorization: Bearer {{accessToken}}
+
+### Admin-only resource
+GET {{HotelBooking.API_HostAddress}}/api/admin
+Authorization: Bearer {{accessToken}}
 
 ###
+@baseUrl = http://localhost:5131
+@hotelId = 1
+@areaId = 1
+@roomTypeId = 1
+@roomId = 1
+
+### Create type (replace IDs with existing active hotel / area)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}/room-types
+Content-Type: application/json
+
+{
+  "name": "Deluxe",
+  "description": "Phong hai nguoi",
+  "basePrice": 500000,
+  "capacity": 2,
+  "numberOfBeds": 1
+}
+
+### List types
+GET {{baseUrl}}/api/hotels/{{hotelId}}/room-types
+
+### Get type
+GET {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
+
+### Update type price and capacity
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
+Content-Type: application/json
+
+{
+  "name": "Deluxe",
+  "description": null,
+  "basePrice": 750000,
+  "capacity": 3,
+  "numberOfBeds": 2
+}
+
+### Create room
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}/rooms
+Content-Type: application/json
+
+{
+  "roomTypeId": {{roomTypeId}},
+  "roomNumber": "101",
+  "floor": 1,
+  "status": "Available",
+  "description": null
+}
+
+### List rooms
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms
+
+### Get room
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
+
+### Update room
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
+Content-Type: application/json
+
+{
+  "roomTypeId": {{roomTypeId}},
+  "roomNumber": "101",
+  "floor": 1,
+  "status": "Maintenance",
+  "description": "Bao tri"
+}
+
+### Deactivate room before deactivating its type
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
+
+### Deactivate type
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
