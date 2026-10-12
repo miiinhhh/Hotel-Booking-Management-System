@@ -22,6 +22,34 @@ if (builder.Environment.IsDevelopment())
 }
 
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+    {
+        Title = "Hotel Booking Management API",
+        Version = "v1",
+        Description = "API documentation for Hotel Booking Management System"
+    });
+
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.ParameterLocation.Header,
+        Description = "Nhập token JWT theo định dạng: Bearer {token}"
+    });
+
+    c.AddSecurityRequirement(doc => new Microsoft.OpenApi.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", doc, null),
+            new List<string>()
+        }
+    });
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<HotelBookingDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("HotelBooking")));
@@ -61,7 +89,16 @@ builder.Services.AddScoped<RoomService>();
 builder.Services.AddInfrastructure(builder.Configuration);
 var app = builder.Build();
 app.UseExceptionHandler();
-if (app.Environment.IsDevelopment()) app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Hotel Booking API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
