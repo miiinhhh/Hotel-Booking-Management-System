@@ -16,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'kham-pha', label: 'Khám phá' },
     { id: 'tim-kiem', label: 'Tìm kiếm' },
     { id: 'dat-phong-cua-toi', label: 'Đặt phòng của tôi' },
+    { id: 'danh-gia', label: 'Đánh giá kỳ nghỉ' },
     { id: 'uu-dai', label: 'Ưu đãi' },
     { id: 'yeu-thich', label: 'Yêu thích', badge: favoritesCount },
   ];
@@ -74,15 +75,35 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* User Account / Profile */}
-        <div className="flex items-center gap-space-md shrink-0">
+        {/* Right side: Switch to Staff Portal + User Profile */}
+        <div className="flex items-center gap-space-sm sm:gap-space-md shrink-0">
+          {/* Quick Staff Portal Access Button */}
+          <button
+            type="button"
+            onClick={() => onTabChange?.('staff-portal')}
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-sm text-xs font-semibold transition-all border shadow-xs cursor-pointer ${
+              activeTab === 'staff-portal'
+                ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                : 'bg-secondary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-secondary-fixed border-secondary-fixed-dim/40'
+            }`}
+            title="Mở Cổng quản lý dành cho nhân viên lễ tân"
+          >
+            <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+            <span>Staff Portal</span>
+          </button>
+
           <a
-            className="hidden sm:flex items-center font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
+            className="hidden lg:flex items-center font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
             data-path="tai-khoan"
             href="#tai-khoan"
+            onClick={(e) => {
+              e.preventDefault();
+              onTabChange?.('dat-phong-cua-toi');
+            }}
           >
             Tài khoản
           </a>
+
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -127,13 +148,30 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </a>
             ))}
-            <div className="border-t border-surface-container pt-3">
+
+            <div className="border-t border-surface-container pt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onTabChange?.('staff-portal');
+                  setMobileMenuOpen(false);
+                }}
+                className="py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 cursor-pointer shadow-sm text-left"
+              >
+                <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                <span>Staff Portal (Quản lý Đặt phòng)</span>
+              </button>
+
               <a
                 href="#tai-khoan"
                 className="py-2 block text-body-md text-on-surface font-medium"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onTabChange?.('dat-phong-cua-toi');
+                  setMobileMenuOpen(false);
+                }}
               >
-                Tài khoản & Cài đặt
+                Lịch sử đặt phòng &amp; Tài khoản
               </a>
             </div>
           </div>

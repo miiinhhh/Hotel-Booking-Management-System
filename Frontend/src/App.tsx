@@ -6,6 +6,8 @@ import SearchPage from './pages/search/SearchPage';
 import HotelDetailPage from './pages/hotel-detail/HotelDetailPage';
 import BookingHistoryPage from './pages/booking-history/BookingHistoryPage';
 import CheckoutPage from './pages/checkout/CheckoutPage';
+import StaffBookingsPage from './pages/staff/StaffBookingsPage';
+import ReviewPage from './pages/reviews/ReviewPage';
 import { MOCK_HOTEL_DETAIL } from './pages/hotel-detail/data/mockHotelDetail';
 import { DEFAULT_CHECKOUT_DATA } from './pages/checkout/data/mockCheckoutData';
 import { Hotel } from './pages/search/types';
@@ -82,6 +84,18 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Staff Portal view has its own dedicated full-page layout
+  if (activeTab === 'staff-portal') {
+    return (
+      <StaffBookingsPage
+        onNavigateCustomerPortal={() => {
+          setActiveTab('kham-pha');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background font-body-md text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
       {/* Fixed Header */}
@@ -132,6 +146,13 @@ function App() {
               setActiveTab('thanh-toan');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+          />
+        )}
+
+        {activeTab === 'danh-gia' && (
+          <ReviewPage
+            onNavigateHome={() => setActiveTab('kham-pha')}
+            onNavigateHistory={() => setActiveTab('dat-phong-cua-toi')}
           />
         )}
 
