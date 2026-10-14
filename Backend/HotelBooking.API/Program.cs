@@ -1,3 +1,6 @@
+using HotelBookingDbContext = HotelBooking.Infrastructure.Data.HotelBookingDbContext;
+using HotelBooking.API.ExceptionHandling;
+using HotelBooking.Application.Hotels;
 using System.Text;
 using HotelBooking.Application.Auth;
 using HotelBooking.Infrastructure.Data;
@@ -83,6 +86,9 @@ builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
+builder.Services.AddScoped<IHotelService, HotelService>();
+builder.Services.AddHotelInfrastructure(builder.Configuration);
+builder.Services.AddExceptionHandler<HotelExceptionHandler>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddApplicationServices();
 builder.Services.AddScoped<RoomService>();
@@ -111,3 +117,4 @@ using (var scope = app.Services.CreateScope())
 app.MapControllers();
 
 app.Run();
+public partial class Program { }

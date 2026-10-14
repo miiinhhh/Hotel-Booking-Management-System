@@ -1,3 +1,4 @@
+using Hotel = HotelBooking.Domain.Entities.RoomHotel;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Infrastructure.Persistence;

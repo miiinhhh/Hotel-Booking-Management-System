@@ -4,8 +4,13 @@ namespace HotelBooking.API.Controllers;
 
 [ApiController]
 [Route("api/hotels/{hotelId:int:min(1)}/rooms")]
-public sealed class RoomsController(RoomService service) : ControllerBase
+public sealed class RoomsController(RoomService service, IRoomSearchService searchService) : ControllerBase
 {
+    [HttpGet("search")]
+    public async Task<ActionResult<RoomSearchResult>> Search(int hotelId,
+        [FromQuery] RoomSearchRequest request, CancellationToken ct) =>
+        Ok(await searchService.SearchAsync(hotelId, request, ct));
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<RoomDto>>> List(int hotelId, CancellationToken ct) => Ok(await service.ListRooms(hotelId, ct));
     [HttpGet("{id:long:min(1)}")]

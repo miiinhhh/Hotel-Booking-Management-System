@@ -1,3 +1,5 @@
+using HotelBooking.Application.Hotels;
+using HotelBooking.Infrastructure.Persistence;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Infrastructure.Repositories;
@@ -30,6 +32,7 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IRoomRepository, RoomRepository>();
+        services.AddScoped<IRoomSearchRepository, RoomSearchRepository>();
 
         // Module Booking
         services.AddDbContext<BookingDbContext>(options =>
@@ -43,6 +46,14 @@ public static class DependencyInjection
 
         services.AddScoped<IPaymentRepository, PaymentRepository>();
 
+        return services;
+    }
+    public static IServiceCollection AddHotelInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("HotelDatabase")
+            ?? throw new InvalidOperationException("Thiếu ConnectionStrings:HotelDatabase.");
+        services.AddDbContext<HotelDbContext>(options => options.UseSqlServer(connectionString));
+        services.AddScoped<IHotelRepository, HotelRepository>();
         return services;
     }
 }
