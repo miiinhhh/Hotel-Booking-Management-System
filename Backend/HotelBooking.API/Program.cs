@@ -54,8 +54,11 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 builder.Services.AddProblemDetails();
+var connectionString = builder.Configuration.GetConnectionString("HotelBooking")
+    ?? throw new InvalidOperationException(
+        "Configure ConnectionStrings:HotelBooking.");
 builder.Services.AddDbContext<HotelBookingDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("HotelBooking")));
+    options.UseSqlServer(connectionString));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -85,6 +88,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddScoped<IHotelService, HotelService>();
 builder.Services.AddHotelInfrastructure(builder.Configuration);

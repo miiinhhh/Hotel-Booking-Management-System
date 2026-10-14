@@ -50,8 +50,8 @@ public static class DependencyInjection
     }
     public static IServiceCollection AddHotelInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("HotelDatabase")
-            ?? throw new InvalidOperationException("Thiếu ConnectionStrings:HotelDatabase.");
+        var connectionString = configuration.GetConnectionString("HotelBooking")
+            ?? throw new InvalidOperationException("Thiếu ConnectionStrings:HotelBooking.");
         services.AddDbContext<HotelDbContext>(options => options.UseSqlServer(connectionString));
         services.AddScoped<IHotelRepository, HotelRepository>();
         return services;
