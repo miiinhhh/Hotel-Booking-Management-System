@@ -3,7 +3,7 @@ import { AdminNavigationItem, RoomType, StaffMember, Voucher } from '../types';
 export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
   { id: 'overview', label: 'Tổng quan kinh doanh', icon: 'query_stats' },
   { id: 'inventory', label: 'Phân khu & Hạng phòng', icon: 'apartment' },
-  { id: 'pricing', label: 'Giá & Phụ thu', icon: 'tune' },
+  { id: 'pricing', label: 'Giá phòng', icon: 'price_change' },
   { id: 'vouchers', label: 'Voucher & Hủy hoàn', icon: 'confirmation_number' },
   { id: 'staff', label: 'Nhân viên & Phân công', icon: 'badge' },
 ];
