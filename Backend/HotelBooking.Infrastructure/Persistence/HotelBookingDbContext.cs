@@ -1,3 +1,4 @@
+using Hotel = HotelBooking.Domain.Entities.RoomHotel;
 using HotelBooking.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 

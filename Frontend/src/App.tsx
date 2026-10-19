@@ -8,6 +8,7 @@ import BookingHistoryPage from './pages/booking-history/BookingHistoryPage';
 import CheckoutPage from './pages/checkout/CheckoutPage';
 import StaffBookingsPage from './pages/staff/StaffBookingsPage';
 import ReviewPage from './pages/reviews/ReviewPage';
+import AdminPortal from './pages/admin/AdminPortal';
 import { MOCK_HOTEL_DETAIL } from './pages/hotel-detail/data/mockHotelDetail';
 import { DEFAULT_CHECKOUT_DATA } from './pages/checkout/data/mockCheckoutData';
 import { Hotel } from './pages/search/types';
@@ -89,6 +90,17 @@ function App() {
     return (
       <StaffBookingsPage
         onNavigateCustomerPortal={() => {
+          setActiveTab('kham-pha');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    );
+  }
+
+  if (activeTab === 'admin-portal') {
+    return (
+      <AdminPortal
+        onExit={() => {
           setActiveTab('kham-pha');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}

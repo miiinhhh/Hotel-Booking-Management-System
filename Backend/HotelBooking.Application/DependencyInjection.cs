@@ -1,5 +1,6 @@
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Services;
+using HotelBooking.Application.Rooms;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HotelBooking.Application;
@@ -11,6 +12,8 @@ public static class DependencyInjection
         services.AddScoped<IBookingService, BookingServices>();
         services.AddScoped<IBookingPricingService, BookingPricingService>();
         services.AddScoped<IStaffAreaAssignmentService, StaffAreaAssignmentService>();
+        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IRoomSearchService, RoomSearchService>();
 
         return services;
     }

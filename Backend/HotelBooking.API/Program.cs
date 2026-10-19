@@ -1,3 +1,6 @@
+using HotelBookingDbContext = HotelBooking.Infrastructure.Data.HotelBookingDbContext;
+using HotelBooking.API.ExceptionHandling;
+using HotelBooking.Application.Hotels;
 using System.Text;
 using HotelBooking.Application.Auth;
 using HotelBooking.Infrastructure.Data;
@@ -22,9 +25,40 @@ if (builder.Environment.IsDevelopment())
 }
 
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+    {
+        Title = "Hotel Booking Management API",
+        Version = "v1",
+        Description = "API documentation for Hotel Booking Management System"
+    });
+
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.ParameterLocation.Header,
+        Description = "Nhập token JWT theo định dạng: Bearer {token}"
+    });
+
+    c.AddSecurityRequirement(doc => new Microsoft.OpenApi.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", doc, null),
+            new List<string>()
+        }
+    });
+});
 builder.Services.AddProblemDetails();
+var connectionString = builder.Configuration.GetConnectionString("HotelBooking")
+    ?? throw new InvalidOperationException(
+        "Configure ConnectionStrings:HotelBooking.");
 builder.Services.AddDbContext<HotelBookingDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("HotelBooking")));
+    options.UseSqlServer(connectionString));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -54,14 +88,27 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
+builder.Services.AddScoped<IHotelService, HotelService>();
+builder.Services.AddHotelInfrastructure(builder.Configuration);
+builder.Services.AddExceptionHandler<HotelExceptionHandler>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddApplicationServices();
 builder.Services.AddScoped<RoomService>();
 builder.Services.AddInfrastructure(builder.Configuration);
 var app = builder.Build();
 app.UseExceptionHandler();
-if (app.Environment.IsDevelopment()) app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Hotel Booking API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -74,3 +121,4 @@ using (var scope = app.Services.CreateScope())
 app.MapControllers();
 
 app.Run();
+public partial class Program { }

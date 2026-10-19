@@ -6,8 +6,11 @@ import { StaffFilterBar } from './components/StaffFilterBar';
 import { StaffBookingTable } from './components/StaffBookingTable';
 import { StaffPagination } from './components/StaffPagination';
 import { BookingDetailDrawer } from './components/BookingDetailDrawer';
+import { StaffCustomersView } from './components/StaffCustomersView';
+import { StaffCalendarView } from './components/StaffCalendarView';
+import { StaffSuitesView } from './components/StaffSuitesView';
 import { MOCK_STAFF_BOOKINGS, MOCK_STAFF_METRICS } from './data/mockStaffBookings';
-import { StaffBooking, StaffMetricsData } from './types';
+import { StaffBooking, StaffMetricsData, StaffPortalTab } from './types';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
@@ -257,12 +260,20 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     showToast(`Đã thêm thành công đơn nhận trực tiếp ${code}!`);
   };
 
-  const [staffTab, setStaffTab] = useState('reservations');
+  const [staffTab, setStaffTab] = useState<StaffPortalTab>('reservations');
 
   const handleSelectStaffTab = (tab: string) => {
-    setStaffTab(tab);
+    setStaffTab(tab as StaffPortalTab);
     if (tab !== 'reservations') {
-      showToast(`Chuyển sang phân hệ: ${tab === 'calendar' ? 'Lịch phòng & Khóa bán' : tab === 'suites' ? 'Suites & Phân khu' : 'Hồ sơ Khách hàng'}`);
+      showToast(
+        `Chuyển sang phân hệ: ${
+          tab === 'calendar'
+            ? 'Lịch phòng & Khóa bán'
+            : tab === 'suites'
+            ? 'Suites & Phân khu'
+            : 'Hồ sơ Khách hàng'
+        }`
+      );
     }
   };
 
@@ -304,6 +315,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
             setCurrentPage(1);
           }}
           onOpenNotifications={() => showToast('Bạn có 3 thông báo mới về ca trực lễ tân.')}
+          currentTab={staffTab}
         />
 
         {/* MAIN OPERATIONAL WORKSPACE */}
@@ -318,94 +330,120 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
             </div>
           )}
 
-          {/* TOP TITLE BAR & ACTION BUTTONS */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 text-secondary font-label-sm uppercase tracking-widest text-[11px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
-                <span>Khu vực phụ trách: Tòa A &amp; Tòa B</span>
-                <span className="text-outline-variant">·</span>
-                <span>Ca trực sáng (08:00 - 16:00)</span>
-                <span className="text-outline-variant">·</span>
-                <span className="text-on-surface-variant">Cập nhật: 09:42 SA</span>
+          {/* 1. CALENDAR VIEW (Lịch phòng & Khóa bán) */}
+          {staffTab === 'calendar' && (
+            <StaffCalendarView onShowToast={showToast} />
+          )}
+
+          {/* 2. SUITES VIEW (Suites & Phân khu) */}
+          {staffTab === 'suites' && (
+            <StaffSuitesView
+              onShowToast={showToast}
+              onNavigateToReservations={(zone) => {
+                if (zone) setSelectedZone(zone);
+                setStaffTab('reservations');
+              }}
+            />
+          )}
+
+          {/* 3. CUSTOMERS VIEW (Hồ sơ Khách hàng) */}
+          {staffTab === 'customers' && (
+            <StaffCustomersView onShowToast={showToast} />
+          )}
+
+          {/* 4. RESERVATIONS VIEW (Quản lý Đặt phòng) */}
+          {staffTab === 'reservations' && (
+            <>
+              {/* TOP TITLE BAR & ACTION BUTTONS */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2 text-secondary font-label-sm uppercase tracking-widest text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
+                    <span>Khu vực phụ trách: Tòa A &amp; Tòa B</span>
+                    <span className="text-outline-variant">·</span>
+                    <span>Ca trực sáng (08:00 - 16:00)</span>
+                    <span className="text-outline-variant">·</span>
+                    <span className="text-on-surface-variant">Cập nhật: 09:42 SA</span>
+                  </div>
+                  <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight flex items-baseline flex-wrap gap-2.5">
+                    Quản lý &amp; Tra cứu Đặt phòng
+                    <span className="font-normal text-on-surface-variant text-[22px] tracking-normal font-headline-sm">
+                      (Zone Bookings Management)
+                    </span>
+                  </h1>
+                  <p className="font-body-md text-body-md text-on-surface-variant">
+                    Điều phối lưu trú, đối soát tiền cọc và thực hiện thủ tục check-in theo phân khu
+                    được chỉ định tại StayLuxe Đà Nẵng
+                  </p>
+                </div>
+
+                {/* Top Right Action Buttons */}
+                <div className="flex items-center gap-3 shrink-0 self-start lg:self-center">
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    className="group flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container transition-all duration-200 border border-[#eae8e5] shadow-sm cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-secondary transition-transform duration-200 group-hover:-translate-y-0.5">
+                      download
+                    </span>
+                    <span>Xuất Excel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDirectBooking}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md hover:bg-tertiary-container shadow-[0_4px_16px_rgba(194,65,12,0.22)] transition-all duration-200 font-semibold cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[19px]">add</span>
+                    <span>+ Nhận khách vãng lai / Đặt trực tiếp</span>
+                  </button>
+                </div>
               </div>
-              <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight flex items-baseline flex-wrap gap-2.5">
-                Quản lý &amp; Tra cứu Đặt phòng
-                <span className="font-normal text-on-surface-variant text-[22px] tracking-normal font-headline-sm">
-                  (Zone Bookings Management)
-                </span>
-              </h1>
-              <p className="font-body-md text-body-md text-on-surface-variant">
-                Điều phối lưu trú, đối soát tiền cọc và thực hiện thủ tục check-in theo phân khu
-                được chỉ định tại StayLuxe Đà Nẵng
-              </p>
-            </div>
 
-            {/* Top Right Action Buttons */}
-            <div className="flex items-center gap-3 shrink-0 self-start lg:self-center">
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                className="group flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container transition-all duration-200 border border-[#eae8e5] shadow-sm cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px] text-secondary transition-transform duration-200 group-hover:-translate-y-0.5">
-                  download
-                </span>
-                <span>Xuất Excel</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDirectBooking}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md hover:bg-tertiary-container shadow-[0_4px_16px_rgba(194,65,12,0.22)] transition-all duration-200 font-semibold cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[19px]">add</span>
-                <span>+ Nhận khách vãng lai / Đặt trực tiếp</span>
-              </button>
-            </div>
-          </div>
+              {/* OPERATIONAL METRICS & KPI HEADER */}
+              <StaffMetrics metrics={metrics} />
 
-          {/* OPERATIONAL METRICS & KPI HEADER */}
-          <StaffMetrics metrics={metrics} />
+              {/* FILTER & ACTIONS BAR */}
+              <StaffFilterBar
+                searchQuery={searchQuery}
+                onSearchChange={(q) => {
+                  setSearchQuery(q);
+                  setCurrentPage(1);
+                }}
+                selectedStatus={selectedStatus}
+                onStatusChange={(st) => {
+                  setSelectedStatus(st);
+                  setCurrentPage(1);
+                }}
+                selectedZone={selectedZone}
+                onZoneChange={(zn) => {
+                  setSelectedZone(zn);
+                  setCurrentPage(1);
+                }}
+                onResetFilters={handleResetFilters}
+              />
 
-          {/* FILTER & ACTIONS BAR */}
-          <StaffFilterBar
-            searchQuery={searchQuery}
-            onSearchChange={(q) => {
-              setSearchQuery(q);
-              setCurrentPage(1);
-            }}
-            selectedStatus={selectedStatus}
-            onStatusChange={(st) => {
-              setSelectedStatus(st);
-              setCurrentPage(1);
-            }}
-            selectedZone={selectedZone}
-            onZoneChange={(zn) => {
-              setSelectedZone(zn);
-              setCurrentPage(1);
-            }}
-            onResetFilters={handleResetFilters}
-          />
+              {/* COMPREHENSIVE DATA TABLE */}
+              <StaffBookingTable
+                bookings={paginatedBookings}
+                onViewDetails={handleViewDetails}
+                onQuickCheckIn={handleCheckIn}
+                onQuickConfirmDeposit={handleConfirmDeposit}
+              />
 
-          {/* COMPREHENSIVE DATA TABLE */}
-          <StaffBookingTable
-            bookings={paginatedBookings}
-            onViewDetails={handleViewDetails}
-            onQuickCheckIn={handleCheckIn}
-            onQuickConfirmDeposit={handleConfirmDeposit}
-          />
-
-          {/* PAGINATION CONTROLS */}
-          <StaffPagination
-            totalItems={filteredBookings.length}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={(page) => setCurrentPage(page)}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setCurrentPage(1);
-            }}
-          />
+              {/* PAGINATION CONTROLS */}
+              <StaffPagination
+                totalItems={filteredBookings.length}
+                currentPage={currentPage}
+                pageSize={pageSize}
+                onPageChange={(page) => setCurrentPage(page)}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }}
+              />
+            </>
+          )}
         </main>
 
         {/* FOOTER */}

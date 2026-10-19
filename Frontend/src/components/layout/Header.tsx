@@ -75,8 +75,17 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Right side: Switch to Staff Portal + User Profile */}
+        {/* Right side: Portal shortcuts + User Profile */}
         <div className="flex items-center gap-space-sm sm:gap-space-md shrink-0">
+          <button
+            type="button"
+            onClick={() => onTabChange?.('admin-portal')}
+            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-sm text-xs font-semibold transition-all border border-outline-variant/50 bg-surface-container-low hover:bg-primary-container hover:text-on-primary"
+            title="Mở cổng quản trị StayLuxe"
+          >
+            <span className="material-symbols-outlined text-[16px]">shield_person</span>
+            <span>Admin</span>
+          </button>
           {/* Quick Staff Portal Access Button */}
           <button
             type="button"
@@ -150,6 +159,17 @@ export const Header: React.FC<HeaderProps> = ({
             ))}
 
             <div className="border-t border-surface-container pt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onTabChange?.('admin-portal');
+                  setMobileMenuOpen(false);
+                }}
+                className="py-2.5 px-4 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">shield_person</span>
+                <span>Admin Portal</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using HotelBooking.Application.Auth;
 using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,20 +9,43 @@ namespace HotelBooking.API.Controllers;
 [ApiController]
 [Route("api")]
 [Authorize]
-public sealed class AccountController : ControllerBase
+public sealed class AccountController(IAccountService accountService) : ControllerBase
 {
-    /// <summary>Returns the authenticated user's identity and roles.</summary>
+    /// <summary>Returns the profile of the authenticated account.</summary>
     [HttpGet("me", Name = nameof(GetCurrentUser))]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<AccountProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public IActionResult GetCurrentUser()
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccountProfileResponse>> GetCurrentUser(
+        CancellationToken cancellationToken)
     {
-        return Ok(new
-        {
-            UserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
-            Name = User.Identity?.Name,
-            Roles = User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray()
-        });
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var profile = await accountService.GetProfileAsync(userId.Value, cancellationToken);
+        return profile is null ? NotFound() : Ok(profile);
+    }
+
+    /// <summary>Updates editable profile fields for the authenticated account.</summary>
+    [HttpPut("me", Name = nameof(UpdateCurrentUser))]
+    [ProducesResponseType<AccountProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccountProfileResponse>> UpdateCurrentUser(
+        UpdateAccountProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var profile = await accountService.UpdateProfileAsync(
+            userId.Value,
+            request,
+            cancellationToken);
+        return profile is null ? NotFound() : Ok(profile);
     }
 
     /// <summary>Example resource available to hotel staff and administrators.</summary>
@@ -33,4 +57,11 @@ public sealed class AccountController : ControllerBase
     [HttpGet("admin")]
     [Authorize(Roles = SystemRoles.Admin)]
     public IActionResult GetAdminResource() => Ok(new { Message = "Administrator resource authorized." });
+
+    private long? GetCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+        return long.TryParse(value, out var userId) && userId > 0 ? userId : null;
+    }
 }
