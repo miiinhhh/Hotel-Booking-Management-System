@@ -5,6 +5,7 @@ using HotelBooking.Infrastructure.Persistence;
 using HotelBooking.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Hotel = HotelBooking.Domain.Entities.RoomHotel;
 
 namespace HotelBooking.Tests;
 

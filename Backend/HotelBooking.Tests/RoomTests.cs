@@ -3,6 +3,7 @@ using HotelBooking.Domain.Entities;
 using HotelBooking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Hotel = HotelBooking.Domain.Entities.RoomHotel;
 
 namespace HotelBooking.Tests;
 

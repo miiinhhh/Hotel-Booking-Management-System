@@ -8,6 +8,7 @@ using Xunit;
 using RoomDbContext = HotelBooking.Infrastructure.Persistence.HotelBookingDbContext;
 using BookingDbContext = HotelBooking.Infrastructure.Data.HotelBookingDBContext;
 using RoomRepository = HotelBooking.Infrastructure.Persistence.RoomRepository;
+using Hotel = HotelBooking.Domain.Entities.RoomHotel;
 
 namespace HotelBooking.Tests;
 
