@@ -3,7 +3,7 @@ namespace HotelBooking.Domain.Entities;
 public enum RoomStatus { Available, Occupied, Maintenance, Inactive }
 public sealed class DomainRuleException(string message) : Exception(message);
 
-public sealed class Hotel
+public sealed class RoomHotel
 {
     public int HotelId { get; private set; }
     public bool IsActive { get; private set; }
@@ -15,7 +15,7 @@ public sealed class HotelArea
     public int AreaId { get; private set; }
     public int HotelId { get; private set; }
     public bool IsActive { get; private set; }
-    public Hotel Hotel { get; private set; } = null!;
+    public RoomHotel Hotel { get; private set; } = null!;
     public ICollection<Room> Rooms { get; private set; } = new List<Room>();
 }
 

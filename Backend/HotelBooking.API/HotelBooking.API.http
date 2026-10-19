@@ -39,6 +39,18 @@ Authorization: Bearer {{accessToken}}
 @roomTypeId = 1
 @roomId = 1
 
+### Public room search: name + inclusive reference price + pagination
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?roomTypeName=deluxe&minPrice=500000&maxPrice=900000&pageNumber=1&pageSize=20
+
+### Public room search: all currently available and visible rooms
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search
+
+### No matching rooms: 200 with empty items and message
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?roomTypeName=does-not-exist
+
+### Invalid price range: 400 ProblemDetails
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?minPrice=900000&maxPrice=500000
+
 ### Create type (replace IDs with existing active hotel / area)
 POST {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}/room-types
 Content-Type: application/json

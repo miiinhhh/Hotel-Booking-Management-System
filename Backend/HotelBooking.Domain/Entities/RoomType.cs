@@ -13,7 +13,7 @@ public sealed class RoomType
     public bool IsActive { get; private set; } = true;
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; private set; }
-    public Hotel Hotel { get; private set; } = null!;
+    public RoomHotel Hotel { get; private set; } = null!;
     public HotelArea Area { get; private set; } = null!;
     public ICollection<Room> Rooms { get; private set; } = new List<Room>();
     private RoomType() { }
@@ -32,5 +32,3 @@ public sealed class RoomType
     }
     public void Deactivate() { IsActive = false; UpdatedAt = DateTime.UtcNow; }
 }
-
-

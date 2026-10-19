@@ -6,6 +6,10 @@ namespace HotelBooking.Infrastructure.Data;
 
 public sealed class UserRepository(HotelBookingDbContext dbContext) : IUserRepository
 {
+    public Task<User?> FindByIdAsync(long userId, CancellationToken cancellationToken) =>
+        dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
+            .SingleOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+
     public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) =>
         dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .SingleOrDefaultAsync(x => x.Email == email, cancellationToken);

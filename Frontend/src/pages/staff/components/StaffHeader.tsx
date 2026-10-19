@@ -1,4 +1,5 @@
 import React from 'react';
+import { StaffPortalTab } from '../types';
 
 interface StaffHeaderProps {
   searchQuery: string;
@@ -6,6 +7,7 @@ interface StaffHeaderProps {
   selectedZone: string;
   onSelectZone: (zone: string) => void;
   onOpenNotifications?: () => void;
+  currentTab?: StaffPortalTab;
 }
 
 export const StaffHeader: React.FC<StaffHeaderProps> = ({
@@ -14,7 +16,21 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
   selectedZone,
   onSelectZone,
   onOpenNotifications,
+  currentTab = 'reservations',
 }) => {
+  const getSearchPlaceholder = () => {
+    switch (currentTab) {
+      case 'calendar':
+        return 'Tìm tình trạng phòng, mã phòng, loại buồng...';
+      case 'suites':
+        return 'Tìm kiếm tòa nhà, tên phân khu...';
+      case 'customers':
+        return 'Tìm khách hàng theo Tên, SĐT, Email hoặc Mã CCCD...';
+      default:
+        return 'Tìm kiếm mã booking #BK, tên khách, số điện thoại, số phòng...';
+    }
+  };
+
   return (
     <header className="fixed top-0 left-72 right-0 h-20 bg-surface/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-[#eae8e5]">
       <div className="h-20 w-full px-8 flex items-center justify-between gap-6">
@@ -24,7 +40,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             <span className="material-symbols-outlined text-[19px] text-outline">search</span>
             <input
               className="bg-transparent border-none outline-none font-body-md text-body-md text-on-surface placeholder:text-outline w-full"
-              placeholder="Tìm kiếm mã booking #BK, tên khách, số điện thoại, số phòng..."
+              placeholder={getSearchPlaceholder()}
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
