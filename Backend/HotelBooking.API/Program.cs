@@ -16,6 +16,7 @@ using HotelBooking.Application.Rooms;
 using HotelBooking.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvents>();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -69,6 +70,7 @@ if (Encoding.UTF8.GetByteCount(jwt.SecretKey) < 32)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.EventsType = typeof(HotelBooking.API.Authentication.ActiveAccountJwtEvents);
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

@@ -15,6 +15,7 @@ public sealed record AccountProfileResponse(
     IReadOnlyList<string> Roles);
 
 /// <summary>Editable profile data for the authenticated account.</summary>
+[System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
 public sealed record UpdateAccountProfileRequest
 {
     /// <summary>The account holder's display name.</summary>
