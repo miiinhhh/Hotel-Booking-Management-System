@@ -22,6 +22,7 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("SYSDATETIME()");
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.HasIndex(x => x.Email).IsUnique();
+            entity.Ignore(x => x.StaffAreaAssignments);
         });
 
         modelBuilder.Entity<Role>(entity =>

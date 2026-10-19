@@ -41,6 +41,8 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
     setIsAddingNote(false);
   };
 
+  const dialablePhone = customer.phone.replace(/[^+\d]/g, '');
+
   const getTierBadge = (tier: string) => {
     switch (tier) {
       case 'PLATINUM':
@@ -130,7 +132,7 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
         {/* Action Pill Bar */}
         <div className="grid grid-cols-3 gap-2 pt-1">
           <a
-            href={`tel:${customer.phone.replace(/\s+/g, '')}`}
+            href={`tel:${dialablePhone}`}
             className="flex items-center justify-center gap-1.5 bg-surface-container-low hover:bg-surface-container text-on-surface py-2 rounded-full font-label-sm text-label-sm font-semibold transition-all border border-[#eae8e5]"
           >
             <span className="material-symbols-outlined text-[16px] text-primary">phone</span>

@@ -4,7 +4,7 @@ import { CheckoutBookingData, PaymentMethodType } from '../types';
 interface OrderSummaryCardProps {
   bookingData: CheckoutBookingData;
   selectedPaymentMethod: PaymentMethodType;
-  onApplyCoupon: (code: string) => boolean;
+  onApplyCoupon: (code: string) => boolean | Promise<boolean>;
   onConfirmBooking: () => void;
   isSubmitting: boolean;
   submissionStep: number;
@@ -21,9 +21,10 @@ export const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
   const [couponInput, setCouponInput] = useState(bookingData.couponCode);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!couponInput.trim()) return;
-    const success = onApplyCoupon(couponInput.trim());
+    setCouponMessage('Đang kiểm tra mã...');
+    const success = await onApplyCoupon(couponInput.trim());
     if (success) {
       setCouponMessage(`Đã áp dụng mã ${couponInput.trim().toUpperCase()}`);
     } else {

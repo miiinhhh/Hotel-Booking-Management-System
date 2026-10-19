@@ -29,6 +29,7 @@ public class Booking
     public DateTime? UpdatedAt { get; set; }
 
     // Navigation properties
+    public Voucher? Voucher { get; set; }
     public ICollection<BookingDetail> BookingDetails { get; set; } = new List<BookingDetail>();
     public ICollection<BookingGuest> BookingGuests { get; set; } = new List<BookingGuest>();
     public ICollection<BookingStatusHistory> StatusHistories { get; set; } = new List<BookingStatusHistory>();

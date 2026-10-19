@@ -116,3 +116,63 @@ DELETE {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
 
 ### Deactivate type
 DELETE {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
+
+### Calculate Booking Price (Preview / Quote with Voucher)
+POST {{baseUrl}}/api/bookings/calculate-price
+Content-Type: application/json
+
+{
+  "checkInDate": "2026-11-01",
+  "checkOutDate": "2026-11-04",
+  "roomIds": [1],
+  "voucherCode": "LUXE2026",
+  "paymentMethod": "Deposit"
+}
+
+### Create Booking (Authoritative pricing calculated on server)
+POST {{baseUrl}}/api/bookings
+Content-Type: application/json
+
+{
+  "checkInDate": "2026-11-01",
+  "checkOutDate": "2026-11-04",
+  "numberOfGuests": 2,
+  "paymentMethod": "Deposit",
+  "voucherCode": "LUXE2026",
+  "specialRequests": "Tầng cao hướng biển, giường King",
+  "rooms": [
+    {
+      "roomId": 1
+    }
+  ],
+  "guests": [
+    {
+      "fullName": "Nguyen Van An",
+      "phone": "0912345678",
+      "email": "an.nguyen@example.com",
+      "isPrimaryGuest": true
+    }
+  ]
+}
+
+### Get all Areas of Hotel (with room stats)
+GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/areas
+
+### Get all Staff Members and their assigned areas
+GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments
+
+### Sync Staff Assigned Areas (Assign/Reassign multiple areas to a staff member)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/sync
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "areaIds": [1, 2]
+}
+
+### Remove a specific assignment
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/1
+
+### Get assigned areas for current staff member (Staff Portal - Active Zone)
+GET {{baseUrl}}/api/staff/me/assigned-areas?userId=2
+

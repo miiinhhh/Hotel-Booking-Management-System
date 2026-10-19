@@ -104,5 +104,10 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .WithOne(h => h.Booking)
             .HasForeignKey(h => h.BookingId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(b => b.Voucher)
+            .WithMany()
+            .HasForeignKey(b => b.VoucherId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

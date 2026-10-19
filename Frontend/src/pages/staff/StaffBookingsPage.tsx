@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
 import { StaffHeader } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
@@ -11,6 +11,7 @@ import { StaffCalendarView } from './components/StaffCalendarView';
 import { StaffSuitesView } from './components/StaffSuitesView';
 import { MOCK_STAFF_BOOKINGS, MOCK_STAFF_METRICS } from './data/mockStaffBookings';
 import { StaffBooking, StaffMetricsData, StaffPortalTab } from './types';
+import { getMyAssignedAreas } from '../../services/staffAssignmentApi';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
@@ -21,6 +22,30 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 }) => {
   const [bookings, setBookings] = useState<StaffBooking[]>(MOCK_STAFF_BOOKINGS);
   const [metrics, setMetrics] = useState<StaffMetricsData>(MOCK_STAFF_METRICS);
+  const [assignedAreas, setAssignedAreas] = useState<Array<{
+    areaId: number;
+    areaName: string;
+    areaType: string;
+    totalRooms?: number;
+  }>>([
+    { areaId: 1, areaName: 'Zone A: Royal Pavilion', areaType: 'Zone', totalRooms: 48 },
+    { areaId: 2, areaName: 'Zone B: Ocean Wing', areaType: 'Zone', totalRooms: 36 },
+  ]);
+
+  useEffect(() => {
+    getMyAssignedAreas(2, 1).then((res) => {
+      if (res.success && res.data && res.data.length > 0) {
+        setAssignedAreas(
+          res.data.map((a) => ({
+            areaId: a.areaId,
+            areaName: a.areaName,
+            areaType: a.areaType,
+            totalRooms: a.totalRooms,
+          }))
+        );
+      }
+    });
+  }, []);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -288,6 +313,14 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         currentTab={staffTab}
         onSelectTab={handleSelectStaffTab}
         onNavigateCustomerPortal={onNavigateCustomerPortal}
+        assignedAreas={assignedAreas}
+        activeAreaId={selectedZone === 'Tòa B' ? 2 : 1}
+        onSelectArea={(areaId) => {
+          const areaObj = assignedAreas.find((a) => a.areaId === areaId);
+          const zoneName = areaId === 2 ? 'Tòa B' : 'Tòa A';
+          setSelectedZone(zoneName);
+          showToast(`Đã chuyển khu vực trực sang: ${areaObj ? areaObj.areaName : (areaId === 2 ? 'Zone B: Ocean Wing' : 'Zone A: Royal Pavilion')}`);
+        }}
       />
 
       {/* MAIN WRAPPER (pl-72 for persistent sidebar) */}

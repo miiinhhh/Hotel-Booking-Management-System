@@ -12,11 +12,23 @@ public sealed class RoomHotel
 
 public sealed class HotelArea
 {
-    public int AreaId { get; private set; }
-    public int HotelId { get; private set; }
-    public bool IsActive { get; private set; }
-    public RoomHotel Hotel { get; private set; } = null!;
-    public ICollection<Room> Rooms { get; private set; } = new List<Room>();
+    public int AreaId { get; set; }
+    public int HotelId { get; set; }
+    public string AreaName { get; set; } = string.Empty;
+    public string AreaType { get; set; } = "Zone"; // "Zone" | "Building"
+    public int? ParentAreaId { get; set; }
+    public string? Description { get; set; }
+    public string? LocationDescription { get; set; }
+    public int? FloorCount { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public RoomHotel Hotel { get; set; } = null!;
+    public HotelArea? ParentArea { get; set; }
+    public ICollection<HotelArea> SubAreas { get; set; } = new List<HotelArea>();
+    public ICollection<Room> Rooms { get; set; } = new List<Room>();
+    public ICollection<StaffAreaAssignment> StaffAssignments { get; set; } = new List<StaffAreaAssignment>();
 }
 
 public sealed class Room

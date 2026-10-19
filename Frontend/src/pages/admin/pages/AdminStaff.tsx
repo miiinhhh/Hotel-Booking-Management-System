@@ -1,23 +1,141 @@
-import React, { FormEvent, useMemo, useState } from 'react';
+import React, { FormEvent, useMemo, useState, useEffect } from 'react';
 import { STAFF_MEMBERS, ZONES } from '../data/adminData';
 import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
 import { StaffMember } from '../types';
+import {
+  getHotelStaffAssignments,
+  getHotelAreas,
+  syncStaffAreas,
+  StaffAssignedArea,
+} from '../../../services/staffAssignmentApi';
 
-const initials = (name: string) => { const parts = name.trim().split(' '); return `${parts[0][0]}${parts.at(-1)?.[0] ?? ''}`.toUpperCase(); };
+const initials = (name: string) => {
+  const parts = name.trim().split(' ');
+  return `${parts[0][0]}${parts.at(-1)?.[0] ?? ''}`.toUpperCase();
+};
 
 export const AdminStaff: React.FC = () => {
-  const [staff, setStaff] = useState(STAFF_MEMBERS);
+  const [staff, setStaff] = useState<StaffMember[]>(STAFF_MEMBERS);
+  const [dbAreas, setDbAreas] = useState<StaffAssignedArea[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [selected, setSelected] = useState<StaffMember | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [assignedZones, setAssignedZones] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const filtered = useMemo(() => staff.filter((member) => `${member.name} ${member.code} ${member.email}`.toLowerCase().includes(search.toLowerCase()) && (status === 'all' || (status === 'active') === member.active)), [staff, search, status]);
-  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(null), 2600); };
-  const openAssignment = (member: StaffMember) => { setSelected(member); setAssignedZones(member.zones); };
-  const addStaff = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const data = new FormData(event.currentTarget); const name = String(data.get('name')); setStaff((current) => [...current, { id: Date.now(), code: `#NV-${1100 + current.length}`, name, email: String(data.get('email')), role: String(data.get('role')), title: String(data.get('title')), zones: [], shift: 'Chưa phân ca', active: true }]); setAddOpen(false); notify(`Đã thêm nhân viên ${name}.`); };
-  const saveAssignment = () => { if (!selected) return; setStaff((current) => current.map((member) => member.id === selected.id ? { ...member, zones: assignedZones } : member)); setSelected(null); notify('Đã cập nhật phân khu phụ trách.'); };
+
+  // Load real staff and areas from Backend API
+  useEffect(() => {
+    getHotelAreas(1).then((res) => {
+      if (res.success && res.data) {
+        setDbAreas(res.data);
+      }
+    });
+
+    getHotelStaffAssignments(1).then((res) => {
+      if (res.success && res.data && res.data.length > 0) {
+        const mappedStaff: StaffMember[] = res.data.map((m, idx) => ({
+          id: m.userId,
+          code: `#NV-${1000 + m.userId}`,
+          name: m.fullName,
+          email: m.email,
+          role: m.role,
+          title: m.role === 'Admin' ? 'Quản trị hệ thống' : 'Lễ tân / Phụ trách khu vực',
+          zones: m.assignedAreas.map((a) => {
+            const short = a.areaName.split(':')[0].trim();
+            return short;
+          }),
+          shift: idx % 2 === 0 ? 'Ca sáng (06:00 - 14:00)' : 'Ca chiều (14:00 - 22:00)',
+          active: m.isActive,
+        }));
+        // Merge with existing sample staff if desired, or replace with DB staff
+        setStaff((prev) => {
+          const ids = new Set(mappedStaff.map((s) => s.id));
+          const rest = prev.filter((s) => !ids.has(s.id));
+          return [...mappedStaff, ...rest];
+        });
+      }
+    });
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      staff.filter(
+        (member) =>
+          `${member.name} ${member.code} ${member.email}`
+            .toLowerCase()
+            .includes(search.toLowerCase()) &&
+          (status === 'all' || (status === 'active') === member.active)
+      ),
+    [staff, search, status]
+  );
+
+  const notify = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 2600);
+  };
+
+  const openAssignment = (member: StaffMember) => {
+    setSelected(member);
+    setAssignedZones(member.zones);
+  };
+
+  const addStaff = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const name = String(data.get('name'));
+    setStaff((current) => [
+      ...current,
+      {
+        id: Date.now(),
+        code: `#NV-${1100 + current.length}`,
+        name,
+        email: String(data.get('email')),
+        role: String(data.get('role')),
+        title: String(data.get('title')),
+        zones: [],
+        shift: 'Chưa phân ca',
+        active: true,
+      },
+    ]);
+    setAddOpen(false);
+    notify(`Đã thêm nhân viên ${name}.`);
+  };
+
+  const saveAssignment = async () => {
+    if (!selected) return;
+
+    // Persist to Backend API if member has a valid DB id
+    const areaIdMap: Record<string, number> = {
+      'Tòa A': 1,
+      'Zone A': 1,
+      'Tòa B': 2,
+      'Zone B': 2,
+      'Villa': 3,
+      'Zone C': 3,
+    };
+
+    const targetAreaIds = assignedZones
+      .map((z) => {
+        for (const [key, id] of Object.entries(areaIdMap)) {
+          if (z.includes(key)) return id;
+        }
+        return null;
+      })
+      .filter((id): id is number => id !== null);
+
+    if (selected.id < 1000) {
+      await syncStaffAreas(1, selected.id, targetAreaIds);
+    }
+
+    setStaff((current) =>
+      current.map((member) =>
+        member.id === selected.id ? { ...member, zones: assignedZones } : member
+      )
+    );
+    setSelected(null);
+    notify('Đã cập nhật & đồng bộ phân khu phụ trách lên SQL Server!');
+  };
 
   return <>
     <PageHeading title="Quản lý nhân viên nội bộ & Phân công phân khu" description="Kiểm soát tài khoản nhân sự, trạng thái làm việc và phạm vi vận hành theo từng khu vực." actions={<button onClick={() => setAddOpen(true)} className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary"><span className="material-symbols-outlined text-lg">person_add</span>Thêm nhân viên</button>} />
