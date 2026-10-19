@@ -8,10 +8,29 @@ namespace HotelBooking.API.Controllers;
 public class BookingController : BaseAPIController
 {
     private readonly IBookingService _bookingService;
+    private readonly IBookingPricingService _pricingService;
 
-    public BookingController(IBookingService bookingService)
+    public BookingController(
+        IBookingService bookingService,
+        IBookingPricingService pricingService)
     {
         _bookingService = bookingService;
+        _pricingService = pricingService;
+    }
+
+    /// <summary>
+    /// Tính toán và xem trước chi tiết chi phí đặt phòng (Báo giá & áp dụng Voucher thời gian thực)
+    /// </summary>
+    [HttpPost("calculate-price")]
+    public async Task<IActionResult> CalculatePrice([FromBody] CalculatePriceRequest request, CancellationToken ct)
+    {
+        var result = await _pricingService.CalculatePriceAsync(request, ct);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
     }
 
     /// <summary>

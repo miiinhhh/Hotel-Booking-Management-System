@@ -9,10 +9,17 @@ using HotelBooking.Domain.Enums;
 public class BookingServices : IBookingService
 {
     private readonly IBookingRepository _bookingRepository;
+    private readonly IBookingPricingService _pricingService;
+    private readonly IVoucherRepository _voucherRepository;
 
-    public BookingServices(IBookingRepository bookingRepository)
+    public BookingServices(
+        IBookingRepository bookingRepository,
+        IBookingPricingService pricingService,
+        IVoucherRepository voucherRepository)
     {
         _bookingRepository = bookingRepository;
+        _pricingService = pricingService;
+        _voucherRepository = voucherRepository;
     }
 
     public async Task<ApiResponse<BookingResponseDto>> CreateBookingAsync(long customerId, CreateBookingRequest request)
@@ -38,37 +45,30 @@ public class BookingServices : IBookingService
             }
         }
 
-        // 3. Tính toán số đêm và số tiền
-        int numberOfNights = request.CheckOutDate.DayNumber - request.CheckInDate.DayNumber;
-        decimal subTotal = 0;
-        var bookingDetails = new List<BookingDetail>();
-
-        foreach (var room in request.Rooms)
+        // 3. Tính toán chi phí chuẩn xác từ hệ thống (Server-authoritative calculation)
+        var roomIds = request.Rooms.Select(r => r.RoomId).Distinct().ToList();
+        PriceCalculationResultDto pricing;
+        try
         {
-            decimal roomSubTotal = room.UnitPrice * numberOfNights;
-            subTotal += roomSubTotal;
-
-            bookingDetails.Add(new BookingDetail
-            {
-                RoomId = room.RoomId,
-                UnitPrice = room.UnitPrice,
-                NumberOfNights = numberOfNights,
-                SubTotal = roomSubTotal
-            });
+            pricing = await _pricingService.CalculateAuthoritativePriceAsync(
+                request.CheckInDate,
+                request.CheckOutDate,
+                roomIds,
+                request.VoucherCode,
+                request.PaymentMethod);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult(ex.Message);
         }
 
-        decimal taxAmount = Math.Round(subTotal * 0.10m, 2); // 10% VAT
-        decimal feeAmount = 0m;
-        decimal discountAmount = 0m;
-        decimal totalAmount = subTotal + taxAmount + feeAmount - discountAmount;
-
-        // Tính tiền cọc (Nếu là Deposit thì tạm tính cọc 30%, Cash thì thanh toán khi check-in)
-        decimal depositAmount = 0m;
-        if (string.Equals(request.PaymentMethod, "Deposit", StringComparison.OrdinalIgnoreCase))
+        var bookingDetails = pricing.RoomBreakdowns.Select(rb => new BookingDetail
         {
-            depositAmount = Math.Round(totalAmount * 0.30m, 2);
-        }
-        decimal remainingAmount = totalAmount - depositAmount;
+            RoomId = rb.RoomId,
+            UnitPrice = rb.UnitPricePerNight,
+            NumberOfNights = rb.NumberOfNights,
+            SubTotal = rb.SubTotal
+        }).ToList();
 
         // 4. Sinh mã đặt phòng duy nhất: BK + yyyyMMddHHmmss + 3 số ngẫu nhiên
         string bookingCode = $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{Random.Shared.Next(100, 999)}";
@@ -84,13 +84,14 @@ public class BookingServices : IBookingService
             BookingStatus = BookingStatus.Pending,
             PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "Deposit" : request.PaymentMethod,
             PaymentStatus = "Unpaid",
-            SubTotal = subTotal,
-            TaxAmount = taxAmount,
-            FeeAmount = feeAmount,
-            DiscountAmount = discountAmount,
-            TotalAmount = totalAmount,
-            DepositAmount = depositAmount,
-            RemainingAmount = remainingAmount,
+            SubTotal = pricing.SubTotal,
+            TaxAmount = pricing.TaxAmount,
+            FeeAmount = pricing.FeeAmount,
+            DiscountAmount = pricing.DiscountAmount,
+            TotalAmount = pricing.TotalAmount,
+            DepositAmount = pricing.DepositAmount,
+            RemainingAmount = pricing.RemainingAmount,
+            VoucherId = pricing.VoucherId,
             SpecialRequests = request.SpecialRequests,
             HoldExpiresAt = DateTime.UtcNow.AddMinutes(15), // Giữ phòng 15 phút
             CreatedAt = DateTime.UtcNow,
@@ -125,6 +126,12 @@ public class BookingServices : IBookingService
         // 6. Lưu vào CSDL
         await _bookingRepository.AddAsync(booking);
         await _bookingRepository.SaveChangesAsync();
+
+        // Tăng số lượt dùng của Voucher nếu có áp dụng
+        if (pricing.VoucherId.HasValue)
+        {
+            await _voucherRepository.IncrementUsedCountAsync(pricing.VoucherId.Value);
+        }
 
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
     }
