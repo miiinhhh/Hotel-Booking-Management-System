@@ -13,6 +13,7 @@ public class HotelBookingDBContext : DbContext
     public DbSet<BookingDetail> BookingDetails => Set<BookingDetail>();
     public DbSet<BookingGuest> BookingGuests => Set<BookingGuest>();
     public DbSet<BookingStatusHistory> BookingStatusHistory => Set<BookingStatusHistory>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
