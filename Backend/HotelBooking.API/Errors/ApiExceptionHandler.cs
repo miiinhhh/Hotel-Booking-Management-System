@@ -8,7 +8,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems) : IExce
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
-        var status = exception switch { HotelBooking.Application.Staff.StaffAccessDeniedException => 403, NotFoundException => 404, ConflictException => 409, DomainRuleException => 400, _ => 0 };
+        var status = exception switch { HotelBooking.Application.Interfaces.ContentAccessDeniedException => 403, HotelBooking.Application.Staff.StaffAccessDeniedException => 403, NotFoundException => 404, ConflictException => 409, DomainRuleException => 400, _ => 0 };
         if (status == 0) return false;
         context.Response.StatusCode = status;
         return await problems.TryWriteAsync(new ProblemDetailsContext

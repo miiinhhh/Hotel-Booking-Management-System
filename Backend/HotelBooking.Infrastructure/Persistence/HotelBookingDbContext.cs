@@ -14,9 +14,16 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Amenity> Amenities => Set<Amenity>();
+    public DbSet<HotelAmenity> HotelAmenities => Set<HotelAmenity>();
+    public DbSet<RoomAmenity> RoomAmenities => Set<RoomAmenity>();
+    public DbSet<HotelImage> HotelImages => Set<HotelImage>();
+    public DbSet<RoomImage> RoomImages => Set<RoomImage>();
+    public DbSet<ImageFileDeletion> ImageFileDeletions => Set<ImageFileDeletion>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
+        model.ConfigurePropertyContent();
         model.Entity<Hotel>().ToTable("Hotels").HasKey(x => x.HotelId);
 
         var area = model.Entity<HotelArea>();

@@ -31,3 +31,4 @@ Thumbs.db
 
 *.sql
 *.json
+!Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql

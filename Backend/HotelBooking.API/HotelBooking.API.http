@@ -39,6 +39,65 @@ Authorization: Bearer {{accessToken}}
 @roomTypeId = 1
 @roomId = 1
 
+### Create amenity (Admin JWT)
+POST {{baseUrl}}/api/amenities
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Wi-Fi",
+  "description": "Internet mien phi"
+}
+
+### List active amenities
+GET {{baseUrl}}/api/amenities
+
+### Assign amenity to Hotel (replace ID)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/amenities/1
+Authorization: Bearer {{accessToken}}
+
+### Assign amenity to Room
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}/amenities/1
+Authorization: Bearer {{accessToken}}
+
+### Remove amenity from Room
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}/amenities/1
+Authorization: Bearer {{accessToken}}
+
+### Upload Hotel image: replace local-image.png with a real JPEG/PNG/WebP path
+POST {{baseUrl}}/api/hotels/{{hotelId}}/images
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=hotel-image-boundary
+
+--hotel-image-boundary
+Content-Disposition: form-data; name="file"; filename="hotel.png"
+Content-Type: image/png
+
+< ./local-image.png
+--hotel-image-boundary
+Content-Disposition: form-data; name="isPrimary"
+
+true
+--hotel-image-boundary--
+
+### List Room images
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}/images
+
+### Select primary image (replace image ID)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/images/1/primary
+Authorization: Bearer {{accessToken}}
+
+### Reorder all Hotel images (replace IDs)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/images/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "imageIds": [2, 1] }
+
+### Delete image
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/images/1
+Authorization: Bearer {{accessToken}}
+
 ### Public room search: name + inclusive reference price + pagination
 GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?roomTypeName=deluxe&minPrice=500000&maxPrice=900000&pageNumber=1&pageSize=20
 

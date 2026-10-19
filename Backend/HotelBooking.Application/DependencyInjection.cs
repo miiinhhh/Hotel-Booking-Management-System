@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IStaffAreaAssignmentService, StaffAreaAssignmentService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IRoomSearchService, RoomSearchService>();
+        services.AddScoped<IPropertyContentService, PropertyContentService>();
 
         return services;
     }
