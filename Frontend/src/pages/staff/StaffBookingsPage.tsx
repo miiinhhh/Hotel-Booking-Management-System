@@ -277,6 +277,16 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         currentTab={staffTab}
         onSelectTab={handleSelectStaffTab}
         onNavigateCustomerPortal={onNavigateCustomerPortal}
+        assignedAreas={[
+          { areaId: 1, areaName: 'Zone A: Royal Pavilion', areaType: 'Zone', totalRooms: 48 },
+          { areaId: 2, areaName: 'Zone B: Ocean Wing', areaType: 'Zone', totalRooms: 36 },
+        ]}
+        activeAreaId={selectedZone === 'Tòa B' ? 2 : 1}
+        onSelectArea={(areaId) => {
+          const zoneName = areaId === 2 ? 'Tòa B' : 'Tòa A';
+          setSelectedZone(zoneName);
+          showToast(`Đã chuyển khu vực trực sang: ${areaId === 2 ? 'Zone B: Ocean Wing' : 'Zone A: Royal Pavilion'}`);
+        }}
       />
 
       {/* MAIN WRAPPER (pl-72 for persistent sidebar) */}
