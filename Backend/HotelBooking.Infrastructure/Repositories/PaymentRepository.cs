@@ -181,12 +181,36 @@ public class PaymentRepository : IPaymentRepository
             0);
 
         const string sql = """
-            UPDATE Bookings
-            SET
-                PaymentStatus = @PaymentStatus,
-                RemainingAmount = @RemainingAmount,
-                UpdatedAt = SYSDATETIME()
+            DECLARE @OldStatus VARCHAR(20);
+            DECLARE @CustomerId BIGINT;
+
+            SELECT @OldStatus = BookingStatus, @CustomerId = CustomerId
+            FROM Bookings
             WHERE BookingId = @BookingId;
+
+            IF (@TotalPaid > 0 AND @OldStatus = 'Pending')
+            BEGIN
+                UPDATE Bookings
+                SET
+                    BookingStatus = 'Confirmed',
+                    PaymentStatus = @PaymentStatus,
+                    RemainingAmount = @RemainingAmount,
+                    HoldExpiresAt = NULL,
+                    UpdatedAt = SYSDATETIME()
+                WHERE BookingId = @BookingId;
+
+                INSERT INTO BookingStatusHistory (BookingId, OldStatus, NewStatus, ChangedByUserId, ChangedAt, Note)
+                VALUES (@BookingId, 'Pending', 'Confirmed', @CustomerId, SYSDATETIME(), N'Hệ thống tự động xác nhận đơn sau khi thanh toán thành công.');
+            END
+            ELSE
+            BEGIN
+                UPDATE Bookings
+                SET
+                    PaymentStatus = @PaymentStatus,
+                    RemainingAmount = @RemainingAmount,
+                    UpdatedAt = SYSDATETIME()
+                WHERE BookingId = @BookingId;
+            END
             """;
 
         await _connection.ExecuteAsync(
@@ -195,7 +219,8 @@ public class PaymentRepository : IPaymentRepository
             {
                 BookingId = bookingId,
                 PaymentStatus = paymentStatus,
-                RemainingAmount = remainingAmount
+                RemainingAmount = remainingAmount,
+                TotalPaid = totalPaid
             });
     }
 

@@ -23,6 +23,7 @@ public class BookingRepository : IBookingRepository
     public async Task<Booking?> GetByIdWithDetailsAsync(long bookingId)
     {
         return await _context.Bookings
+            .AsNoTracking()
             .Include(b => b.BookingDetails)
             .Include(b => b.BookingGuests)
             .Include(b => b.Voucher)
@@ -33,6 +34,7 @@ public class BookingRepository : IBookingRepository
     public async Task<Booking?> GetByCodeAsync(string bookingCode)
     {
         return await _context.Bookings
+            .AsNoTracking()
             .Include(b => b.BookingDetails)
             .Include(b => b.BookingGuests)
             .Include(b => b.Voucher)
