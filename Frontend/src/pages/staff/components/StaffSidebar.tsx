@@ -4,12 +4,23 @@ interface StaffSidebarProps {
   currentTab?: string;
   onSelectTab?: (tab: string) => void;
   onNavigateCustomerPortal?: () => void;
+  assignedAreas?: Array<{
+    areaId: number;
+    areaName: string;
+    areaType: string;
+    totalRooms?: number;
+  }>;
+  activeAreaId?: number;
+  onSelectArea?: (areaId: number) => void;
 }
 
 export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   currentTab = 'reservations',
   onSelectTab,
   onNavigateCustomerPortal,
+  assignedAreas,
+  activeAreaId,
+  onSelectArea,
 }) => {
   const navItems = [
     { id: 'reservations', label: 'Quản lý Đặt phòng', icon: 'event_available' },
@@ -17,6 +28,8 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
     { id: 'suites', label: 'Suites & Phân khu', icon: 'bed' },
     { id: 'customers', label: 'Hồ sơ Khách hàng', icon: 'group' },
   ];
+
+  const currentArea = assignedAreas?.find((a) => a.areaId === activeAreaId) || assignedAreas?.[0];
 
   return (
     <aside className="fixed left-0 top-0 h-full w-72 bg-surface-container-low z-50 flex flex-col justify-between py-7 px-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eae8e5]">
@@ -46,16 +59,45 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
             </span>
             <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px] text-primary">explore</span>
-            <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-              Zone A: Royal Pavilion
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[11px] font-label-sm text-on-surface-variant pt-0.5">
-            <span>Tòa A &amp; Tòa B · 48 Đơn</span>
-            <span className="text-primary font-semibold">92% Công suất</span>
-          </div>
+
+          {assignedAreas && assignedAreas.length > 1 ? (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-primary">explore</span>
+                <select
+                  aria-label="Chọn phân khu phụ trách"
+                  value={currentArea?.areaId}
+                  onChange={(e) => onSelectArea?.(Number(e.target.value))}
+                  className="bg-transparent font-label-md text-label-md text-on-surface font-semibold outline-none cursor-pointer w-full truncate border-b border-outline-variant/40 pb-0.5"
+                >
+                  {assignedAreas.map((area) => (
+                    <option key={area.areaId} value={area.areaId} className="bg-surface-container-lowest text-on-surface">
+                      {area.areaName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-label-sm text-on-surface-variant pt-0.5">
+                <span>{assignedAreas.length} phân khu được giao</span>
+                <span className="text-primary font-semibold">{currentArea?.totalRooms ?? 0} phòng</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-primary">explore</span>
+                <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
+                  {currentArea ? currentArea.areaName : 'Zone A: Royal Pavilion'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-label-sm text-on-surface-variant pt-0.5">
+                <span>{currentArea?.areaType || 'Tòa A & Tòa B'} · 48 Đơn</span>
+                <span className="text-primary font-semibold">
+                  {currentArea?.totalRooms ? `${currentArea.totalRooms} Phòng` : '92% Công suất'}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Navigation Menu */}

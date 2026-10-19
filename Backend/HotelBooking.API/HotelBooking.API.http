@@ -155,3 +155,24 @@ Content-Type: application/json
   ]
 }
 
+### Get all Areas of Hotel (with room stats)
+GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/areas
+
+### Get all Staff Members and their assigned areas
+GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments
+
+### Sync Staff Assigned Areas (Assign/Reassign multiple areas to a staff member)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/sync
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "areaIds": [1, 2]
+}
+
+### Remove a specific assignment
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/1
+
+### Get assigned areas for current staff member (Staff Portal - Active Zone)
+GET {{baseUrl}}/api/staff/me/assigned-areas?userId=2
+
