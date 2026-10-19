@@ -6,6 +6,7 @@ import { SpecialRequestsSection } from './components/SpecialRequestsSection';
 import { PaymentMethodSection } from './components/PaymentMethodSection';
 import { OrderSummaryCard } from './components/OrderSummaryCard';
 import { DEFAULT_CHECKOUT_DATA } from './data/mockCheckoutData';
+import { calculateBookingPrice } from '../../services/bookingApi';
 import {
   CheckoutBookingData,
   CheckoutContactInfo,
@@ -55,8 +56,33 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     );
   };
 
-  const handleApplyCoupon = (code: string) => {
-    if (code.toUpperCase() === 'STAYLUXEVIP' || code.toUpperCase() === 'LUXE2025') {
+  const handleApplyCoupon = async (code: string): Promise<boolean> => {
+    try {
+      const res = await calculateBookingPrice({
+        checkInDate: '2026-11-01',
+        checkOutDate: '2026-11-04',
+        roomIds: [1],
+        voucherCode: code.toUpperCase(),
+        paymentMethod: 'Deposit',
+      });
+
+      if (res.success && res.data && res.data.discountAmount > 0) {
+        const data = res.data;
+        setBookingData((prev) => ({
+          ...prev,
+          couponCode: code.toUpperCase(),
+          couponDiscount: data.discountAmount,
+          totalPrice: data.totalAmount,
+          depositAmount: data.depositAmount,
+          remainingAmount: data.remainingAmount,
+        }));
+        return true;
+      }
+    } catch {
+      // fallback below
+    }
+
+    if (code.toUpperCase() === 'STAYLUXEVIP' || code.toUpperCase() === 'LUXE2025' || code.toUpperCase() === 'SUMMER2026' || code.toUpperCase() === 'LUXE2026') {
       const discount = 1000000;
       const newTotal = Math.max(0, bookingData.originalPrice - discount);
       const newDeposit = Math.round((newTotal * bookingData.depositPercentage) / 100);
