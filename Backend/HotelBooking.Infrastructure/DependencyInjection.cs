@@ -40,6 +40,7 @@ public static class DependencyInjection
 
         services.AddScoped<IBookingRepository, BookingRepository>();
         services.AddScoped<IRoomPriceHistoryRepository, RoomPriceHistoryRepository>();
+        services.AddScoped<IVoucherRepository, VoucherRepository>();
 
         // Module Payment
         services.AddScoped<System.Data.IDbConnection>(_ =>

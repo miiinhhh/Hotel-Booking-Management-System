@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IRoomSearchService, RoomSearchService>();
         services.AddScoped<IPricingService, PricingService>();
+        services.AddScoped<IVoucherService, VoucherService>();
 
         return services;
     }
