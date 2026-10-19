@@ -32,6 +32,7 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IRoomRepository, RoomRepository>();
+        services.AddScoped<HotelBooking.Application.Staff.IStaffRepository, HotelBooking.Infrastructure.Data.StaffRepository>();
         services.AddScoped<IRoomSearchRepository, RoomSearchRepository>();
 
         // Module Booking

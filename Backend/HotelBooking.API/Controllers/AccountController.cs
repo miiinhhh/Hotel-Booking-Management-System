@@ -49,7 +49,7 @@ public sealed class AccountController(IAccountService accountService) : Controll
     }
 
     /// <summary>Example resource available to hotel staff and administrators.</summary>
-    [HttpGet("staff")]
+    [HttpGet("staff/resource")]
     [Authorize(Roles = $"{SystemRoles.HotelStaff},{SystemRoles.Admin}")]
     public IActionResult GetStaffResource() => Ok(new { Message = "Hotel staff resource authorized." });
 

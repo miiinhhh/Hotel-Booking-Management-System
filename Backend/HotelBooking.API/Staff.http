@@ -1,0 +1,55 @@
+@baseUrl = http://localhost:5131
+@adminToken = replace-with-admin-jwt
+@staffToken = replace-with-staff-jwt
+@staffId = 2
+
+### Admin lists Staff
+GET {{baseUrl}}/api/staff?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+### Staff lists own profile only
+GET {{baseUrl}}/api/staff
+Authorization: Bearer {{staffToken}}
+
+### View Staff
+GET {{baseUrl}}/api/staff/{{staffId}}
+Authorization: Bearer {{adminToken}}
+
+### Update profile (use Staff JWT only for own ID)
+PUT {{baseUrl}}/api/staff/{{staffId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Nguyen Van An",
+  "phone": "+84901234567",
+  "dateOfBirth": "2000-01-01"
+}
+
+### Lock Staff as Admin
+PATCH {{baseUrl}}/api/staff/{{staffId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "isActive": false }
+
+### Previously issued Staff JWT must now return 401
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{staffToken}}
+
+### Unlock Staff as Admin
+PATCH {{baseUrl}}/api/staff/{{staffId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "isActive": true }
+
+### Staff trying to assign a role must return 400
+PUT {{baseUrl}}/api/staff/{{staffId}}
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Nguyen Van An",
+  "roles": ["Admin"]
+}

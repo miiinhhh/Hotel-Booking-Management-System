@@ -10,6 +10,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IBookingService, BookingServices>();
+        services.AddScoped<HotelBooking.Application.Staff.StaffService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IRoomSearchService, RoomSearchService>();
 
