@@ -35,28 +35,29 @@ public class RoomPriceHistoryRepository : IRoomPriceHistoryRepository
         return history;
     }
 
-    public async Task<Dictionary<long, (int RoomTypeId, decimal BasePrice)>> GetRoomDetailsForPricingAsync(
+    public async Task<Dictionary<long, (int RoomTypeId, int HotelId, decimal BasePrice)>> GetRoomDetailsForPricingAsync(
         IEnumerable<long> roomIds,
         CancellationToken ct = default)
     {
         var ids = roomIds.Distinct().ToList();
-        if (ids.Count == 0) return new Dictionary<long, (int RoomTypeId, decimal BasePrice)>();
+        if (ids.Count == 0) return new Dictionary<long, (int RoomTypeId, int HotelId, decimal BasePrice)>();
 
         const string sql = """
             SELECT
                 r.RoomId,
                 r.RoomTypeId,
+                rt.HotelId,
                 rt.BasePrice
             FROM Rooms r
             INNER JOIN RoomTypes rt ON r.RoomTypeId = rt.RoomTypeId
             WHERE r.RoomId IN @Ids;
             """;
 
-        var records = await _connection.QueryAsync<(long RoomId, int RoomTypeId, decimal BasePrice)>(
+        var records = await _connection.QueryAsync<(long RoomId, int RoomTypeId, int HotelId, decimal BasePrice)>(
             sql,
             new { Ids = ids });
 
-        return records.ToDictionary(x => x.RoomId, x => (x.RoomTypeId, x.BasePrice));
+        return records.ToDictionary(x => x.RoomId, x => (x.RoomTypeId, x.HotelId, x.BasePrice));
     }
 
     public async Task<(TimeOnly CheckInTime, TimeOnly CheckOutTime)?> GetHotelCheckInOutPolicyAsync(

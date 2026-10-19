@@ -27,14 +27,6 @@ public class PricingService : IPricingService
             throw new ArgumentException("At least one room must be selected.");
         }
 
-        if (request.HotelId <= 0)
-        {
-            throw new ArgumentException("HotelId must be greater than 0.");
-        }
-
-        // Số đêm lưu trú: [CheckInDate, CheckOutDate), ngày trả phòng không tính là một đêm lưu trú
-        int numberOfNights = request.CheckOutDate.DayNumber - request.CheckInDate.DayNumber;
-
         // 1. Lấy thông tin phòng và BasePrice hiện tại từ RoomTypes
         var roomDetails = await _repository.GetRoomDetailsForPricingAsync(request.RoomIds, ct);
         foreach (var roomId in request.RoomIds)
@@ -45,20 +37,62 @@ public class PricingService : IPricingService
             }
         }
 
+        // Tự động nhận diện HotelId từ phòng nếu client chưa truyền
+        if (request.HotelId <= 0 && roomDetails.Count > 0)
+        {
+            request.HotelId = roomDetails.Values.First().HotelId;
+        }
+
+        if (request.HotelId <= 0)
+        {
+            throw new ArgumentException("HotelId must be greater than 0.");
+        }
+
+        // Số đêm lưu trú: [CheckInDate, CheckOutDate), ngày trả phòng không tính là một đêm lưu trú
+        int numberOfNights = request.CheckOutDate.DayNumber - request.CheckInDate.DayNumber;
+
+        // Lấy lịch sử giá theo từng loại phòng để áp dụng giá theo ngày
+        var distinctRoomTypeIds = roomDetails.Values.Select(v => v.RoomTypeId).Distinct().ToList();
+        var historiesByRoomType = new Dictionary<int, IReadOnlyList<RoomPriceHistory>>();
+        foreach (var typeId in distinctRoomTypeIds)
+        {
+            historiesByRoomType[typeId] = await _repository.GetHistoriesByRoomTypeAsync(typeId, ct);
+        }
+
         decimal totalSubTotal = 0m;
         var roomSummaries = new List<RoomStayPriceSummaryDto>();
 
-        // 2. Tính giá từng đêm dựa trên RoomTypes.BasePrice
+        // 2. Tính giá từng đêm dựa trên RoomPriceHistory (ưu tiên) hoặc RoomTypes.BasePrice
         foreach (var roomId in request.RoomIds)
         {
-            var (roomTypeId, basePrice) = roomDetails[roomId];
+            var (roomTypeId, _, basePrice) = roomDetails[roomId];
+            var typeHistories = historiesByRoomType.GetValueOrDefault(roomTypeId, Array.Empty<RoomPriceHistory>());
             var dailyBreakdown = new List<DailyPriceBreakdownDto>();
             decimal roomSubTotal = 0m;
 
             for (int i = 0; i < numberOfNights; i++)
             {
                 var stayDate = request.CheckInDate.AddDays(i);
-                decimal nightlyPrice = basePrice;
+                var stayDateTime = stayDate.ToDateTime(TimeOnly.MinValue);
+
+                var matchedHistory = typeHistories.FirstOrDefault(h =>
+                    h.EffectiveFrom <= stayDateTime &&
+                    (!h.EffectiveTo.HasValue || h.EffectiveTo.Value >= stayDateTime));
+
+                decimal nightlyPrice;
+                string rateSource;
+
+                if (matchedHistory != null)
+                {
+                    nightlyPrice = matchedHistory.Price;
+                    rateSource = "History";
+                }
+                else
+                {
+                    nightlyPrice = basePrice;
+                    rateSource = "BasePrice";
+                }
+
                 roomSubTotal += nightlyPrice;
 
                 dailyBreakdown.Add(new DailyPriceBreakdownDto
@@ -67,7 +101,7 @@ public class PricingService : IPricingService
                     RoomTypeId = roomTypeId,
                     StayDate = stayDate,
                     NightlyPrice = nightlyPrice,
-                    RateSource = "BasePrice"
+                    RateSource = rateSource
                 });
             }
 
@@ -79,7 +113,7 @@ public class PricingService : IPricingService
                 RoomTypeId = roomTypeId,
                 NumberOfNights = numberOfNights,
                 SubTotal = roomSubTotal,
-                AverageUnitPrice = basePrice,
+                AverageUnitPrice = numberOfNights > 0 ? Math.Round(roomSubTotal / numberOfNights, 2) : basePrice,
                 DailyBreakdown = dailyBreakdown
             });
         }

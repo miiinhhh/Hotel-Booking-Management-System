@@ -25,6 +25,7 @@ public class BookingRepository : IBookingRepository
         return await _context.Bookings
             .Include(b => b.BookingDetails)
             .Include(b => b.BookingGuests)
+            .Include(b => b.Voucher)
             .Include(b => b.StatusHistories.OrderByDescending(h => h.ChangedAt))
             .FirstOrDefaultAsync(b => b.BookingId == bookingId);
     }
@@ -34,6 +35,7 @@ public class BookingRepository : IBookingRepository
         return await _context.Bookings
             .Include(b => b.BookingDetails)
             .Include(b => b.BookingGuests)
+            .Include(b => b.Voucher)
             .Include(b => b.StatusHistories.OrderByDescending(h => h.ChangedAt))
             .FirstOrDefaultAsync(b => b.BookingCode == bookingCode);
     }
