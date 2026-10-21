@@ -6,11 +6,15 @@ namespace HotelBooking.Application.Services;
 
 public class PricingService : IPricingService
 {
-    private readonly IRoomPriceHistoryRepository _repository;
+    private readonly IRoomPriceHistoryRepository _historyRepository;
+    private readonly IPriceSurgeRuleRepository _surgeRuleRepository;
 
-    public PricingService(IRoomPriceHistoryRepository repository)
+    public PricingService(
+        IRoomPriceHistoryRepository historyRepository,
+        IPriceSurgeRuleRepository surgeRuleRepository)
     {
-        _repository = repository;
+        _historyRepository = historyRepository;
+        _surgeRuleRepository = surgeRuleRepository;
     }
 
     public async Task<PriceCalculationResultDto> CalculateStayPriceAsync(
@@ -28,7 +32,7 @@ public class PricingService : IPricingService
         }
 
         // 1. Lấy thông tin phòng và BasePrice hiện tại từ RoomTypes
-        var roomDetails = await _repository.GetRoomDetailsForPricingAsync(request.RoomIds, ct);
+        var roomDetails = await _historyRepository.GetRoomDetailsForPricingAsync(request.RoomIds, ct);
         foreach (var roomId in request.RoomIds)
         {
             if (!roomDetails.ContainsKey(roomId))
@@ -48,6 +52,15 @@ public class PricingService : IPricingService
             throw new ArgumentException("HotelId must be greater than 0.");
         }
 
+        // Kiểm tra tính nhất quán giữa phòng và khách sạn (Scenario 12)
+        foreach (var (roomId, detail) in roomDetails)
+        {
+            if (detail.HotelId != request.HotelId)
+            {
+                throw new ArgumentException($"Room {roomId} belongs to Hotel {detail.HotelId}, not Hotel {request.HotelId}.");
+            }
+        }
+
         // Số đêm lưu trú: [CheckInDate, CheckOutDate), ngày trả phòng không tính là một đêm lưu trú
         int numberOfNights = request.CheckOutDate.DayNumber - request.CheckInDate.DayNumber;
 
@@ -56,16 +69,24 @@ public class PricingService : IPricingService
         var historiesByRoomType = new Dictionary<int, IReadOnlyList<RoomPriceHistory>>();
         foreach (var typeId in distinctRoomTypeIds)
         {
-            historiesByRoomType[typeId] = await _repository.GetHistoriesByRoomTypeAsync(typeId, ct);
+            historiesByRoomType[typeId] = await _historyRepository.GetHistoriesByRoomTypeAsync(typeId, ct);
         }
+
+        // Tải một lần tất cả các quy tắc tăng giá (PriceSurgeRules) liên quan cho toàn bộ khoảng lưu trú
+        var activeSurgeRules = await _surgeRuleRepository.GetActiveRulesAsync(
+            request.HotelId,
+            distinctRoomTypeIds,
+            request.CheckInDate,
+            request.CheckOutDate,
+            ct);
 
         decimal totalSubTotal = 0m;
         var roomSummaries = new List<RoomStayPriceSummaryDto>();
 
-        // 2. Tính giá từng đêm dựa trên RoomPriceHistory (ưu tiên) hoặc RoomTypes.BasePrice
+        // 2. Tính giá từng đêm kết hợp BasePrice/History + PriceSurgeRules
         foreach (var roomId in request.RoomIds)
         {
-            var (roomTypeId, _, basePrice) = roomDetails[roomId];
+            var (roomTypeId, _, roomTypeName, basePrice) = roomDetails[roomId];
             var typeHistories = historiesByRoomType.GetValueOrDefault(roomTypeId, Array.Empty<RoomPriceHistory>());
             var dailyBreakdown = new List<DailyPriceBreakdownDto>();
             decimal roomSubTotal = 0m;
@@ -75,32 +96,70 @@ public class PricingService : IPricingService
                 var stayDate = request.CheckInDate.AddDays(i);
                 var stayDateTime = stayDate.ToDateTime(TimeOnly.MinValue);
 
+                // Bước 1: Xác định giá gốc có hiệu lực tại ngày lưu trú (RoomPriceHistory ưu tiên, fallback BasePrice)
                 var matchedHistory = typeHistories.FirstOrDefault(h =>
                     h.EffectiveFrom <= stayDateTime &&
                     (!h.EffectiveTo.HasValue || h.EffectiveTo.Value >= stayDateTime));
 
-                decimal nightlyPrice;
+                decimal nightlyBasePrice;
                 string rateSource;
 
                 if (matchedHistory != null)
                 {
-                    nightlyPrice = matchedHistory.Price;
+                    nightlyBasePrice = matchedHistory.Price;
                     rateSource = "History";
                 }
                 else
                 {
-                    nightlyPrice = basePrice;
+                    nightlyBasePrice = basePrice;
                     rateSource = "BasePrice";
                 }
 
-                roomSubTotal += nightlyPrice;
+                // Bước 2: Tìm các PriceSurgeRules đang hoạt động thỏa mãn ngày và phòng
+                var candidateRules = activeSurgeRules
+                    .Where(r => r.IsActive)
+                    .Where(r => r.RoomTypeId == null || r.RoomTypeId == roomTypeId)
+                    .Where(r => stayDate >= r.StartDate && stayDate <= r.EndDate)
+                    .OrderByDescending(r => r.Priority)                           // Ưu tiên Priority cao nhất
+                    .ThenByDescending(r => r.RoomTypeId.HasValue ? 1 : 0)         // Cụ thể RoomType trước toàn khách sạn
+                    .ThenBy(r => r.RuleId)                                        // Tiêu chí ổn định RuleId tăng dần
+                    .ToList();
+
+                // Bước 3: Chọn đúng 1 quy tắc theo chính sách ưu tiên
+                var matchedRule = candidateRules.FirstOrDefault();
+
+                // Bước 4: Tính phụ thu và giá cuối cùng của đêm
+                decimal surgeAmount = 0m;
+                string appliedRule = "Giá ngày thường";
+
+                if (matchedRule != null)
+                {
+                    if (string.Equals(matchedRule.AdjustmentType, "PERCENTAGE", StringComparison.OrdinalIgnoreCase))
+                    {
+                        surgeAmount = Math.Round(nightlyBasePrice * (matchedRule.AdjustmentValue / 100m), 2);
+                        appliedRule = $"{matchedRule.RuleName} (+{matchedRule.AdjustmentValue}%)";
+                    }
+                    else if (string.Equals(matchedRule.AdjustmentType, "FIXED_AMOUNT", StringComparison.OrdinalIgnoreCase))
+                    {
+                        surgeAmount = matchedRule.AdjustmentValue;
+                        appliedRule = $"{matchedRule.RuleName} (+{matchedRule.AdjustmentValue:N0}đ)";
+                    }
+                }
+
+                decimal finalNightlyPrice = nightlyBasePrice + surgeAmount;
+                roomSubTotal += finalNightlyPrice;
 
                 dailyBreakdown.Add(new DailyPriceBreakdownDto
                 {
                     RoomId = roomId,
                     RoomTypeId = roomTypeId,
                     StayDate = stayDate,
-                    NightlyPrice = nightlyPrice,
+                    DayOfWeek = stayDate.DayOfWeek.ToString(),
+                    BasePrice = nightlyBasePrice,
+                    AppliedRule = appliedRule,
+                    SurgeAmount = surgeAmount,
+                    FinalNightlyPrice = finalNightlyPrice,
+                    NightlyPrice = finalNightlyPrice,
                     RateSource = rateSource
                 });
             }
@@ -111,6 +170,7 @@ public class PricingService : IPricingService
             {
                 RoomId = roomId,
                 RoomTypeId = roomTypeId,
+                RoomTypeName = roomTypeName,
                 NumberOfNights = numberOfNights,
                 SubTotal = roomSubTotal,
                 AverageUnitPrice = numberOfNights > 0 ? Math.Round(roomSubTotal / numberOfNights, 2) : basePrice,
@@ -118,12 +178,11 @@ public class PricingService : IPricingService
             });
         }
 
-        // 3. Phụ phí check-in sớm / check-out muộn:
-        // Đồng bộ với BookingServices hiện tại (FeeAmount mặc định = 0m khi chưa có chính sách phụ phí chính thức)
+        // 3. Phụ phí check-in sớm / check-out muộn
         decimal feeAmount = 0m;
         string? feeDescription = null;
 
-        var policy = await _repository.GetHotelCheckInOutPolicyAsync(request.HotelId, ct);
+        var policy = await _historyRepository.GetHotelCheckInOutPolicyAsync(request.HotelId, ct);
         if (policy.HasValue)
         {
             var (standardIn, standardOut) = policy.Value;
@@ -138,13 +197,15 @@ public class PricingService : IPricingService
             }
         }
 
-        // 4. Đồng bộ công thức thuế và cọc với BookingServices
-        decimal estimatedTax = Math.Round(totalSubTotal * 0.10m, 2); // 10% VAT
+        // 4. Đồng bộ công thức thuế (10% VAT) và cọc (30% Deposit)
+        decimal estimatedTax = Math.Round(totalSubTotal * 0.10m, 2);
         decimal estimatedTotal = totalSubTotal + feeAmount + estimatedTax;
-        decimal estimatedDeposit = Math.Round(estimatedTotal * 0.30m, 2); // 30% cọc nếu chọn Deposit
+        decimal estimatedDeposit = Math.Round(estimatedTotal * 0.30m, 2);
 
         return new PriceCalculationResultDto
         {
+            CheckInDate = request.CheckInDate,
+            CheckOutDate = request.CheckOutDate,
             NumberOfNights = numberOfNights,
             SubTotal = totalSubTotal,
             FeeAmount = feeAmount,
@@ -158,7 +219,7 @@ public class PricingService : IPricingService
 
     public async Task<IReadOnlyList<RoomPriceHistoryDto>> GetPriceHistoriesAsync(int roomTypeId, CancellationToken ct = default)
     {
-        var list = await _repository.GetHistoriesByRoomTypeAsync(roomTypeId, ct);
+        var list = await _historyRepository.GetHistoriesByRoomTypeAsync(roomTypeId, ct);
         return list.Select(h => new RoomPriceHistoryDto
         {
             PriceHistoryId = h.PriceHistoryId,
@@ -197,7 +258,7 @@ public class PricingService : IPricingService
             CreatedAt = DateTime.UtcNow
         };
 
-        var created = await _repository.AddHistoryAsync(history, ct);
+        var created = await _historyRepository.AddHistoryAsync(history, ct);
 
         return new RoomPriceHistoryDto
         {
@@ -209,5 +270,196 @@ public class PricingService : IPricingService
             ChangedByUserId = created.ChangedByUserId,
             CreatedAt = created.CreatedAt
         };
+    }
+
+    public async Task<IReadOnlyList<PriceSurgeRuleDto>> GetSurgeRulesAsync(
+        PriceSurgeRuleFilterRequest filter,
+        CancellationToken ct = default)
+    {
+        var rules = await _surgeRuleRepository.GetListAsync(filter, ct);
+        var result = new List<PriceSurgeRuleDto>();
+
+        foreach (var rule in rules)
+        {
+            string? typeName = null;
+            if (rule.RoomTypeId.HasValue)
+            {
+                typeName = await _surgeRuleRepository.GetRoomTypeNameAsync(rule.RoomTypeId.Value, ct);
+            }
+
+            result.Add(new PriceSurgeRuleDto
+            {
+                RuleId = rule.RuleId,
+                HotelId = rule.HotelId,
+                RoomTypeId = rule.RoomTypeId,
+                RoomTypeName = typeName,
+                RuleName = rule.RuleName,
+                StartDate = rule.StartDate,
+                EndDate = rule.EndDate,
+                AdjustmentType = rule.AdjustmentType,
+                AdjustmentValue = rule.AdjustmentValue,
+                Priority = rule.Priority,
+                IsActive = rule.IsActive,
+                CreatedAt = rule.CreatedAt,
+                CreatedByUserId = rule.CreatedByUserId
+            });
+        }
+
+        return result;
+    }
+
+    public async Task<PriceSurgeRuleDto?> GetSurgeRuleByIdAsync(long ruleId, CancellationToken ct = default)
+    {
+        var rule = await _surgeRuleRepository.GetByIdAsync(ruleId, ct);
+        if (rule == null) return null;
+
+        string? typeName = null;
+        if (rule.RoomTypeId.HasValue)
+        {
+            typeName = await _surgeRuleRepository.GetRoomTypeNameAsync(rule.RoomTypeId.Value, ct);
+        }
+
+        return new PriceSurgeRuleDto
+        {
+            RuleId = rule.RuleId,
+            HotelId = rule.HotelId,
+            RoomTypeId = rule.RoomTypeId,
+            RoomTypeName = typeName,
+            RuleName = rule.RuleName,
+            StartDate = rule.StartDate,
+            EndDate = rule.EndDate,
+            AdjustmentType = rule.AdjustmentType,
+            AdjustmentValue = rule.AdjustmentValue,
+            Priority = rule.Priority,
+            IsActive = rule.IsActive,
+            CreatedAt = rule.CreatedAt,
+            CreatedByUserId = rule.CreatedByUserId
+        };
+    }
+
+    public async Task<PriceSurgeRuleDto> CreateSurgeRuleAsync(
+        CreatePriceSurgeRuleRequest request,
+        long createdByUserId,
+        CancellationToken ct = default)
+    {
+        ValidateSurgeRuleInput(request.StartDate, request.EndDate, request.AdjustmentType, request.AdjustmentValue);
+
+        if (request.HotelId <= 0)
+        {
+            throw new ArgumentException("HotelId must be greater than 0.");
+        }
+
+        if (request.RoomTypeId.HasValue)
+        {
+            var belongs = await _surgeRuleRepository.IsRoomTypeBelongToHotelAsync(request.RoomTypeId.Value, request.HotelId, ct);
+            if (!belongs)
+            {
+                throw new ArgumentException($"RoomTypeId {request.RoomTypeId.Value} does not belong to HotelId {request.HotelId}.");
+            }
+        }
+
+        var entity = new PriceSurgeRule
+        {
+            HotelId = request.HotelId,
+            RoomTypeId = request.RoomTypeId,
+            RuleName = request.RuleName.Trim(),
+            StartDate = request.StartDate,
+            EndDate = request.EndDate,
+            AdjustmentType = request.AdjustmentType.ToUpperInvariant(),
+            AdjustmentValue = request.AdjustmentValue,
+            Priority = request.Priority,
+            IsActive = request.IsActive,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = createdByUserId
+        };
+
+        var created = await _surgeRuleRepository.AddAsync(entity, ct);
+        return await GetSurgeRuleByIdAsync(created.RuleId, ct) ?? new PriceSurgeRuleDto
+        {
+            RuleId = created.RuleId,
+            HotelId = created.HotelId,
+            RoomTypeId = created.RoomTypeId,
+            RuleName = created.RuleName,
+            StartDate = created.StartDate,
+            EndDate = created.EndDate,
+            AdjustmentType = created.AdjustmentType,
+            AdjustmentValue = created.AdjustmentValue,
+            Priority = created.Priority,
+            IsActive = created.IsActive,
+            CreatedAt = created.CreatedAt,
+            CreatedByUserId = created.CreatedByUserId
+        };
+    }
+
+    public async Task<PriceSurgeRuleDto> UpdateSurgeRuleAsync(
+        long ruleId,
+        UpdatePriceSurgeRuleRequest request,
+        CancellationToken ct = default)
+    {
+        ValidateSurgeRuleInput(request.StartDate, request.EndDate, request.AdjustmentType, request.AdjustmentValue);
+
+        var existing = await _surgeRuleRepository.GetByIdAsync(ruleId, ct);
+        if (existing == null)
+        {
+            throw new KeyNotFoundException($"PriceSurgeRule with ID {ruleId} was not found.");
+        }
+
+        existing.RuleName = request.RuleName.Trim();
+        existing.StartDate = request.StartDate;
+        existing.EndDate = request.EndDate;
+        existing.AdjustmentType = request.AdjustmentType.ToUpperInvariant();
+        existing.AdjustmentValue = request.AdjustmentValue;
+        existing.Priority = request.Priority;
+        existing.IsActive = request.IsActive;
+
+        await _surgeRuleRepository.UpdateAsync(existing, ct);
+        return (await GetSurgeRuleByIdAsync(ruleId, ct))!;
+    }
+
+    public async Task<bool> ToggleSurgeRuleStatusAsync(long ruleId, CancellationToken ct = default)
+    {
+        var existing = await _surgeRuleRepository.GetByIdAsync(ruleId, ct);
+        if (existing == null)
+        {
+            throw new KeyNotFoundException($"PriceSurgeRule with ID {ruleId} was not found.");
+        }
+
+        existing.IsActive = !existing.IsActive;
+        await _surgeRuleRepository.UpdateAsync(existing, ct);
+        return existing.IsActive;
+    }
+
+    public async Task<bool> DeleteSurgeRuleAsync(long ruleId, CancellationToken ct = default)
+    {
+        var existing = await _surgeRuleRepository.GetByIdAsync(ruleId, ct);
+        if (existing == null)
+        {
+            return false;
+        }
+
+        return await _surgeRuleRepository.DeleteAsync(ruleId, ct);
+    }
+
+    private static void ValidateSurgeRuleInput(
+        DateOnly startDate,
+        DateOnly endDate,
+        string adjustmentType,
+        decimal adjustmentValue)
+    {
+        if (endDate < startDate)
+        {
+            throw new ArgumentException("EndDate must be greater than or equal to StartDate.");
+        }
+
+        if (adjustmentValue < 0)
+        {
+            throw new ArgumentException("AdjustmentValue must be nonnegative.");
+        }
+
+        var normalizedType = adjustmentType?.Trim().ToUpperInvariant();
+        if (normalizedType != "PERCENTAGE" && normalizedType != "FIXED_AMOUNT")
+        {
+            throw new ArgumentException("AdjustmentType must be either 'PERCENTAGE' or 'FIXED_AMOUNT'.");
+        }
     }
 }
