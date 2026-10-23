@@ -39,6 +39,61 @@ Authorization: Bearer {{accessToken}}
 @roomTypeId = 1
 @roomId = 1
 
+### List active Zones and Buildings
+GET {{baseUrl}}/api/hotels/{{hotelId}}/areas
+
+### List all Zones and Buildings, including inactive records
+GET {{baseUrl}}/api/hotels/{{hotelId}}/areas?includeInactive=true
+
+### Create a Zone (Admin token required)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Central Zone",
+  "areaType": "Zone",
+  "parentAreaId": null,
+  "description": "Main guest area",
+  "locationDescription": "Near the lobby",
+  "floorCount": null,
+  "isActive": true
+}
+
+### Create a Building under an existing Zone (Admin token required)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Tower A",
+  "areaType": "Building",
+  "parentAreaId": {{areaId}},
+  "description": "Guest room building",
+  "locationDescription": "North side",
+  "floorCount": 12,
+  "isActive": true
+}
+
+### Update a Zone or Building (Admin token required)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Central Zone",
+  "areaType": "Zone",
+  "parentAreaId": null,
+  "description": "Updated main guest area",
+  "locationDescription": "Near the lobby",
+  "floorCount": null,
+  "isActive": true
+}
+
+### Soft-delete an Area (Admin token required)
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}
+Authorization: Bearer {{accessToken}}
+
 ### Public room search: name + inclusive reference price + pagination
 GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?roomTypeName=deluxe&minPrice=500000&maxPrice=900000&pageNumber=1&pageSize=20
 

@@ -1,4 +1,5 @@
 using HotelBooking.Application.Hotels;
+using HotelBooking.Application.Areas;
 using HotelBooking.Infrastructure.Persistence;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Rooms;
@@ -35,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<HotelBooking.Application.Staff.IStaffRepository, HotelBooking.Infrastructure.Data.StaffRepository>();
         services.AddScoped<IStaffAreaAssignmentRepository, StaffAreaAssignmentRepository>();
         services.AddScoped<IRoomSearchRepository, RoomSearchRepository>();
+        services.AddScoped<IHotelAreaRepository, HotelAreaRepository>();
 
         // Module Booking
         services.AddDbContext<BookingDbContext>(options =>
