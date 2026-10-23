@@ -16,7 +16,7 @@ const initials = (name: string) => {
 
 export const AdminStaff: React.FC = () => {
   const [staff, setStaff] = useState<StaffMember[]>(STAFF_MEMBERS);
-  const [dbAreas, setDbAreas] = useState<StaffAssignedArea[]>([]);
+  const [, setDbAreas] = useState<StaffAssignedArea[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [selected, setSelected] = useState<StaffMember | null>(null);
