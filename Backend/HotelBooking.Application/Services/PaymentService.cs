@@ -17,7 +17,8 @@ public class PaymentService : IPaymentService
     }
 
     public async Task<PaymentResponse> CreatePaymentAsync(
-        CreatePaymentRequest request)
+        CreatePaymentRequest request,
+        long customerId)
     {
         if (request.Amount <= 0)
         {
@@ -34,6 +35,10 @@ public class PaymentService : IPaymentService
             throw new KeyNotFoundException(
                 "Booking not found.");
         }
+
+        var bookingAccess = await _paymentRepository.GetBookingCustomerAccessInfoAsync(request.BookingId)
+            ?? throw new KeyNotFoundException("Booking not found.");
+        EnsureCustomerAccess(bookingAccess, customerId, false);
 
         if (booking.BookingStatus == "Cancelled")
         {
@@ -110,7 +115,9 @@ public class PaymentService : IPaymentService
     }
 
     public async Task<PaymentResponse?> GetPaymentAsync(
-        long paymentId)
+        long paymentId,
+        long actorId,
+        bool canManageAll)
     {
         var payment =
             await _paymentRepository.GetByIdAsync(paymentId);
@@ -120,7 +127,20 @@ public class PaymentService : IPaymentService
             return null;
         }
 
+        var booking = await _paymentRepository.GetBookingCustomerAccessInfoAsync(payment.BookingId)
+            ?? throw new KeyNotFoundException("Booking not found.");
+        EnsureCustomerAccess(booking, actorId, canManageAll);
+
         return MapToResponse(payment);
+    }
+
+    private static void EnsureCustomerAccess(
+        BookingCustomerAccessInfo booking,
+        long actorId,
+        bool canManageAll)
+    {
+        if (!canManageAll && booking.CustomerId != actorId)
+            throw new UnauthorizedAccessException("You do not have permission to access payments for this booking.");
     }
 
     public async Task<IEnumerable<PaymentResponse>>

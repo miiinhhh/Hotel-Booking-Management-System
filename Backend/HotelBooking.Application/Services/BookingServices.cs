@@ -136,7 +136,7 @@ public class BookingServices : IBookingService
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId)
+    public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId, long actorId, bool canManageAll)
     {
         var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
         if (booking == null)
@@ -144,16 +144,20 @@ public class BookingServices : IBookingService
             return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy thông tin đơn đặt phòng.");
         }
 
+        EnsureBookingAccess(booking, actorId, canManageAll);
+
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode)
+    public async Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode, long actorId, bool canManageAll)
     {
         var booking = await _bookingRepository.GetByCodeAsync(bookingCode);
         if (booking == null)
         {
             return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy thông tin đơn đặt phòng theo mã này.");
         }
+
+        EnsureBookingAccess(booking, actorId, canManageAll);
 
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
     }
@@ -189,13 +193,16 @@ public class BookingServices : IBookingService
         return ApiResponse<List<BookingListDto>>.SuccessResult(listDto);
     }
 
-    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, CancelBookingRequest request)
+    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, bool canManageAll, CancelBookingRequest request)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId);
         if (booking == null)
         {
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
         }
+
+
+        EnsureBookingAccess(booking, userId, canManageAll);
 
         if (booking.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed or BookingStatus.Cancelled or BookingStatus.Expired)
         {
@@ -313,5 +320,11 @@ public class BookingServices : IBookingService
                 Note = h.Note
             }).ToList() ?? new()
         };
+    }
+
+    private static void EnsureBookingAccess(Booking booking, long actorId, bool canManageAll)
+    {
+        if (!canManageAll && booking.CustomerId != actorId)
+            throw new UnauthorizedAccessException("You do not have permission to access this booking.");
     }
 }

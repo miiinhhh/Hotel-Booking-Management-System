@@ -20,14 +20,22 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(ClaimTypes.Name, user.FullName),
             new(ClaimTypes.NameIdentifier, user.UserId.ToString())
         };
-        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(roles.Distinct(StringComparer.Ordinal).Select(role => new Claim(ClaimTypes.Role, role)));
 
         var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(settings.Issuer, settings.Audience, claims, expires: expiresAt.UtcDateTime, signingCredentials: credentials);
+        var token = new JwtSecurityToken(
+            settings.Issuer,
+            settings.Audience,
+            claims,
+            notBefore: DateTime.UtcNow,
+            expires: expiresAt.UtcDateTime,
+            signingCredentials: credentials);
         return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 }

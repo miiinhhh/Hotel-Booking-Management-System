@@ -1,7 +1,7 @@
 using HotelBooking.Application.Areas;
-using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
 
 namespace HotelBooking.API.Controllers;
 
@@ -27,7 +27,7 @@ public sealed class HotelAreasController(HotelAreaService service) : ControllerB
         CancellationToken cancellationToken) =>
         Ok(await service.GetAsync(hotelId, areaId, cancellationToken));
 
-    [Authorize(Roles = SystemRoles.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPost]
     [ProducesResponseType<HotelAreaDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -42,7 +42,7 @@ public sealed class HotelAreasController(HotelAreaService service) : ControllerB
         return CreatedAtAction(nameof(Get), new { hotelId, areaId = result.AreaId }, result);
     }
 
-    [Authorize(Roles = SystemRoles.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPut("{areaId:int:min(1)}")]
     [ProducesResponseType<HotelAreaDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -55,7 +55,7 @@ public sealed class HotelAreasController(HotelAreaService service) : ControllerB
         CancellationToken cancellationToken) =>
         Ok(await service.UpdateAsync(hotelId, areaId, request, cancellationToken));
 
-    [Authorize(Roles = SystemRoles.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpDelete("{areaId:int:min(1)}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

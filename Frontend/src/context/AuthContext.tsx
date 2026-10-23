@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { AccountProfile, ApiError, AuthResponse, authApi } from '../services/authApi';
-
-const STORAGE_KEY = 'stayluxe.auth';
+import { AccountProfile, ApiError, AUTH_STORAGE_KEY, AuthResponse, authApi } from '../services/authApi';
 
 interface RegisterInput {
   fullName: string;
@@ -25,13 +23,13 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readSession(): AuthResponse | null {
-  const raw = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
   if (!raw) return null;
   try {
     const session = JSON.parse(raw) as AuthResponse;
     if (new Date(session.expiresAt).getTime() <= Date.now()) {
-      localStorage.removeItem(STORAGE_KEY);
-      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_STORAGE_KEY);
       return null;
     }
     return session;
@@ -46,15 +44,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(Boolean(session));
 
   const persist = (value: AuthResponse, remember: boolean) => {
-    localStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_KEY);
-    (remember ? localStorage : sessionStorage).setItem(STORAGE_KEY, JSON.stringify(value));
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    (remember ? localStorage : sessionStorage).setItem(AUTH_STORAGE_KEY, JSON.stringify(value));
     setSession(value);
   };
 
   const logout = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
     setSession(null);
     setProfile(null);
   };
@@ -92,8 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(result);
       const updated = { ...session, fullName: result.fullName };
       setSession(updated);
-      const storage = localStorage.getItem(STORAGE_KEY) ? localStorage : sessionStorage;
-      storage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      const storage = localStorage.getItem(AUTH_STORAGE_KEY) ? localStorage : sessionStorage;
+      storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
       return result;
     },
     hasRole: (role) => Boolean(session?.roles.includes(role)),

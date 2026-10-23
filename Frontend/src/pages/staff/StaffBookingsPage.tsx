@@ -33,7 +33,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   ]);
 
   useEffect(() => {
-    getMyAssignedAreas(2, 1).then((res) => {
+    getMyAssignedAreas(1).then((res) => {
       if (res.success && res.data && res.data.length > 0) {
         setAssignedAreas(
           res.data.map((a) => ({

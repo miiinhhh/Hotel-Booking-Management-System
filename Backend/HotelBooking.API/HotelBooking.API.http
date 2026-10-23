@@ -1,4 +1,5 @@
-@HotelBooking.API_HostAddress = https://localhost:7131
+@HotelBooking.API_HostAddress = http://localhost:5131
+@accessToken = replace-with-jwt-access-token
 
 ### Register a Customer
 POST {{HotelBooking.API_HostAddress}}/api/auth/register
@@ -24,9 +25,16 @@ Content-Type: application/json
 GET {{HotelBooking.API_HostAddress}}/api/me
 Authorization: Bearer {{accessToken}}
 
-### Staff-only resource
+### Staff/Admin resource
 GET {{HotelBooking.API_HostAddress}}/api/staff
 Authorization: Bearer {{accessToken}}
+
+### Missing token returns RFC 7807 with code AUTH_TOKEN_MISSING
+GET {{HotelBooking.API_HostAddress}}/api/me
+
+### Invalid token returns RFC 7807 with code AUTH_TOKEN_INVALID
+GET {{HotelBooking.API_HostAddress}}/api/me
+Authorization: Bearer invalid-token
 
 ### Admin-only resource
 GET {{HotelBooking.API_HostAddress}}/api/admin
@@ -186,6 +194,7 @@ Content-Type: application/json
 
 ### Create Booking (Authoritative pricing calculated on server)
 POST {{baseUrl}}/api/bookings
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -212,12 +221,15 @@ Content-Type: application/json
 
 ### Get all Areas of Hotel (with room stats)
 GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/areas
+Authorization: Bearer {{accessToken}}
 
 ### Get all Staff Members and their assigned areas
 GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments
+Authorization: Bearer {{accessToken}}
 
 ### Sync Staff Assigned Areas (Assign/Reassign multiple areas to a staff member)
 PUT {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/sync
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -227,7 +239,9 @@ Content-Type: application/json
 
 ### Remove a specific assignment
 DELETE {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/1
+Authorization: Bearer {{accessToken}}
 
 ### Get assigned areas for current staff member (Staff Portal - Active Zone)
-GET {{baseUrl}}/api/staff/me/assigned-areas?userId=2
+GET {{baseUrl}}/api/staff/me/assigned-areas
+Authorization: Bearer {{accessToken}}
 

@@ -5,6 +5,7 @@ export interface AuthResponse {
   roles: string[];
   accessToken: string;
   expiresAt: string;
+  tokenType: 'Bearer';
 }
 
 export interface AccountProfile {
@@ -42,7 +43,20 @@ export class ApiError extends Error {
   }
 }
 
+export const AUTH_STORAGE_KEY = 'stayluxe.auth';
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+export function getStoredAccessToken(): string | null {
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const session = JSON.parse(raw) as Pick<AuthResponse, 'accessToken' | 'expiresAt'>;
+    return new Date(session.expiresAt).getTime() > Date.now() ? session.accessToken : null;
+  } catch {
+    return null;
+  }
+}
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   let response: Response;
