@@ -9,6 +9,8 @@ public class Voucher
     public VoucherType VoucherType { get; set; } = VoucherType.Percentage;
     public decimal DiscountValue { get; set; }
     public decimal MinimumOrderAmount { get; set; }
+    public decimal? MaxDiscountAmount { get; set; }
+    public int UsageLimitPerCustomer { get; set; } = 1;
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
     public int? UsageLimit { get; set; }
@@ -16,6 +18,10 @@ public class Voucher
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    // Navigation properties
+    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<VoucherUsage> VoucherUsages { get; set; } = new List<VoucherUsage>();
 
     public bool IsValidNow(decimal orderAmount, out string? reason)
     {
@@ -67,6 +73,11 @@ public class Voucher
             VoucherType.FixedAmount => Math.Min(DiscountValue, orderAmount),
             _ => 0m
         };
+
+        if (VoucherType == VoucherType.Percentage && MaxDiscountAmount.HasValue && MaxDiscountAmount.Value > 0)
+        {
+            discount = Math.Min(discount, MaxDiscountAmount.Value);
+        }
 
         return Math.Clamp(discount, 0m, orderAmount);
     }

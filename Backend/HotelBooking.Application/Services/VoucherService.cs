@@ -2,6 +2,7 @@ using HotelBooking.Application.DTOs.Common;
 using HotelBooking.Application.DTOs.Voucher;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
+using HotelBooking.Domain.Enums;
 
 namespace HotelBooking.Application.Services;
 
@@ -100,7 +101,7 @@ public class VoucherService : IVoucherService
         }
 
         decimal discount = 0m;
-        if (string.Equals(voucher.VoucherType, "Percentage", StringComparison.OrdinalIgnoreCase))
+        if (voucher.VoucherType == VoucherType.Percentage)
         {
             discount = request.SubTotal * (voucher.DiscountValue / 100m);
             if (voucher.MaxDiscountAmount.HasValue && voucher.MaxDiscountAmount.Value > 0)
@@ -215,7 +216,8 @@ public class VoucherService : IVoucherService
             throw new ArgumentException("Giá trị giảm giá phải lớn hơn 0.");
         }
 
-        if (string.Equals(request.VoucherType, "Percentage", StringComparison.OrdinalIgnoreCase) && request.DiscountValue > 100)
+        var voucherType = ParseVoucherType(request.VoucherType);
+        if (voucherType == VoucherType.Percentage && request.DiscountValue > 100)
         {
             throw new ArgumentException("Voucher phần trăm không thể giảm quá 100%.");
         }
@@ -223,7 +225,7 @@ public class VoucherService : IVoucherService
         var voucher = new Voucher
         {
             Code = normalizedCode,
-            VoucherType = request.VoucherType,
+            VoucherType = voucherType,
             DiscountValue = request.DiscountValue,
             MinimumOrderAmount = request.MinimumOrderAmount,
             MaxDiscountAmount = request.MaxDiscountAmount,
@@ -258,12 +260,13 @@ public class VoucherService : IVoucherService
             throw new ArgumentException("Giá trị giảm giá phải lớn hơn 0.");
         }
 
-        if (string.Equals(request.VoucherType, "Percentage", StringComparison.OrdinalIgnoreCase) && request.DiscountValue > 100)
+        var voucherType = ParseVoucherType(request.VoucherType);
+        if (voucherType == VoucherType.Percentage && request.DiscountValue > 100)
         {
             throw new ArgumentException("Voucher phần trăm không thể giảm quá 100%.");
         }
 
-        voucher.VoucherType = request.VoucherType;
+        voucher.VoucherType = voucherType;
         voucher.DiscountValue = request.DiscountValue;
         voucher.MinimumOrderAmount = request.MinimumOrderAmount;
         voucher.MaxDiscountAmount = request.MaxDiscountAmount;
@@ -309,13 +312,23 @@ public class VoucherService : IVoucherService
         return true;
     }
 
+    private static VoucherType ParseVoucherType(string? voucherType)
+    {
+        if (Enum.TryParse<VoucherType>(voucherType, true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return VoucherType.Percentage;
+    }
+
     private static VoucherResponseDto MapToDto(Voucher v)
     {
         return new VoucherResponseDto
         {
             VoucherId = v.VoucherId,
             Code = v.Code,
-            VoucherType = v.VoucherType,
+            VoucherType = v.VoucherType.ToString(),
             DiscountValue = v.DiscountValue,
             MinimumOrderAmount = v.MinimumOrderAmount,
             MaxDiscountAmount = v.MaxDiscountAmount,

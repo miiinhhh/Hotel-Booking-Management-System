@@ -2,11 +2,11 @@ namespace HotelBooking.Application.Services;
 
 using HotelBooking.Application.Common;
 using HotelBooking.Application.DTOs.Booking;
-using HotelBooking.Application.DTOs.Pricing;
 using HotelBooking.Application.DTOs.Voucher;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Domain.Enums;
+using BookingPriceCalculationResultDto = HotelBooking.Application.DTOs.Booking.PriceCalculationResultDto;
 
 public class BookingServices : IBookingService
 {
@@ -49,7 +49,7 @@ public class BookingServices : IBookingService
 
         // 3. Tính toán chi phí chuẩn xác từ hệ thống (Server-authoritative calculation)
         var roomIds = request.Rooms.Select(r => r.RoomId).Distinct().ToList();
-        PriceCalculationResultDto pricing;
+        BookingPriceCalculationResultDto pricing;
         try
         {
             pricing = await _pricingService.CalculateAuthoritativePriceAsync(
@@ -129,10 +129,23 @@ public class BookingServices : IBookingService
         await _bookingRepository.AddAsync(booking);
         await _bookingRepository.SaveChangesAsync();
 
-        // Tăng số lượt dùng của Voucher nếu có áp dụng
+        // Tăng số lượt dùng của Voucher và ghi nhận lịch sử áp mã nếu có
         if (pricing.VoucherId.HasValue)
         {
-            await _voucherRepository.IncrementUsedCountAsync(pricing.VoucherId.Value);
+            var incremented = await _voucherRepository.IncrementUsedCountAtomicAsync(pricing.VoucherId.Value);
+            if (!incremented)
+            {
+                await _voucherRepository.IncrementUsedCountAsync(pricing.VoucherId.Value);
+            }
+
+            await _voucherRepository.AddUsageRecordAsync(new VoucherUsage
+            {
+                VoucherId = pricing.VoucherId.Value,
+                CustomerId = customerId,
+                BookingId = booking.BookingId,
+                DiscountApplied = pricing.DiscountAmount,
+                UsedAt = DateTime.UtcNow
+            });
         }
 
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
@@ -203,10 +216,11 @@ public class BookingServices : IBookingService
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
         }
 
-
         EnsureBookingAccess(booking, userId, canManageAll);
 
-        if (booking.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed or BookingStatus.Cancelled or BookingStatus.Expired)
+        if (booking.BookingStatus == BookingStatus.Cancelled ||
+            booking.BookingStatus == BookingStatus.Completed ||
+            booking.BookingStatus == BookingStatus.Expired)
         {
             return ApiResponse<bool>.FailureResult($"Không thể hủy đơn đặt phòng đang ở trạng thái: {booking.BookingStatus}.");
         }
