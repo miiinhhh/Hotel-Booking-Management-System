@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { authApi, StaffAccount } from '../../../services/authApi';
 import { getHotelStaffAssignments, getHotelAreas, syncStaffAreas, StaffAssignedArea } from '../../../services/staffAssignmentApi';
@@ -46,6 +46,7 @@ export const AdminStaff: React.FC = () => {
       if (request === generation.current) setError(reason instanceof Error ? reason.message : 'Không tải được nhân viên.');
     } finally { if (request === generation.current) setLoading(false); }
   };
+
   useEffect(() => { void load(); return () => { generation.current++; }; }, [session?.accessToken, hotelId]);
   useEffect(() => { setPage(1); }, [search, status]);
   const filtered = useMemo(() => staff.filter(m =>
