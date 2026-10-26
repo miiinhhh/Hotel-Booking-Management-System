@@ -25,4 +25,8 @@ public sealed class RoomTypesController(RoomService service) : ControllerBase
     [HttpDelete("{id:int:min(1)}")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Delete(int hotelId, int id, CancellationToken ct) { await service.DeleteType(hotelId, id, ct); return NoContent(); }
+    [HttpPatch("{id:int:min(1)}/status")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    public async Task<ActionResult<RoomTypeDto>> SetStatus(int hotelId, int id, RoomTypeStatusRequest request, CancellationToken ct) =>
+        Ok(await service.SetTypeStatus(hotelId, id, request.IsActive!.Value, ct));
 }

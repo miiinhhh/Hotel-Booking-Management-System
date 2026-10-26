@@ -1,33 +1,77 @@
-import React, { FormEvent, useMemo, useState } from 'react';
-import { formatCurrency, ROOM_TYPES, ZONES } from '../data/adminData';
+﻿import React, { FormEvent, useEffect, useState } from 'react';
+import { roomApi, RoomTypeDto, HotelAreaDto, RoomTypeInput } from '../../../services/roomApi';
+import { formatCurrency } from '../data/adminData';
 import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
-import { RoomType } from '../types';
 
 export const AdminInventory: React.FC = () => {
-  const [selectedZone, setSelectedZone] = useState('a');
-  const [rooms, setRooms] = useState<RoomType[]>(ROOM_TYPES);
+  const [hotelId, setHotelId] = useState(1);
+  const [areas, setAreas] = useState<HotelAreaDto[]>([]);
+  const [selectedArea, setSelectedArea] = useState(0);
+  const [types, setTypes] = useState<RoomTypeDto[]>([]);
   const [search, setSearch] = useState('');
-  const [roomModal, setRoomModal] = useState(false);
-  const [zoneModal, setZoneModal] = useState(false);
+  const [editing, setEditing] = useState<RoomTypeDto | 'new' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [modalError, setModalError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const zone = ZONES.find((item) => item.id === selectedZone) ?? ZONES[0];
-  const filteredRooms = useMemo(() => rooms.filter((room) => `${room.name} ${room.code}`.toLowerCase().includes(search.toLowerCase())), [rooms, search]);
-  const showToast = (message: string) => { setToast(message); window.setTimeout(() => setToast(null), 2600); };
-  const addRoom = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let active = true; setLoading(true); setError(''); setAreas([]); setTypes([]); setSelectedArea(0); setEditing(null);
+    Promise.all([roomApi.areas(hotelId), roomApi.types(hotelId)]).then(([a, t]) => {
+      if (active) { setAreas(a); setTypes(t); setSelectedArea(a[0]?.areaId || 0); }
+    }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Không tải được kho phòng.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [hotelId, revision]);
+  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(null), 2600); };
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); if (!editing || saving) return;
     const data = new FormData(event.currentTarget);
-    setRooms((current) => [...current, { id: Date.now(), code: String(data.get('code')), name: String(data.get('name')), image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1000&q=80', price: Number(data.get('price')), capacity: '2 lớn', area: Number(data.get('area')), bed: '1 King lớn', status: 'active', amenities: ['Bữa sáng', 'Minibar'] }]);
-    setRoomModal(false); showToast('Đã thêm hạng phòng mới vào danh mục.');
+    const input: RoomTypeInput = { name: String(data.get('name')).trim(), description: String(data.get('description')).trim() || null,
+      basePrice: Number(data.get('price')), capacity: Number(data.get('capacity')), numberOfBeds: Number(data.get('beds')) };
+    setSaving(true); setModalError('');
+    try {
+      const updated = editing === 'new' ? await roomApi.createType(hotelId, selectedArea, input) : await roomApi.updateType(hotelId, editing.roomTypeId, input);
+      setTypes(current => editing === 'new' ? [...current, updated] : current.map(t => t.roomTypeId === updated.roomTypeId ? updated : t));
+      setEditing(null); notify('Đã lưu loại phòng.');
+    } catch (reason) { setModalError(reason instanceof Error ? reason.message : 'Không lưu được loại phòng.'); }
+    finally { setSaving(false); }
   };
-
+  const mutate = async (type: RoomTypeDto, remove = false) => {
+    if (saving) return;
+    if (remove && !window.confirm(`Vô hiệu hóa loại phòng ${type.name}?`)) return;
+    setSaving(true); setError('');
+    try {
+      if (remove) { await roomApi.deleteType(hotelId, type.roomTypeId); setTypes(current => current.map(t => t.roomTypeId === type.roomTypeId ? { ...t, isActive: false } : t)); }
+      else { const updated = await roomApi.typeStatus(hotelId, type.roomTypeId, !type.isActive); setTypes(current => current.map(t => t.roomTypeId === updated.roomTypeId ? updated : t)); }
+      notify('Đã cập nhật trạng thái loại phòng.');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không cập nhật được loại phòng.'); }
+    finally { setSaving(false); }
+  };
+  const filtered = types.filter(t => t.areaId === selectedArea && t.name.toLowerCase().includes(search.toLowerCase()));
+  const current = editing && editing !== 'new' ? editing : null;
   return <>
-    <PageHeading title="Quản lý Phân khu & Hạng phòng" description="Quản lý tòa nhà, sức chứa và danh mục phòng đang phân phối trên hệ thống." actions={<><button onClick={() => setZoneModal(true)} className="flex items-center gap-2 rounded-full border border-primary px-5 py-2.5 font-semibold text-primary"><span className="material-symbols-outlined text-lg">domain_add</span>Thêm phân khu</button><button onClick={() => setRoomModal(true)} className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-semibold text-on-primary"><span className="material-symbols-outlined text-lg">add</span>Thêm hạng phòng</button></>} />
-    <section><div className="mb-4 flex items-center justify-between"><div><h2 className="font-headline-sm text-xl font-semibold">Danh sách phân khu & tòa nhà</h2><p className="text-sm text-outline">Chọn một khu để xem danh mục phòng</p></div><span className="text-sm font-semibold text-primary">4 phân khu · 205 phòng</span></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{ZONES.map((item) => { const rate = Math.round(item.occupied / item.rooms * 100); return <button key={item.id} onClick={() => setSelectedZone(item.id)} className={`rounded-lg border p-5 text-left transition-all ${selectedZone === item.id ? 'border-primary bg-primary-fixed/30 shadow-md' : 'border-outline-variant/40 bg-surface-container-lowest hover:border-primary/40'}`}><div className="mb-4 flex items-start justify-between"><span className={`flex h-10 w-10 items-center justify-center rounded-full ${selectedZone === item.id ? 'bg-primary text-on-primary' : 'bg-surface-container'}`}><span className="material-symbols-outlined">apartment</span></span><span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${item.status.includes('Bảo trì') ? 'bg-error-container text-on-error-container' : 'bg-emerald-100 text-emerald-800'}`}>{item.status}</span></div><h3 className="min-h-12 font-semibold">{item.name}</h3><div className="mt-4 flex justify-between text-xs text-outline"><span>{item.occupied}/{item.rooms} phòng sử dụng</span><strong className="text-on-surface">{rate}%</strong></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-container-highest"><div className="h-full rounded-full bg-primary-container" style={{ width: `${rate}%` }} /></div></button>; })}</div></section>
-    <section className="mt-8"><div className="mb-5 flex flex-col gap-4 rounded-lg bg-surface-container-low p-4 md:flex-row md:items-center md:justify-between"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-fixed text-primary"><span className="material-symbols-outlined">info</span></div><div><p className="font-semibold">Đang hiển thị phòng thuộc {zone.name}</p><p className="text-sm text-on-surface-variant">{rooms.length} hạng phòng kích hoạt · {zone.rooms} phòng vật lý</p></div></div><div className="relative"><span className="material-symbols-outlined absolute left-3 top-2.5 text-lg text-outline">search</span><input value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 w-full rounded-full border border-outline-variant/50 bg-white pl-10 pr-4 outline-none focus:border-primary md:w-72" placeholder="Tìm tên hoặc mã phòng..." /></div></div>
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filteredRooms.map((room) => <article key={room.id} className="overflow-hidden rounded-lg border border-outline-variant/30 bg-surface-container-lowest shadow-sm"><div className="relative m-2.5 h-52 overflow-hidden rounded-lg"><img src={room.image} alt={room.name} className="h-full w-full object-cover transition-transform duration-500 hover:scale-105" /><span className="absolute left-3 top-3 rounded-full bg-emerald-950/80 px-3 py-1 text-xs font-semibold text-emerald-200">Đang mở bán</span><span className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold">{room.code}</span></div><div className="p-5 pt-3"><h3 className="font-headline-sm text-xl font-semibold">{room.name}</h3><p className="mt-1 text-xl font-semibold text-primary">Từ {formatCurrency(room.price)} <span className="text-sm font-normal text-outline">/ đêm</span></p><div className="my-4 grid grid-cols-3 rounded-lg bg-surface-container-low p-3 text-center text-xs"><div><span className="material-symbols-outlined text-lg text-outline">group</span><strong className="block">{room.capacity}</strong></div><div className="border-x border-outline-variant/40"><span className="material-symbols-outlined text-lg text-outline">aspect_ratio</span><strong className="block">{room.area} m²</strong></div><div><span className="material-symbols-outlined text-lg text-outline">king_bed</span><strong className="block">{room.bed}</strong></div></div><div className="flex flex-wrap gap-1.5">{room.amenities.map((item) => <span key={item} className="rounded-full bg-surface-container px-2.5 py-1 text-xs text-on-surface-variant">{item}</span>)}</div></div><footer className="flex items-center justify-between border-t border-outline-variant/30 px-5 py-3"><span className="flex items-center gap-2 text-sm"><Toggle checked={room.status === 'active'} label={`Trạng thái ${room.name}`} onChange={() => setRooms((all) => all.map((item) => item.id === room.id ? { ...item, status: item.status === 'active' ? 'paused' : 'active' } : item))} />Mở bán</span><div className="flex gap-1"><button title="Chỉnh sửa" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container"><span className="material-symbols-outlined text-lg">edit</span></button><button title="Nhân bản" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container"><span className="material-symbols-outlined text-lg">content_copy</span></button><button title="Xóa" onClick={() => setRooms((all) => all.filter((item) => item.id !== room.id))} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-error-container hover:text-error"><span className="material-symbols-outlined text-lg">delete</span></button></div></footer></article>)}</div>
+    <PageHeading title="Kho phòng & Loại phòng" description="Quản lý loại phòng, giá, sức chứa theo khách sạn và khu vực." actions={<button disabled={loading || saving || !selectedArea} onClick={() => { setEditing('new'); setModalError(''); }} className="rounded-full bg-primary px-5 py-2 text-on-primary disabled:opacity-40">Thêm loại phòng</button>} />
+    <form onSubmit={e => { e.preventDefault(); const id = Number(new FormData(e.currentTarget).get('hotel')); if (id > 0 && Number.isSafeInteger(id)) setHotelId(id); }} className="mb-5 flex flex-wrap gap-3">
+      <label>Mã khách sạn <input disabled={saving} key={hotelId} name="hotel" type="number" min="1" step="1" required defaultValue={hotelId} className="rounded-lg bg-surface-container-low p-2" /></label><button disabled={saving} className="rounded-full bg-primary px-4 py-2 text-on-primary">Xem</button>
+      <button disabled={loading || saving} type="button" onClick={() => setRevision(r => r + 1)} className="rounded-full bg-surface-container px-4">Làm mới</button>
+    </form>
+    {error && <p role="alert" className="mb-5 rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
+    <section className="rounded-lg bg-surface-container-lowest p-5 shadow-sm">
+      <div className="mb-5 flex flex-wrap gap-3"><select aria-label="Khu vực" disabled={loading || saving} value={selectedArea} onChange={e => setSelectedArea(Number(e.target.value))} className="rounded-lg bg-surface-container-low p-3"><option value={0}>Chọn khu vực</option>{areas.map(a => <option key={a.areaId} value={a.areaId}>{a.areaName}</option>)}</select><input aria-label="Tìm loại phòng" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm loại phòng…" className="rounded-full bg-surface-container-low px-4" /></div>
+      {loading ? <p role="status">Đang tải kho phòng…</p> : !filtered.length ? <p>Chưa có loại phòng phù hợp trong khu vực này.</p> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map(t => <article key={t.roomTypeId} className="rounded-lg border border-outline-variant/30 p-5"><h3 className="text-xl font-semibold">{t.name}</h3><p className="text-sm text-outline">#{t.roomTypeId} · {t.capacity} khách · {t.numberOfBeds} giường</p><p className="my-3">{t.description}</p><strong className="text-primary">{formatCurrency(t.basePrice)} / đêm</strong><div className="mt-5 flex items-center justify-between gap-2"><Toggle checked={t.isActive} disabled={saving} label={`Hoạt động ${t.name}`} onChange={() => void mutate(t)} /><span>{t.isActive ? 'Hoạt động' : 'Vô hiệu hóa'}</span><button disabled={saving || !t.isActive} onClick={() => { setEditing(t); setModalError(''); }} className="rounded-full bg-surface-container px-3 py-2">Sửa</button><button disabled={saving || !t.isActive} onClick={() => void mutate(t, true)} className="rounded-full bg-error-container px-3 py-2 text-on-error-container">Xóa</button></div></article>)}</div>}
     </section>
-    <Modal title="Thêm loại phòng mới" open={roomModal} onClose={() => setRoomModal(false)}><form onSubmit={addRoom} className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Tên hạng phòng<input required name="name" className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 font-normal outline-none focus:ring-2 focus:ring-primary/20" placeholder="Grand Ocean Suite" /></label><label className="text-sm font-semibold">Mã hạng phòng<input required name="code" className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 font-normal outline-none focus:ring-2 focus:ring-primary/20" placeholder="SUITE-A4" /></label><label className="text-sm font-semibold">Giá cơ sở<input required min="0" name="price" type="number" className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 font-normal outline-none focus:ring-2 focus:ring-primary/20" defaultValue="4500000" /></label><label className="text-sm font-semibold">Diện tích (m²)<input required min="1" name="area" type="number" className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 font-normal outline-none focus:ring-2 focus:ring-primary/20" defaultValue="80" /></label><div className="col-span-full mt-3 flex justify-end gap-3"><button type="button" onClick={() => setRoomModal(false)} className="rounded-full bg-surface-container px-5 py-2.5 font-semibold">Hủy</button><button className="rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary">Lưu hạng phòng</button></div></form></Modal>
-    <Modal title="Thêm phân khu / Tòa nhà" open={zoneModal} onClose={() => setZoneModal(false)}><div className="space-y-4"><label className="block text-sm font-semibold">Tên phân khu<input className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 font-normal" placeholder="Ví dụ: Tòa D - Garden Residence" /></label><label className="block text-sm font-semibold">Mô tả<textarea className="mt-1 w-full rounded-lg bg-surface-container-low p-4 font-normal" rows={3} placeholder="Mô tả vị trí và chức năng..." /></label><div className="flex justify-end gap-3"><button onClick={() => setZoneModal(false)} className="rounded-full bg-surface-container px-5 py-2.5 font-semibold">Hủy</button><button onClick={() => { setZoneModal(false); showToast('Đã lưu thông tin phân khu mới.'); }} className="rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary">Tạo phân khu</button></div></div></Modal>
-    <Toast message={toast} />
+    <Modal title={editing === 'new' ? 'Thêm loại phòng' : 'Cập nhật loại phòng'} open={Boolean(editing)} onClose={() => { if (!saving) setEditing(null); }}>
+      {editing && <form key={editing === 'new' ? 'new' : editing.roomTypeId} onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+        {modalError && <p role="alert" className="col-span-full text-error">{modalError}</p>}
+        <label className="col-span-full">Tên loại phòng<input name="name" required maxLength={100} defaultValue={current?.name} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <label>Giá / đêm<input name="price" type="number" required min="0" step="0.01" defaultValue={current?.basePrice ?? 0} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <label>Sức chứa<input name="capacity" type="number" required min="1" step="1" defaultValue={current?.capacity ?? 2} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <label>Số giường<input name="beds" type="number" required min="1" step="1" defaultValue={current?.numberOfBeds ?? 1} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <label className="col-span-full">Mô tả<textarea name="description" defaultValue={current?.description ?? ''} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <button disabled={saving} className="col-span-full rounded-full bg-primary p-3 text-on-primary disabled:opacity-50">{saving ? 'Đang lưu…' : 'Lưu loại phòng'}</button>
+      </form>}
+    </Modal><Toast message={toast} />
   </>;
 };

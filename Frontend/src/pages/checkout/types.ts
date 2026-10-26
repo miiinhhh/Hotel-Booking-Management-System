@@ -15,6 +15,11 @@ export interface SpecialRequestOption {
 }
 
 export interface CheckoutBookingData {
+  roomId?: number;
+  hotelId?: number;
+  checkIn?: string;
+  checkOut?: string;
+  numberOfGuests?: number;
   hotelName: string;
   starRatingText: string;
   location: string;

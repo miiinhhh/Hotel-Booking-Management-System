@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:staff": "node --test tests/staffPagination.test.mjs",
+    "test:rooms": "node --test tests/roomApi.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

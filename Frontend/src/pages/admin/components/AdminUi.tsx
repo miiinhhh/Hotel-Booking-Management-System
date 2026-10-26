@@ -11,8 +11,8 @@ export const IconButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> 
   <button aria-label={label} title={label} className={`flex h-9 w-9 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-colors hover:text-primary ${className}`} {...props}><span className="material-symbols-outlined text-lg">{icon}</span></button>
 );
 
-export const Toggle: React.FC<{ checked: boolean; onChange: () => void; label: string }> = ({ checked, onChange, label }) => (
-  <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className={`relative h-6 w-11 rounded-full transition-colors ${checked ? 'bg-primary-container' : 'bg-surface-container-highest'}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} /></button>
+export const Toggle: React.FC<{ checked: boolean; onChange: () => void; label: string; disabled?: boolean }> = ({ checked, onChange, label, disabled }) => (
+  <button type="button" role="switch" disabled={disabled} aria-checked={checked} aria-label={label} onClick={onChange} className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${checked ? 'bg-primary-container' : 'bg-surface-container-highest'}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} /></button>
 );
 
 export const Modal: React.FC<{ title: string; open: boolean; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }> = ({ title, open, onClose, children, footer }) => {

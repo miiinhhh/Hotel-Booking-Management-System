@@ -49,6 +49,13 @@ public sealed class RoomService(IRoomRepository repository)
         if (await repository.HasActiveRoomsAsync(id, ct)) throw new ConflictException("Deactivate rooms before deactivating their type.");
         type.Deactivate(); await repository.SaveAsync(ct);
     }
+    public async Task<RoomTypeDto> SetTypeStatus(int hotelId, int id, bool active, CancellationToken ct)
+    {
+        if (!active) { await DeleteType(hotelId, id, ct); return await GetType(hotelId, id, ct); }
+        var type = await Type(hotelId, id, ct);
+        await ValidateArea(hotelId, type.AreaId, ct);
+        type.Activate(); await repository.SaveAsync(ct); return Map(type);
+    }
     public async Task<IReadOnlyList<RoomDto>> ListRooms(int hotelId, CancellationToken ct) => (await repository.ListRoomsAsync(hotelId, ct)).Select(Map).ToList();
     public async Task<RoomDto> GetRoom(int hotelId, long id, CancellationToken ct) => Map(await Room(hotelId, id, ct));
     private async Task<RoomType> ValidType(int hotelId, int areaId, int id, CancellationToken ct)
