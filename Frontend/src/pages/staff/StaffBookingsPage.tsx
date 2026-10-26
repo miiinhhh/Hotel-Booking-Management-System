@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
 import { StaffHeader } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
@@ -10,8 +10,15 @@ import { StaffCustomersView } from './components/StaffCustomersView';
 import { StaffCalendarView } from './components/StaffCalendarView';
 import { StaffSuitesView } from './components/StaffSuitesView';
 import { MOCK_STAFF_BOOKINGS, MOCK_STAFF_METRICS } from './data/mockStaffBookings';
-import { StaffBooking, StaffMetricsData, StaffPortalTab } from './types';
+import { StaffBooking, StaffMetricsData, StaffPortalTab, StaffBookingStatus, StaffDepositStatus } from './types';
 import { getMyAssignedAreas } from '../../services/staffAssignmentApi';
+import {
+  getBookingsList,
+  updateBookingStatus,
+  cancelBooking,
+  BookingListDto,
+} from '../../services/bookingApi';
+import { getCurrentUser } from '../../services/apiClient';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
@@ -31,21 +38,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     { areaId: 1, areaName: 'Zone A: Royal Pavilion', areaType: 'Zone', totalRooms: 48 },
     { areaId: 2, areaName: 'Zone B: Ocean Wing', areaType: 'Zone', totalRooms: 36 },
   ]);
-
-  useEffect(() => {
-    getMyAssignedAreas(2, 1).then((res) => {
-      if (res.success && res.data && res.data.length > 0) {
-        setAssignedAreas(
-          res.data.map((a) => ({
-            areaId: a.areaId,
-            areaName: a.areaName,
-            areaType: a.areaType,
-            totalRooms: a.totalRooms,
-          }))
-        );
-      }
-    });
-  }, []);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +61,119 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
       setToastMessage(null);
     }, 3500);
   };
+
+  // Map Backend Status to Frontend UI Status
+  const mapBackendStatus = (status: string): { status: StaffBookingStatus; label: string } => {
+    switch (status?.toLowerCase()) {
+      case 'checkedin':
+        return { status: 'checked_in', label: 'ĐÃ CHECK-IN' };
+      case 'confirmed':
+        return { status: 'confirmed_deposit', label: 'ĐÃ XÁC NHẬN CỌC' };
+      case 'cancelled':
+        return { status: 'cancelled', label: 'ĐÃ HỦY' };
+      case 'checkedout':
+      case 'completed':
+        return { status: 'staying', label: 'ĐÃ HOÀN TẤT' };
+      case 'pending':
+      default:
+        return { status: 'pending_deposit', label: 'CHỜ CỌC' };
+    }
+  };
+
+  const mapBackendPayment = (pmt: string, dep: number, tot: number): { status: StaffDepositStatus; label: string } => {
+    if (pmt === 'Paid') return { status: 'paid_100', label: 'Đã trả 100%' };
+    if (pmt === 'Refunded') return { status: 'refunded', label: 'Đã hoàn cọc' };
+    if (dep > 0) return { status: 'deposited_50', label: `Đã cọc ${dep.toLocaleString('vi-VN')}₫` };
+    return { status: 'unpaid', label: 'Chưa thanh toán' };
+  };
+
+  // Load Bookings from Backend API
+  const fetchBookings = useCallback(async () => {
+    const res = await getBookingsList({
+      pageIndex: 1,
+      pageSize: 50,
+    });
+
+    if (res.success && res.data && res.data.length > 0) {
+      const apiBookings: StaffBooking[] = res.data.map((b: BookingListDto, idx: number) => {
+        const mappedSt = mapBackendStatus(b.bookingStatus);
+        const mappedDep = mapBackendPayment(b.paymentStatus, b.depositAmount, b.totalAmount);
+        const checkIn = new Date(b.checkInDate);
+        const checkOut = new Date(b.checkOutDate);
+        const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 3600 * 24)));
+
+        return {
+          id: String(b.bookingId),
+          bookingCode: b.bookingCode || `#BK-${10000 + b.bookingId}`,
+          createdAt: b.createdAt ? new Date(b.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+          customerName: `Khách hàng #${b.customerId}`,
+          customerInitials: `KH`,
+          customerPhone: '0908 *** ***',
+          customerEmail: `guest_${b.customerId}@hotel.vn`,
+          customerCccd: '0482 ********',
+          vipLevel: 'Hội viên StayLuxe',
+          membershipTier: 'Standard',
+          zone: idx % 2 === 0 ? 'Tòa A' : 'Tòa B',
+          roomNumber: `P.${300 + (b.bookingId % 100)}`,
+          roomType: 'Deluxe Heritage Suite',
+          roomDetails: `${b.numberOfGuests} khách · ${b.roomCount} phòng`,
+          checkInDate: b.checkInDate,
+          checkOutDate: b.checkOutDate,
+          checkInTime: '14:00',
+          checkOutTime: '12:00',
+          nightsCount: nights,
+          nightsLabel: `${nights} đêm nghỉ`,
+          totalAmount: b.totalAmount,
+          paidAmount: b.depositAmount,
+          remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
+          depositStatus: mappedDep.status,
+          depositStatusLabel: mappedDep.label,
+          depositDeadline: '15 phút',
+          status: mappedSt.status,
+          statusLabel: mappedSt.label,
+          transactionCode: `TRANS-${b.bookingId}`,
+          receptionist: 'Lễ tân trực',
+          lastUpdated: 'Vừa xong',
+        };
+      });
+
+      // Merge with sample bookings so table stays comprehensive
+      setBookings((prev) => {
+        const apiIds = new Set(apiBookings.map((b) => b.id));
+        const kept = prev.filter((b) => !apiIds.has(b.id));
+        return [...apiBookings, ...kept];
+      });
+
+      // Update metrics from active data
+      setMetrics((prev) => ({
+        ...prev,
+        totalToday: apiBookings.length,
+        pendingDepositCount: apiBookings.filter((b) => b.status === 'pending_deposit').length,
+        checkInCompletedCount: apiBookings.filter((b) => b.status === 'checked_in').length,
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    const effectiveUserId = user?.userId || 2;
+    const effectiveHotelId = user?.hotelId || 1;
+
+    getMyAssignedAreas(effectiveUserId, effectiveHotelId).then((res) => {
+      if (res.success && res.data && res.data.length > 0) {
+        setAssignedAreas(
+          res.data.map((a) => ({
+            areaId: a.areaId,
+            areaName: a.areaName,
+            areaType: a.areaType,
+            totalRooms: a.totalRooms,
+          }))
+        );
+      }
+    });
+
+    fetchBookings();
+  }, [fetchBookings]);
 
   // Filtered bookings
   const filteredBookings = useMemo(() => {
@@ -120,7 +225,19 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   // Quick check-in
-  const handleCheckIn = (target: StaffBooking) => {
+  const handleCheckIn = async (target: StaffBooking) => {
+    const bookingIdNum = Number(target.id);
+    if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
+      const res = await updateBookingStatus(bookingIdNum, {
+        newStatus: 'CheckedIn',
+        note: `Check-in thành công bởi Lễ tân trực lúc ${new Date().toLocaleTimeString('vi-VN')}`,
+      });
+      if (!res.success) {
+        showToast(`Lỗi Check-in: ${res.message || 'Không thể cập nhật trên máy chủ'}`);
+        return;
+      }
+    }
+
     setBookings((prev) =>
       prev.map((b) =>
         b.id === target.id
@@ -159,7 +276,19 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   // Quick confirm deposit
-  const handleConfirmDeposit = (target: StaffBooking) => {
+  const handleConfirmDeposit = async (target: StaffBooking) => {
+    const bookingIdNum = Number(target.id);
+    if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
+      const res = await updateBookingStatus(bookingIdNum, {
+        newStatus: 'Confirmed',
+        note: `Xác nhận nhận tiền cọc thành công bởi Lễ tân trực`,
+      });
+      if (!res.success) {
+        showToast(`Lỗi xác nhận cọc: ${res.message || 'Không thể cập nhật trên máy chủ'}`);
+        return;
+      }
+    }
+
     const depositVal = Math.round(target.totalAmount * 0.5);
     setBookings((prev) =>
       prev.map((b) =>
@@ -187,7 +316,16 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   // Cancel booking
-  const handleCancelBooking = (target: StaffBooking) => {
+  const handleCancelBooking = async (target: StaffBooking) => {
+    const bookingIdNum = Number(target.id);
+    if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
+      const res = await cancelBooking(bookingIdNum, 'Hủy đơn theo yêu cầu của khách tại quầy Lễ tân');
+      if (!res.success) {
+        showToast(`Lỗi hủy đơn: ${res.message || 'Không thể hủy trên máy chủ'}`);
+        return;
+      }
+    }
+
     setBookings((prev) =>
       prev.map((b) =>
         b.id === target.id

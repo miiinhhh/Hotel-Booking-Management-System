@@ -97,6 +97,17 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddApplicationServices();
 builder.Services.AddScoped<RoomService>();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendClient", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
@@ -110,6 +121,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 app.UseHttpsRedirection();
+app.UseCors("FrontendClient");
 app.UseAuthentication();
 app.UseAuthorization();
 
