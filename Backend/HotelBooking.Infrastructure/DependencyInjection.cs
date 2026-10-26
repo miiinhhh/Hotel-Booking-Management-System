@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddSingleton<IImageStorage, LocalImageStorage>();
         services.AddHostedService<ImageCleanupWorker>();
         services.AddScoped<IHotelAreaRepository, HotelAreaRepository>();
+        services.AddScoped<IDiscoveryRepository, DiscoveryRepository>();
 
         // Module Booking
         services.AddDbContext<BookingDbContext>(options =>
@@ -67,4 +68,3 @@ public static class DependencyInjection
         return services;
     }
 }
-

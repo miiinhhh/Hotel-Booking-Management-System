@@ -1,6 +1,13 @@
 -- Run against the database created by Hotel_Booking_Database_Updated.sql.
 -- Additive and rerunnable. Does not create/drop existing Hotel/Room data.
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
 BEGIN TRANSACTION;
 IF OBJECT_ID('dbo.HotelImages') IS NULL OR OBJECT_ID('dbo.RoomImages') IS NULL
     THROW 50000, 'Create the base Hotel Booking schema before applying PropertyContent.sql.', 1;

@@ -41,9 +41,12 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         return await AvailabilityQuery(hotelId, checkIn, checkOut).OrderBy(r => r.RoomId).ToListAsync(ct);
     }
     internal IQueryable<AvailableRoom> AvailabilityQuery(int hotelId, DateOnly checkIn, DateOnly checkOut)
+        => AllAvailabilityQuery(checkIn, checkOut).Where(r => r.HotelId == hotelId);
+
+    internal IQueryable<AvailableRoom> AllAvailabilityQuery(DateOnly checkIn, DateOnly checkOut)
     {
         var busy = Busy(checkIn.ToDateTime(TimeOnly.MinValue), checkOut.ToDateTime(TimeOnly.MinValue));
-        return Stock().Where(r => r.HotelId == hotelId && !busy.Contains(r.RoomId));
+        return Stock().Where(r => !busy.Contains(r.RoomId));
     }
     private IQueryable<long> AllowedRooms(int hotelId, long actorId, bool isAdmin) =>
         from r in Stock(false)

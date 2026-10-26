@@ -83,6 +83,7 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
             {/* Breadcrumbs & Quick Share/Save Actions */}
             <BreadcrumbHeader
               hotelName={hotelData.name}
+              hotelId={Number(hotelData.id)}
               onNavigateHome={onNavigateHome}
               onNavigateSearch={onNavigateSearch}
             />
@@ -117,6 +118,9 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
             <RoomInventory
               hotelId={Number(hotelData.id) > 0 ? Number(hotelData.id) : undefined}
               rooms={hotelData.rooms}
+              initialCheckIn={hotelData.checkIn}
+              initialCheckOut={hotelData.checkOut}
+              initialGuests={hotelData.guestsPerRoom}
               datesText={hotelData.datesText}
               durationNights={hotelData.durationNights}
               guestsText={hotelData.guestsText}
@@ -125,7 +129,7 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
             />
 
             {/* Policies & Resort Commitments Section */}
-            <HotelPolicies />
+            <HotelPolicies policy={hotelData.cancelPolicySummary} checkIn={hotelData.checkInTime} checkOut={hotelData.checkOutTime} />
           </div>
         </div>
 

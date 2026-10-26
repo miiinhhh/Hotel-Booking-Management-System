@@ -54,6 +54,10 @@ public sealed class PropertyContentFactory : WebApplicationFactory<Program>
             services.RemoveAll<ContentDb>(); services.RemoveAll<DbContextOptions<ContentDb>>();
             services.RemoveAll<IDbContextOptionsConfiguration<ContentDb>>();
             services.AddDbContext<ContentDb>(o => o.UseSqlite(connection).AddInterceptors(new ImageInsertFailure(this)));
+            services.RemoveAll<HotelBooking.Infrastructure.Persistence.HotelDbContext>();
+            services.RemoveAll<DbContextOptions<HotelBooking.Infrastructure.Persistence.HotelDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<HotelBooking.Infrastructure.Persistence.HotelDbContext>>();
+            services.AddDbContext<HotelBooking.Infrastructure.Persistence.HotelDbContext>(o => o.UseInMemoryDatabase(authDatabase + "hotels"));
         });
     }
     private sealed class ImageInsertFailure(PropertyContentFactory factory) : SaveChangesInterceptor
@@ -82,6 +86,9 @@ public sealed class PropertyContentFactory : WebApplicationFactory<Program>
         await auth.SaveChangesAsync();
         var db = scope.ServiceProvider.GetRequiredService<ContentDb>();
         await db.Database.EnsureCreatedAsync();
+        db.Users.AddRange(new User { UserId = 1, Email = "admin@example.com", FullName = "Admin", PasswordHash = "unused" },
+            new User { UserId = 2, Email = "staff@example.com", FullName = "Staff", PasswordHash = "unused" },
+            new User { UserId = 3, Email = "customer@example.com", FullName = "Customer", PasswordHash = "unused" });
         for (var hotelId = 1; hotelId <= 2; hotelId++)
         {
             var hotel = new RoomHotel(); db.Hotels.Add(hotel);
@@ -90,6 +97,13 @@ public sealed class PropertyContentFactory : WebApplicationFactory<Program>
             db.HotelAreas.Add(new HotelArea { AreaId = hotelId, HotelId = hotelId, AreaName = "Area" });
         }
         await db.SaveChangesAsync();
+        var hotelDb = scope.ServiceProvider.GetRequiredService<HotelBooking.Infrastructure.Persistence.HotelDbContext>();
+        for (var id = 1; id <= 2; id++)
+        {
+            var hotel = Hotel.Create(new($"Hotel {id}", null, "Address", "City", "Vietnam", "0900000000", $"hotel{id}@example.com", null, new(14, 0), new(12, 0), true));
+            hotelDb.Hotels.Add(hotel); hotelDb.Entry(hotel).Property(x => x.HotelId).CurrentValue = id;
+        }
+        await hotelDb.SaveChangesAsync();
         var type = new RoomType(1, 1, "Deluxe", null, 500000, 2, 1);
         db.RoomTypes.Add(type); await db.SaveChangesAsync();
         db.Rooms.Add(new Room(type.RoomTypeId, 1, "101", 1, RoomStatus.Available, null));

@@ -1,4 +1,6 @@
 # Build
+Frontend/node_modules/
+Frontend/dist/
 bin/
 obj/
 
@@ -33,3 +35,5 @@ Thumbs.db
 !Database&Docs/RoomEmergencyLocks.sql
 *.json
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql
+!Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscovery.sql
+!Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscoveryDemo.sql

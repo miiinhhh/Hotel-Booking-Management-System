@@ -7,6 +7,14 @@ public static class PropertyContentMapping
 {
     public static void ConfigurePropertyContent(this ModelBuilder model)
     {
+        var settings = model.Entity<HotelDiscoverySettings>();
+        settings.ToTable("HotelDiscoverySettings"); settings.HasKey(x => x.HotelId);
+        settings.Property(x => x.CancellationPolicy).HasMaxLength(2000);
+        settings.HasOne<RoomHotel>().WithMany().HasForeignKey(x => x.HotelId).OnDelete(DeleteBehavior.Cascade);
+        var wishlist = model.Entity<HotelWishlist>();
+        wishlist.ToTable("HotelWishlists"); wishlist.HasKey(x => new { x.UserId, x.HotelId });
+        wishlist.HasOne<RoomHotel>().WithMany().HasForeignKey(x => x.HotelId).OnDelete(DeleteBehavior.Cascade);
+        wishlist.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         var amenity = model.Entity<Amenity>();
         amenity.ToTable("Amenities");
         amenity.HasKey(x => x.AmenityId);

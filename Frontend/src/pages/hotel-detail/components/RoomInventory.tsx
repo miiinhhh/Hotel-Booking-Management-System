@@ -1,18 +1,19 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Room } from '../types';
 import { RoomCard } from './RoomCard';
 import { roomApi, AvailableRoom, localDate } from '../../../services/roomApi';
 
 interface RoomInventoryProps {
   rooms: Room[]; hotelId?: number; datesText?: string; durationNights?: number; guestsText?: string;
+  initialCheckIn?: string; initialCheckOut?: string; initialGuests?: number;
   onBookRoom?: (room: Room, packageId?: string, totalPrice?: number) => void;
   onViewRoomDetail?: (room: Room) => void;
 }
-export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, onBookRoom, onViewRoomDetail }) => {
+export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, initialCheckIn, initialCheckOut, initialGuests, onBookRoom, onViewRoomDetail }) => {
   const [hotelInput, setHotelInput] = useState(hotelId ? String(hotelId) : '');
-  const [checkIn, setCheckIn] = useState(localDate());
-  const [checkOut, setCheckOut] = useState(localDate(1));
-  const [guests, setGuests] = useState(1);
+  const [checkIn, setCheckIn] = useState(initialCheckIn || localDate());
+  const [checkOut, setCheckOut] = useState(initialCheckOut || localDate(1));
+  const [guests, setGuests] = useState(initialGuests || 1);
   const [available, setAvailable] = useState<AvailableRoom[]>([]);
   const [checked, setChecked] = useState<{ hotel: number; hotelName: string; hotelAddress: string; checkIn: string; checkOut: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,15 +41,16 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, onBookRoo
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không xác nhận được phòng trống.'); }
     finally { setPending(false); }
   };
+  useEffect(() => { if (hotelId && initialCheckIn) void search(); }, [hotelId, initialCheckIn]);
   const cards: Room[] = validSelection ? available.filter(r => r.capacity >= guests).map(r => ({ id: String(r.roomId), roomId: r.roomId, hotelId: r.hotelId, hotelName: checked.hotelName, hotelAddress: checked.hotelAddress, requestedGuests: guests, checkIn, checkOut,
     name: `${r.roomTypeName} · Phòng ${r.roomNumber}`, tag: 'Phòng trống', floor: `Tầng ${r.floor}`, remainingRooms: 1,
-    image: '/room-placeholder.svg', specs: [{ icon: 'person', text: `${r.capacity} khách` }], features: [],
+    image: rooms.find(room => room.roomId === r.roomId)?.image || '/room-placeholder.svg', specs: [{ icon: 'person', text: `${r.capacity} khách` }], features: rooms.find(room => room.roomId === r.roomId)?.features || [],
     packages: [{ id: 'base', name: 'Giá cơ bản', description: 'Giá cuối cùng được backend tính khi đặt phòng.', pricePerNight: r.price }],
-    cancellationPolicy: 'Áp dụng chính sách hủy của khách sạn.',
+    cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || 'Liên hệ khách sạn để biết chính sách hủy.',
   })) : [];
   return <section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">Kiểm tra phòng trống</h2>
     <form onSubmit={e => { e.preventDefault(); void search(); }} className="flex flex-wrap items-end gap-3"><fieldset disabled={loading || pending} className="flex flex-wrap gap-3">
-      <label>Mã khách sạn<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
+      {!hotelId && <label>Khách sạn<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>}
       <label>Nhận phòng<input type="date" required min={localDate()} value={checkIn} onChange={e => setCheckIn(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
       <label>Trả phòng<input type="date" required min={checkIn} value={checkOut} onChange={e => setCheckOut(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
       <label>Số khách<input type="number" min="1" step="1" required value={guests} onChange={e => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value > 0) setGuests(value); }} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>

@@ -17,5 +17,8 @@ public sealed class HotelBookingDBContext(DbContextOptions<HotelBookingDBContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(HotelBookingDBContext).Assembly,
             type => type.Namespace == "HotelBooking.Infrastructure.Data.Configuration");
         InventoryModel.Configure(modelBuilder);
+        var payments = modelBuilder.Entity<HotelBooking.Infrastructure.Repositories.ReportPayment>();
+        payments.ToTable("Payments", t => t.ExcludeFromMigrations()); payments.HasKey(x => x.PaymentId);
+        payments.Property(x => x.Amount).HasPrecision(18, 2);
     }
 }

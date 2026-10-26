@@ -54,8 +54,8 @@ export const HotelList: React.FC<HotelListProps> = ({
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          startItem={1}
-          endItem={hotels.length}
+          startItem={(currentPage - 1) * 12 + 1}
+          endItem={(currentPage - 1) * 12 + hotels.length}
           totalItems={totalResults}
           onPageChange={onPageChange}
         />

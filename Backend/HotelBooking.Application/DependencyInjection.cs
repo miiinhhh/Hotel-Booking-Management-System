@@ -19,8 +19,8 @@ public static class DependencyInjection
         services.AddScoped<IRoomSearchService, RoomSearchService>();
         services.AddScoped<IPropertyContentService, PropertyContentService>();
         services.AddScoped<HotelAreaService>();
+        services.AddScoped<DiscoveryService>();
 
         return services;
     }
 }
-
