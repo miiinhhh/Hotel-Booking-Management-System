@@ -31,6 +31,17 @@ public sealed class RoomTests
     private static RoomRequest Request(int type, string number = "101", RoomStatus status = RoomStatus.Available) => new(type, number, 1, status, null);
 
     [Fact]
+    public async Task TypeCanBeReactivatedButDeactivationWithActiveRoomsIsRejected()
+    {
+        using var db = Database(); var service = Service(db);
+        var type = await service.CreateType(1, 1, TypeRequest, Ct);
+        Assert.False((await service.SetTypeStatus(1, type.RoomTypeId, false, Ct)).IsActive);
+        Assert.True((await service.SetTypeStatus(1, type.RoomTypeId, true, Ct)).IsActive);
+        await service.CreateRoom(1, 1, Request(type.RoomTypeId), Ct);
+        await Assert.ThrowsAsync<ConflictException>(() => service.SetTypeStatus(1, type.RoomTypeId, false, Ct));
+    }
+
+    [Fact]
     public async Task TypeListDistinguishesMissingHotelFromEmptyHotel()
     {
         using var db = Database(); var service = Service(db);

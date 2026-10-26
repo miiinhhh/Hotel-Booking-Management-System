@@ -25,7 +25,7 @@ public class BookingServices : IBookingService
     public async Task<ApiResponse<BookingResponseDto>> CreateBookingAsync(long customerId, CreateBookingRequest request)
     {
         // 1. Kiểm tra ngày đặt
-        if (request.CheckOutDate <= request.CheckInDate)
+        if (request.CheckInDate < DateOnly.FromDateTime(DateTime.UtcNow) || request.CheckOutDate <= request.CheckInDate)
         {
             return ApiResponse<BookingResponseDto>.FailureResult("Ngày trả phòng (CheckOut) phải sau ngày nhận phòng (CheckIn).");
         }
@@ -34,6 +34,9 @@ public class BookingServices : IBookingService
         {
             return ApiResponse<BookingResponseDto>.FailureResult("Vui lòng chọn ít nhất 1 phòng để đặt.");
         }
+
+        if (request.Rooms.Any(r => r.RoomId <= 0) || request.Rooms.Select(r => r.RoomId).Distinct().Count() != request.Rooms.Count)
+            return ApiResponse<BookingResponseDto>.FailureResult("Room IDs must be positive and distinct.");
 
         // 2. Kiểm tra xung đột lịch đặt từng phòng (Double booking check)
         foreach (var room in request.Rooms)
@@ -124,8 +127,8 @@ public class BookingServices : IBookingService
         });
 
         // 6. Lưu vào CSDL
-        await _bookingRepository.AddAsync(booking);
-        await _bookingRepository.SaveChangesAsync();
+        if (!await _bookingRepository.TryReserveAsync(booking))
+            throw new HotelBooking.Application.Rooms.ConflictException("A selected room is no longer available. Please search again.");
 
         // Tăng số lượt dùng của Voucher nếu có áp dụng
         if (pricing.VoucherId.HasValue)
@@ -233,19 +236,20 @@ public class BookingServices : IBookingService
 
     public async Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, UpdateBookingRequest request)
     {
-        var booking = await _bookingRepository.GetByIdAsync(bookingId);
+        var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
         if (booking == null)
         {
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
         }
 
-        if (!Enum.TryParse<BookingStatus>(request.NewStatus, true, out var newStatus))
+        if (!Enum.TryParse<BookingStatus>(request.NewStatus, true, out var newStatus) || !Enum.IsDefined(newStatus))
         {
             return ApiResponse<bool>.FailureResult($"Trạng thái '{request.NewStatus}' không hợp lệ.");
         }
 
         var oldStatus = booking.BookingStatus.ToString();
         booking.BookingStatus = newStatus;
+        if (newStatus == BookingStatus.Pending) booking.HoldExpiresAt = DateTime.UtcNow.AddMinutes(15);
         if (!string.IsNullOrWhiteSpace(request.SpecialRequests))
         {
             booking.SpecialRequests = request.SpecialRequests;
@@ -262,8 +266,16 @@ public class BookingServices : IBookingService
             Note = request.Note ?? $"Chuyển trạng thái từ {oldStatus} sang {newStatus}"
         });
 
-        await _bookingRepository.UpdateAsync(booking);
-        await _bookingRepository.SaveChangesAsync();
+        if (newStatus is BookingStatus.Pending or BookingStatus.Confirmed or BookingStatus.CheckedIn)
+        {
+            if (!await _bookingRepository.TrySaveReservedAsync(booking))
+                throw new HotelBooking.Application.Rooms.ConflictException("Rooms are no longer available for this booking.");
+        }
+        else
+        {
+            await _bookingRepository.UpdateAsync(booking);
+            await _bookingRepository.SaveChangesAsync();
+        }
 
         return ApiResponse<bool>.SuccessResult(true, "Cập nhật trạng thái đơn đặt phòng thành công.");
     }

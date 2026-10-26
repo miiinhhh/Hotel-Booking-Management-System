@@ -1,3 +1,5 @@
+import { loadAllStaff } from './staffPagination';
+
 export interface AuthResponse {
   userId: number;
   fullName: string;
@@ -123,6 +125,9 @@ export const authApi = {
 
   listStaff: (token: string, page = 1, pageSize = 50) =>
     request<StaffPage>(`/api/staff?page=${page}&pageSize=${pageSize}`, {}, token),
+
+  listAllStaff: (token: string) => loadAllStaff((page) =>
+    request<StaffPage>(`/api/staff?page=${page}&pageSize=100`, {}, token)),
 
   updateStaff: (token: string, userId: number, input: { fullName: string; phone: string; dateOfBirth: string }) =>
     request<StaffAccount>(`/api/staff/${userId}`, {
