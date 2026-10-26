@@ -11,17 +11,17 @@ using HotelBooking.Domain.Enums;
 public class BookingServices : IBookingService
 {
     private readonly IBookingRepository _bookingRepository;
-    private readonly IPricingService _pricingService;
-    private readonly IVoucherService _voucherService;
+    private readonly IBookingPricingService _pricingService;
+    private readonly IVoucherRepository _voucherRepository;
 
     public BookingServices(
         IBookingRepository bookingRepository,
-        IPricingService pricingService,
-        IVoucherService voucherService)
+        IBookingPricingService pricingService,
+        IVoucherRepository voucherRepository)
     {
         _bookingRepository = bookingRepository;
         _pricingService = pricingService;
-        _voucherService = voucherService;
+        _voucherRepository = voucherRepository;
     }
 
     public async Task<ApiResponse<BookingResponseDto>> CreateBookingAsync(long customerId, CreateBookingRequest request)
@@ -47,84 +47,30 @@ public class BookingServices : IBookingService
             }
         }
 
-        // 3. Tính toán giá phòng tự động qua PricingService (Dynamic Room Pricing)
+        // 3. Tính toán chi phí chuẩn xác từ hệ thống (Server-authoritative calculation)
         var roomIds = request.Rooms.Select(r => r.RoomId).Distinct().ToList();
-        PriceCalculationResultDto pricingResult;
+        PriceCalculationResultDto pricing;
         try
         {
-            pricingResult = await _pricingService.CalculateStayPriceAsync(new PriceCalculationRequest
-            {
-                RoomIds = roomIds,
-                CheckInDate = request.CheckInDate,
-                CheckOutDate = request.CheckOutDate
-            });
+            pricing = await _pricingService.CalculateAuthoritativePriceAsync(
+                request.CheckInDate,
+                request.CheckOutDate,
+                roomIds,
+                request.VoucherCode,
+                request.PaymentMethod);
         }
-        catch (KeyNotFoundException ex)
+        catch (InvalidOperationException ex)
         {
             return ApiResponse<BookingResponseDto>.FailureResult(ex.Message);
         }
-        catch (ArgumentException ex)
+
+        var bookingDetails = pricing.RoomBreakdowns.Select(rb => new BookingDetail
         {
-            return ApiResponse<BookingResponseDto>.FailureResult(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<BookingResponseDto>.FailureResult($"Lỗi tính giá phòng: {ex.Message}");
-        }
-
-        int numberOfNights = pricingResult.NumberOfNights;
-        decimal subTotal = pricingResult.SubTotal;
-        decimal feeAmount = pricingResult.FeeAmount;
-        decimal taxAmount = pricingResult.EstimatedTaxAmount;
-
-        var bookingDetails = new List<BookingDetail>();
-        foreach (var room in request.Rooms)
-        {
-            var summary = pricingResult.RoomSummaries.FirstOrDefault(s => s.RoomId == room.RoomId);
-            decimal roomSubTotal = summary?.SubTotal ?? 0m;
-            decimal unitPrice = summary?.AverageUnitPrice ?? (numberOfNights > 0 ? Math.Round(roomSubTotal / numberOfNights, 2) : 0m);
-
-            bookingDetails.Add(new BookingDetail
-            {
-                RoomId = room.RoomId,
-                UnitPrice = unitPrice,
-                NumberOfNights = numberOfNights,
-                SubTotal = roomSubTotal
-            });
-        }
-
-        // 4. Kiểm tra và áp dụng mã Voucher (nếu có)
-        decimal discountAmount = 0m;
-        long? voucherId = null;
-        string? appliedVoucherCode = null;
-
-        if (!string.IsNullOrWhiteSpace(request.VoucherCode))
-        {
-            appliedVoucherCode = request.VoucherCode.Trim().ToUpperInvariant();
-            var voucherValidation = await _voucherService.ValidateVoucherAsync(new ValidateVoucherRequest
-            {
-                Code = appliedVoucherCode,
-                SubTotal = subTotal
-            }, customerId);
-
-            if (!voucherValidation.IsValid)
-            {
-                return ApiResponse<BookingResponseDto>.FailureResult(voucherValidation.Message ?? "Mã giảm giá không hợp lệ.");
-            }
-
-            discountAmount = voucherValidation.DiscountAmount;
-            voucherId = voucherValidation.VoucherId;
-        }
-
-        // 5. Tính tổng tiền và tiền cọc
-        decimal totalAmount = Math.Max(0m, subTotal + taxAmount + feeAmount - discountAmount);
-
-        decimal depositAmount = 0m;
-        if (string.Equals(request.PaymentMethod, "Deposit", StringComparison.OrdinalIgnoreCase))
-        {
-            depositAmount = Math.Round(totalAmount * 0.30m, 2);
-        }
-        decimal remainingAmount = totalAmount - depositAmount;
+            RoomId = rb.RoomId,
+            UnitPrice = rb.UnitPricePerNight,
+            NumberOfNights = rb.NumberOfNights,
+            SubTotal = rb.SubTotal
+        }).ToList();
 
         // 6. Sinh mã đặt phòng duy nhất: BK + yyyyMMddHHmmss + 3 số ngẫu nhiên
         string bookingCode = $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{Random.Shared.Next(100, 999)}";
@@ -140,14 +86,14 @@ public class BookingServices : IBookingService
             BookingStatus = BookingStatus.Pending,
             PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "Deposit" : request.PaymentMethod,
             PaymentStatus = "Unpaid",
-            SubTotal = subTotal,
-            TaxAmount = taxAmount,
-            FeeAmount = feeAmount,
-            DiscountAmount = discountAmount,
-            TotalAmount = totalAmount,
-            DepositAmount = depositAmount,
-            RemainingAmount = remainingAmount,
-            VoucherId = voucherId,
+            SubTotal = pricing.SubTotal,
+            TaxAmount = pricing.TaxAmount,
+            FeeAmount = pricing.FeeAmount,
+            DiscountAmount = pricing.DiscountAmount,
+            TotalAmount = pricing.TotalAmount,
+            DepositAmount = pricing.DepositAmount,
+            RemainingAmount = pricing.RemainingAmount,
+            VoucherId = pricing.VoucherId,
             SpecialRequests = request.SpecialRequests,
             HoldExpiresAt = DateTime.UtcNow.AddMinutes(15), // Giữ phòng 15 phút
             CreatedAt = DateTime.UtcNow,
@@ -183,26 +129,16 @@ public class BookingServices : IBookingService
         await _bookingRepository.AddAsync(booking);
         await _bookingRepository.SaveChangesAsync();
 
-        // 9. Ghi nhận lượt sử dụng Voucher (nếu có áp dụng)
-        if (voucherId.HasValue && !string.IsNullOrWhiteSpace(appliedVoucherCode))
+        // Tăng số lượt dùng của Voucher nếu có áp dụng
+        if (pricing.VoucherId.HasValue)
         {
-            await _voucherService.RecordVoucherUsageAsync(
-                appliedVoucherCode,
-                customerId,
-                booking.BookingId,
-                subTotal);
+            await _voucherRepository.IncrementUsedCountAsync(pricing.VoucherId.Value);
         }
 
-        var responseDto = MapToResponseDto(booking);
-        if (voucherId.HasValue && string.IsNullOrEmpty(responseDto.VoucherCode))
-        {
-            responseDto.VoucherCode = appliedVoucherCode;
-        }
-
-        return ApiResponse<BookingResponseDto>.SuccessResult(responseDto, "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
+        return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId)
+    public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId, long actorId, bool canManageAll)
     {
         var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
         if (booking == null)
@@ -210,16 +146,20 @@ public class BookingServices : IBookingService
             return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy thông tin đơn đặt phòng.");
         }
 
+        EnsureBookingAccess(booking, actorId, canManageAll);
+
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode)
+    public async Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode, long actorId, bool canManageAll)
     {
         var booking = await _bookingRepository.GetByCodeAsync(bookingCode);
         if (booking == null)
         {
             return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy thông tin đơn đặt phòng theo mã này.");
         }
+
+        EnsureBookingAccess(booking, actorId, canManageAll);
 
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
     }
@@ -255,13 +195,16 @@ public class BookingServices : IBookingService
         return ApiResponse<List<BookingListDto>>.SuccessResult(listDto);
     }
 
-    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, CancelBookingRequest request)
+    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, bool canManageAll, CancelBookingRequest request)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId);
         if (booking == null)
         {
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
         }
+
+
+        EnsureBookingAccess(booking, userId, canManageAll);
 
         if (booking.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed or BookingStatus.Cancelled or BookingStatus.Expired)
         {
@@ -380,5 +323,11 @@ public class BookingServices : IBookingService
                 Note = h.Note
             }).ToList() ?? new()
         };
+    }
+
+    private static void EnsureBookingAccess(Booking booking, long actorId, bool canManageAll)
+    {
+        if (!canManageAll && booking.CustomerId != actorId)
+            throw new UnauthorizedAccessException("You do not have permission to access this booking.");
     }
 }

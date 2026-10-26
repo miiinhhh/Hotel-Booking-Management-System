@@ -7,4 +7,5 @@ public sealed record AuthResponse(
     string Email,
     IReadOnlyList<string> Roles,
     string AccessToken,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    string TokenType = "Bearer");

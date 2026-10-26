@@ -23,6 +23,7 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
         builder.Property(v => v.VoucherType)
             .IsRequired()
             .HasMaxLength(20)
+            .HasConversion<string>()
             .IsUnicode(false);
 
         builder.Property(v => v.DiscountValue)
@@ -33,13 +34,6 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
             .HasPrecision(18, 2)
             .HasDefaultValue(0m);
 
-        builder.Property(v => v.MaxDiscountAmount)
-            .HasPrecision(18, 2);
-
-        builder.Property(v => v.UsageLimitPerCustomer)
-            .HasDefaultValue(1)
-            .IsRequired();
-
         builder.Property(v => v.StartAt)
             .IsRequired();
 
@@ -49,26 +43,14 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
         builder.Property(v => v.UsageLimit);
 
         builder.Property(v => v.UsedCount)
-            .HasDefaultValue(0)
-            .IsRequired();
+            .HasDefaultValue(0);
 
         builder.Property(v => v.IsActive)
-            .HasDefaultValue(true)
-            .IsRequired();
+            .HasDefaultValue(true);
 
         builder.Property(v => v.CreatedAt)
             .HasDefaultValueSql("SYSDATETIME()");
 
         builder.Property(v => v.UpdatedAt);
-
-        builder.HasMany(v => v.Bookings)
-            .WithOne(b => b.Voucher)
-            .HasForeignKey(b => b.VoucherId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        builder.HasMany(v => v.VoucherUsages)
-            .WithOne(u => u.Voucher)
-            .HasForeignKey(u => u.VoucherId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

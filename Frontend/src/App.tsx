@@ -14,8 +14,11 @@ import { DEFAULT_CHECKOUT_DATA } from './pages/checkout/data/mockCheckoutData';
 import { Hotel } from './pages/search/types';
 import { HotelDetail, Room } from './pages/hotel-detail/types';
 import { CheckoutBookingData } from './pages/checkout/types';
+import { LoginPage, ProfilePage, RegisterPage } from './pages/account';
+import { useAuth } from './context/AuthContext';
 
 function App() {
+  const { session, hasRole } = useAuth();
   const [activeTab, setActiveTab] = useState('tim-kiem');
   const [searchParams, setSearchParams] = useState({
     location: 'Đà Nẵng, Việt Nam',
@@ -87,6 +90,9 @@ function App() {
 
   // Staff Portal view has its own dedicated full-page layout
   if (activeTab === 'staff-portal') {
+    if (!session || (!hasRole('Hotel Staff') && !hasRole('Admin'))) {
+      return <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />;
+    }
     return (
       <StaffBookingsPage
         onNavigateCustomerPortal={() => {
@@ -98,6 +104,9 @@ function App() {
   }
 
   if (activeTab === 'admin-portal') {
+    if (!session || !hasRole('Admin')) {
+      return <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />;
+    }
     return (
       <AdminPortal
         onExit={() => {
@@ -178,6 +187,10 @@ function App() {
             }}
           />
         )}
+
+        {activeTab === 'dang-nhap' && <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />}
+        {activeTab === 'dang-ky' && <RegisterPage onLogin={() => setActiveTab('dang-nhap')} onSuccess={() => setActiveTab('tai-khoan')} />}
+        {activeTab === 'tai-khoan' && <ProfilePage onLogin={() => setActiveTab('dang-nhap')} onBookings={() => setActiveTab('dat-phong-cua-toi')} />}
       </div>
 
       {/* Footer */}

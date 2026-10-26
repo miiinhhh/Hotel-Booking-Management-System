@@ -1,4 +1,5 @@
-@HotelBooking.API_HostAddress = https://localhost:7131
+@HotelBooking.API_HostAddress = http://localhost:5131
+@accessToken = replace-with-jwt-access-token
 
 ### Register a Customer
 POST {{HotelBooking.API_HostAddress}}/api/auth/register
@@ -24,9 +25,16 @@ Content-Type: application/json
 GET {{HotelBooking.API_HostAddress}}/api/me
 Authorization: Bearer {{accessToken}}
 
-### Staff-only resource
+### Staff/Admin resource
 GET {{HotelBooking.API_HostAddress}}/api/staff
 Authorization: Bearer {{accessToken}}
+
+### Missing token returns RFC 7807 with code AUTH_TOKEN_MISSING
+GET {{HotelBooking.API_HostAddress}}/api/me
+
+### Invalid token returns RFC 7807 with code AUTH_TOKEN_INVALID
+GET {{HotelBooking.API_HostAddress}}/api/me
+Authorization: Bearer invalid-token
 
 ### Admin-only resource
 GET {{HotelBooking.API_HostAddress}}/api/admin
@@ -38,6 +46,61 @@ Authorization: Bearer {{accessToken}}
 @areaId = 1
 @roomTypeId = 1
 @roomId = 1
+
+### List active Zones and Buildings
+GET {{baseUrl}}/api/hotels/{{hotelId}}/areas
+
+### List all Zones and Buildings, including inactive records
+GET {{baseUrl}}/api/hotels/{{hotelId}}/areas?includeInactive=true
+
+### Create a Zone (Admin token required)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Central Zone",
+  "areaType": "Zone",
+  "parentAreaId": null,
+  "description": "Main guest area",
+  "locationDescription": "Near the lobby",
+  "floorCount": null,
+  "isActive": true
+}
+
+### Create a Building under an existing Zone (Admin token required)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Tower A",
+  "areaType": "Building",
+  "parentAreaId": {{areaId}},
+  "description": "Guest room building",
+  "locationDescription": "North side",
+  "floorCount": 12,
+  "isActive": true
+}
+
+### Update a Zone or Building (Admin token required)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Central Zone",
+  "areaType": "Zone",
+  "parentAreaId": null,
+  "description": "Updated main guest area",
+  "locationDescription": "Near the lobby",
+  "floorCount": null,
+  "isActive": true
+}
+
+### Soft-delete an Area (Admin token required)
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}
+Authorization: Bearer {{accessToken}}
 
 ### Public room search: name + inclusive reference price + pagination
 GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?roomTypeName=deluxe&minPrice=500000&maxPrice=900000&pageNumber=1&pageSize=20
@@ -116,3 +179,69 @@ DELETE {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}
 
 ### Deactivate type
 DELETE {{baseUrl}}/api/hotels/{{hotelId}}/room-types/{{roomTypeId}}
+
+### Calculate Booking Price (Preview / Quote with Voucher)
+POST {{baseUrl}}/api/bookings/calculate-price
+Content-Type: application/json
+
+{
+  "checkInDate": "2026-11-01",
+  "checkOutDate": "2026-11-04",
+  "roomIds": [1],
+  "voucherCode": "LUXE2026",
+  "paymentMethod": "Deposit"
+}
+
+### Create Booking (Authoritative pricing calculated on server)
+POST {{baseUrl}}/api/bookings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "checkInDate": "2026-11-01",
+  "checkOutDate": "2026-11-04",
+  "numberOfGuests": 2,
+  "paymentMethod": "Deposit",
+  "voucherCode": "LUXE2026",
+  "specialRequests": "Tầng cao hướng biển, giường King",
+  "rooms": [
+    {
+      "roomId": 1
+    }
+  ],
+  "guests": [
+    {
+      "fullName": "Nguyen Van An",
+      "phone": "0912345678",
+      "email": "an.nguyen@example.com",
+      "isPrimaryGuest": true
+    }
+  ]
+}
+
+### Get all Areas of Hotel (with room stats)
+GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/areas
+Authorization: Bearer {{accessToken}}
+
+### Get all Staff Members and their assigned areas
+GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments
+Authorization: Bearer {{accessToken}}
+
+### Sync Staff Assigned Areas (Assign/Reassign multiple areas to a staff member)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/sync
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userId": 2,
+  "areaIds": [1, 2]
+}
+
+### Remove a specific assignment
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/1
+Authorization: Bearer {{accessToken}}
+
+### Get assigned areas for current staff member (Staff Portal - Active Zone)
+GET {{baseUrl}}/api/staff/me/assigned-areas
+Authorization: Bearer {{accessToken}}
+

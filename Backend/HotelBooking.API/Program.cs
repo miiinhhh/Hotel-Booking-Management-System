@@ -14,8 +14,11 @@ using System.Text.Json.Serialization;
 using HotelBooking.API.Errors;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Infrastructure;
+using HotelBooking.API.Authentication;
+using HotelBooking.Domain.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvents>();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -63,12 +66,19 @@ builder.Services.AddDbContext<HotelBookingDbContext>(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing.");
+if (string.IsNullOrWhiteSpace(jwt.Issuer) || string.IsNullOrWhiteSpace(jwt.Audience))
+    throw new InvalidOperationException("Jwt:Issuer and Jwt:Audience are required.");
 if (Encoding.UTF8.GetByteCount(jwt.SecretKey) < 32)
     throw new InvalidOperationException("Jwt:SecretKey must be at least 32 characters.");
+if (jwt.ExpirationMinutes is < 1 or > 1440)
+    throw new InvalidOperationException("Jwt:ExpirationMinutes must be between 1 and 1440.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.EventsType = typeof(HotelBooking.API.Authentication.ActiveAccountJwtEvents);
+        options.MapInboundClaims = false;
+        options.SaveToken = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -78,12 +88,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
             ValidateLifetime = true,
+            RequireExpirationTime = true,
+            RequireSignedTokens = true,
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
             ClockSkew = TimeSpan.FromSeconds(30),
             RoleClaimType = System.Security.Claims.ClaimTypes.Role,
             NameClaimType = System.Security.Claims.ClaimTypes.Name
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.CustomerOnly,
+        policy => policy.RequireRole(SystemRoles.Customer));
+    options.AddPolicy(AuthorizationPolicies.CustomerOrAdmin,
+        policy => policy.RequireRole(SystemRoles.Customer, SystemRoles.Admin));
+    options.AddPolicy(AuthorizationPolicies.StaffOrAdmin,
+        policy => policy.RequireRole(SystemRoles.HotelStaff, SystemRoles.Admin));
+    options.AddPolicy(AuthorizationPolicies.AdminOnly,
+        policy => policy.RequireRole(SystemRoles.Admin));
+});
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();

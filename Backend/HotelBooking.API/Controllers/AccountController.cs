@@ -3,6 +3,7 @@ using HotelBooking.Application.Auth;
 using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
 
 namespace HotelBooking.API.Controllers;
 
@@ -21,7 +22,7 @@ public sealed class AccountController(IAccountService accountService) : Controll
     {
         var userId = GetCurrentUserId();
         if (userId is null)
-            return Unauthorized();
+            return Unauthorized(AuthenticationProblems.AuthenticationRequired(HttpContext));
 
         var profile = await accountService.GetProfileAsync(userId.Value, cancellationToken);
         return profile is null ? NotFound() : Ok(profile);
@@ -39,7 +40,7 @@ public sealed class AccountController(IAccountService accountService) : Controll
     {
         var userId = GetCurrentUserId();
         if (userId is null)
-            return Unauthorized();
+            return Unauthorized(AuthenticationProblems.AuthenticationRequired(HttpContext));
 
         var profile = await accountService.UpdateProfileAsync(
             userId.Value,
@@ -49,13 +50,13 @@ public sealed class AccountController(IAccountService accountService) : Controll
     }
 
     /// <summary>Example resource available to hotel staff and administrators.</summary>
-    [HttpGet("staff")]
-    [Authorize(Roles = $"{SystemRoles.HotelStaff},{SystemRoles.Admin}")]
+    [HttpGet("staff/resource")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public IActionResult GetStaffResource() => Ok(new { Message = "Hotel staff resource authorized." });
 
     /// <summary>Example resource available only to administrators.</summary>
     [HttpGet("admin")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult GetAdminResource() => Ok(new { Message = "Administrator resource authorized." });
 
     private long? GetCurrentUserId()

@@ -9,10 +9,7 @@ public sealed class HotelBookingDBContext(DbContextOptions<HotelBookingDBContext
     public DbSet<BookingDetail> BookingDetails => Set<BookingDetail>();
     public DbSet<BookingGuest> BookingGuests => Set<BookingGuest>();
     public DbSet<BookingStatusHistory> BookingStatusHistory => Set<BookingStatusHistory>();
-    public DbSet<RoomPriceHistory> RoomPriceHistories => Set<RoomPriceHistory>();
-    public DbSet<PriceSurgeRule> PriceSurgeRules => Set<PriceSurgeRule>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
-    public DbSet<VoucherUsage> VoucherUsages => Set<VoucherUsage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
