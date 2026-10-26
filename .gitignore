@@ -30,4 +30,5 @@ appsettings.Local.json
 Thumbs.db
 
 *.sql
+!Database&Docs/RoomEmergencyLocks.sql
 *.json

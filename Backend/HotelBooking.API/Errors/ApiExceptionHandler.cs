@@ -2,12 +2,23 @@ using HotelBooking.Application.Rooms;
 using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
 namespace HotelBooking.API.Errors;
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problems) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
+        if (exception is UnauthorizedAccessException or HotelBooking.Application.Staff.StaffAccessDeniedException or InventoryAccessException)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return await problems.TryWriteAsync(new ProblemDetailsContext
+            {
+                HttpContext = context,
+                ProblemDetails = AuthenticationProblems.Forbidden(context, exception.Message)
+            });
+        }
+
         var status = exception switch { NotFoundException => 404, ConflictException => 409, DomainRuleException => 400, _ => 0 };
         if (status == 0) return false;
         context.Response.StatusCode = status;

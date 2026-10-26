@@ -1,293 +1,54 @@
-import React, { useState, useMemo } from 'react';
-import { StaffZone } from '../types';
-import { MOCK_STAFF_ZONES } from '../data/mockStaffZones';
-import { StaffCampusMap } from './StaffCampusMap';
+import React, { useEffect, useState } from 'react';
+import { roomApi, RoomDto, HotelAreaDto, RoomLock } from '../../../services/roomApi';
+import { getMyAssignedAreas } from '../../../services/staffAssignmentApi';
+import { useAuth } from '../../../context/AuthContext';
+import { EmergencyLockModal } from './EmergencyLockModal';
 
-interface StaffSuitesViewProps {
-  onShowToast?: (message: string) => void;
-  onNavigateToReservations?: (zoneCode?: string) => void;
-}
-
-export const StaffSuitesView: React.FC<StaffSuitesViewProps> = ({
-  onShowToast,
-  onNavigateToReservations,
-}) => {
-  const [zones] = useState<StaffZone[]>(MOCK_STAFF_ZONES);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-
-  const assignedZones = useMemo(() => {
-    return zones.filter((z) => {
-      if (!z.isAssigned) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = z.name.toLowerCase().includes(q);
-        const matchCode = z.code.toLowerCase().includes(q);
-        return matchName || matchCode;
-      }
-      return true;
-    });
-  }, [zones, searchQuery]);
-
-  const unassignedZones = useMemo(() => {
-    return zones.filter((z) => !z.isAssigned);
-  }, [zones]);
-
-  const handleRequestAccess = (zoneName: string) => {
-    onShowToast?.(`Đã gửi yêu cầu cấp quyền truy cập quản trị cho ${zoneName} tới Quản lý buồng phòng.`);
+interface StaffSuitesViewProps { onShowToast?: (message: string) => void; onNavigateToReservations?: (zoneCode?: string) => void }
+export const StaffSuitesView: React.FC<StaffSuitesViewProps> = ({ onShowToast }) => {
+  const { hasRole, session } = useAuth();
+  const [hotelId, setHotelId] = useState(1);
+  const [areas, setAreas] = useState<HotelAreaDto[]>([]);
+  const [rooms, setRooms] = useState<RoomDto[]>([]);
+  const [locks, setLocks] = useState<RoomLock[]>([]);
+  const [selectedArea, setSelectedArea] = useState(0);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const [lockRooms, setLockRooms] = useState<number[] | null>(null);
+  const [revision, setRevision] = useState(0);
+  const admin = hasRole('Admin');
+  useEffect(() => {
+    let active = true; setLoading(true); setError(''); setRooms([]); setAreas([]); setLocks([]); setSelectedArea(0); setLockRooms(null);
+    Promise.all([roomApi.areas(hotelId), roomApi.rooms(hotelId), roomApi.locks(hotelId), admin ? Promise.resolve(null) : getMyAssignedAreas(hotelId)])
+      .then(([areaData, roomData, lockData, assigned]) => {
+        if (!active) return;
+        if (assigned && !assigned.success) throw new Error(assigned.message || 'Không tải được phạm vi phụ trách.');
+        const ids = new Set(assigned?.data?.map(a => a.areaId) || []);
+        const allowed = areaData.filter(a => admin || ids.has(a.areaId) || (a.parentAreaId !== null && ids.has(a.parentAreaId)));
+        setAreas(allowed); setRooms(roomData.filter(r => allowed.some(a => a.areaId === r.areaId))); setLocks(lockData);
+      }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Không tải được buồng phòng.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [hotelId, admin, revision, session?.accessToken]);
+  const release = async (lock: RoomLock) => {
+    if (pending) return; setPending(true); setError('');
+    try { const updated = await roomApi.release(hotelId, lock.lockId); setLocks(current => current.map(x => x.lockId === updated.lockId ? updated : x)); onShowToast?.('Đã mở bán lại phòng.'); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Không mở bán lại được.'); }
+    finally { setPending(false); }
   };
-
-  const handleOpenZoneRooms = (zoneCode: string) => {
-    onShowToast?.(`Đang lọc danh sách đặt phòng và buồng phòng của ${zoneCode}...`);
-    onNavigateToReservations?.(zoneCode);
-  };
-
-  return (
-    <div className="flex flex-col w-full gap-6">
-      {/* Top Page Header */}
-      <header className="flex flex-col gap-6 pb-2">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant">
-              <span>Nhân viên</span>
-              <span className="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-              <span className="text-primary font-semibold">Phân khu &amp; Sơ đồ khuôn viên</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-                Phân khu phụ trách
-              </h1>
-              <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3.5 py-1.5 rounded-full shadow-sm border border-emerald-200">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
-                </span>
-                <span className="font-label-md text-label-md font-semibold tracking-wide">
-                  Đang phụ trách: 2 phân khu
-                </span>
-              </div>
-            </div>
-            <p className="font-body-md text-body-md text-on-surface-variant max-w-2xl">
-              Danh sách tòa nhà được phân quyền quản lý và sơ đồ khuôn viên khu nghỉ dưỡng StayLuxe Đà Nẵng.
-            </p>
-          </div>
-
-          {/* Action & Search Strip */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex items-center bg-surface-container-low rounded-full px-4 py-2 w-72 shadow-sm border border-[#eae8e5] focus-within:bg-surface-container-lowest focus-within:border-primary transition-all">
-              <span className="material-symbols-outlined text-[18px] text-outline mr-2">search</span>
-              <input
-                className="bg-transparent border-none outline-none font-body-md text-body-md text-on-surface placeholder:text-outline w-full p-0"
-                placeholder="Tìm kiếm tòa nhà, phân khu..."
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="text-outline hover:text-on-surface text-sm"
-                >
-                  <span className="material-symbols-outlined text-[16px]">close</span>
-                </button>
-              )}
-            </div>
-
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none bg-surface-container-low text-on-surface font-label-md text-label-md font-medium pl-4 pr-10 py-2.5 rounded-full shadow-sm border border-[#eae8e5] outline-none cursor-pointer"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="active">Đang hoạt động</option>
-                <option value="maintenance">Bảo trì định kỳ</option>
-              </select>
-              <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 text-[18px] text-outline pointer-events-none">
-                expand_more
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 bg-surface-container px-3.5 py-2.5 rounded-full text-on-surface-variant font-label-sm text-label-sm shadow-sm border border-[#eae8e5]">
-              <span className="material-symbols-outlined text-[16px] text-primary animate-spin" style={{ animationDuration: '9s' }}>
-                sync
-              </span>
-              <span>Đồng bộ thời gian thực: Vừa xong</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Two-Column Operational Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Assigned Zones List (approx 35% / 4-5 cols) */}
-        <div className="xl:col-span-5 2xl:col-span-4 flex flex-col gap-6">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="font-headline-sm text-headline-sm text-on-surface">Phân khu được giao</span>
-              <span className="w-6 h-6 rounded-full bg-primary-container text-on-primary font-label-sm text-[11px] flex items-center justify-center font-bold">
-                {assignedZones.length}
-              </span>
-            </div>
-            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-              Khu A &amp; Khu B
-            </span>
-          </div>
-
-          {/* Cards for Assigned Zones */}
-          {assignedZones.map((zone) => (
-            <article
-              key={zone.id}
-              className="relative bg-surface-container-lowest rounded-lg p-5 shadow-sm hover:shadow-md transition-all duration-300 group flex flex-col gap-4 overflow-hidden border border-[#eae8e5]"
-            >
-              <div className="absolute left-0 top-0 bottom-0 w-2 bg-primary-container" />
-              <div className="flex gap-4">
-                {zone.image && (
-                  <div className="w-28 h-28 rounded-DEFAULT overflow-hidden shrink-0 relative shadow-sm">
-                    <img
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      src={zone.image}
-                      alt={zone.name}
-                    />
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 backdrop-blur-md text-primary font-label-sm text-[10px] font-bold tracking-wider uppercase">
-                      {zone.code}
-                    </span>
-                  </div>
-                )}
-                <div className="flex flex-col justify-between flex-1 min-w-0">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <h2 className="font-headline-sm text-headline-sm text-on-surface truncate tracking-tight">
-                        {zone.name}
-                      </h2>
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-semibold shrink-0">
-                        {zone.occupancyPercent}% lấp đầy
-                      </span>
-                    </div>
-                    <p className="font-label-md text-label-md text-on-surface-variant truncate">{zone.subTitle}</p>
-                  </div>
-                  <div className="flex items-center gap-2 pt-2">
-                    <span className="px-2.5 py-1 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface font-medium">
-                      {zone.floors} tầng
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface font-medium">
-                      {zone.totalRooms} phòng
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Micro Metrics */}
-              <div className="grid grid-cols-3 gap-2 bg-surface-container-low rounded-DEFAULT p-3 border border-[#eae8e5]">
-                <div className="flex flex-col">
-                  <span className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-                    Có khách
-                  </span>
-                  <span className="font-headline-sm text-headline-sm text-primary font-bold">
-                    {zone.occupiedRooms}
-                    <span className="font-label-sm text-label-sm text-on-surface-variant font-normal">
-                      /{zone.totalRooms}
-                    </span>
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-                    Phòng trống
-                  </span>
-                  <span className="font-headline-sm text-headline-sm text-emerald-700 font-bold">
-                    {zone.vacantRooms}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-                    {zone.maintenanceRooms !== undefined ? 'Bảo trì' : 'Đang dọn'}
-                  </span>
-                  <span
-                    className={`font-headline-sm text-headline-sm font-bold ${
-                      zone.maintenanceRooms !== undefined ? 'text-amber-700' : 'text-secondary'
-                    }`}
-                  >
-                    {zone.maintenanceRooms ?? zone.cleaningRooms ?? 0}
-                  </span>
-                </div>
-              </div>
-
-              {/* Staff Role & Action Button */}
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-label-sm text-[10px] font-bold">
-                    {zone.supervisorInitials}
-                  </span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">
-                    Giám sát: <strong className="text-on-surface font-semibold">{zone.supervisor}</strong>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleOpenZoneRooms(zone.code)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-all group-hover:bg-primary-container group-hover:text-on-primary cursor-pointer"
-                >
-                  <span>Chi tiết phòng</span>
-                  <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-                </button>
-              </div>
-            </article>
-          ))}
-
-          {/* Section Divider */}
-          <div className="flex items-center gap-3 pt-2">
-            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest font-semibold">
-              Phân khu khác (Không thuộc thẩm quyền)
-            </span>
-            <div className="flex-1 h-px bg-surface-container-highest" />
-          </div>
-
-          {/* Muted / Locked Zones */}
-          {unassignedZones.map((zone) => (
-            <article
-              key={zone.id}
-              className="bg-surface-container-low/75 rounded-lg p-5 shadow-sm opacity-85 hover:opacity-100 transition-opacity flex flex-col gap-3 border border-[#eae8e5]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-outline">
-                    <span className="material-symbols-outlined text-[20px]">lock</span>
-                  </div>
-                  <div>
-                    <h3 className="font-headline-sm text-lg text-on-surface font-semibold">{zone.name}</h3>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">{zone.subTitle}</p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[11px] font-medium">
-                  Phụ trách: {zone.supervisor}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[15px] text-outline">verified_user</span>
-                  Quyền truy cập: Chỉ xem trạng thái
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleRequestAccess(zone.name)}
-                  className="font-label-md text-label-md text-primary hover:text-primary-container font-semibold transition-colors cursor-pointer"
-                >
-                  Yêu cầu quyền truy cập
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {/* Right Column: Interactive Campus Map View (approx 65% / 7-8 cols) */}
-        <div className="xl:col-span-7 2xl:col-span-8 flex flex-col gap-4">
-          <StaffCampusMap
-            onSelectZone={(code) => onShowToast?.(`Đã chọn phân khu ${code} trên sơ đồ khuôn viên.`)}
-            onOpenRoomList={(code) => handleOpenZoneRooms(code)}
-          />
-        </div>
-      </div>
-    </div>
-  );
+  const activeLocks = locks.filter(l => l.status === 'Active' || l.status === 'Scheduled');
+  const filtered = rooms.filter(r => (!selectedArea || r.areaId === selectedArea) && r.roomNumber.toLowerCase().includes(search.toLowerCase()) &&
+    (status === 'all' || (status === 'locked' ? activeLocks.some(l => l.roomId === r.roomId) : r.status === status)));
+  return <section className="space-y-5">
+    <header><h1 className="text-3xl font-semibold">Phân khu & Buồng phòng</h1><p className="text-outline">Trạng thái phòng và lệnh khóa bán từ hệ thống.</p></header>
+    <form onSubmit={e => { e.preventDefault(); const id = Number(new FormData(e.currentTarget).get('hotel')); if (Number.isSafeInteger(id) && id > 0) setHotelId(id); }} className="flex flex-wrap gap-3"><label>Mã khách sạn <input key={hotelId} name="hotel" type="number" min="1" step="1" required defaultValue={hotelId} className="rounded-lg bg-surface-container-low p-2" /></label><button disabled={pending} className="rounded-full bg-primary px-5 py-2 text-on-primary">Xem</button><button type="button" disabled={loading || pending} onClick={() => setRevision(r => r + 1)} className="rounded-full bg-surface-container px-4">Làm mới</button></form>
+    {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
+    <div className="flex flex-wrap gap-3"><select aria-label="Phân khu" value={selectedArea} onChange={e => setSelectedArea(Number(e.target.value))} className="rounded-lg bg-surface-container-low p-3"><option value={0}>Tất cả khu vực được giao</option>{areas.map(a => <option key={a.areaId} value={a.areaId}>{a.areaName}</option>)}</select><input aria-label="Số phòng" placeholder="Tìm số phòng…" value={search} onChange={e => setSearch(e.target.value)} className="rounded-lg bg-surface-container-low p-3" /><select aria-label="Trạng thái phòng" value={status} onChange={e => setStatus(e.target.value)} className="rounded-lg bg-surface-container-low p-3"><option value="all">Mọi trạng thái</option><option value="Available">Available</option><option value="Occupied">Occupied</option><option value="Maintenance">Maintenance</option><option value="Inactive">Inactive</option><option value="locked">Có lệnh khóa bán</option></select></div>
+    {loading ? <p role="status">Đang tải phòng…</p> : !filtered.length ? <p>Không có phòng phù hợp trong khu vực được giao.</p> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map(r => <article key={r.roomId} className="rounded-lg bg-surface-container-lowest p-5 shadow-sm"><h2 className="text-xl font-semibold">Phòng {r.roomNumber}</h2><p>{areas.find(a => a.areaId === r.areaId)?.areaName} · Tầng {r.floor}</p><p>{r.status} · {r.capacity} khách</p><p className="my-2 text-primary">{r.price.toLocaleString('vi-VN')} ₫ / đêm</p><button disabled={!r.isActive || pending} onClick={() => setLockRooms([r.roomId])} className="rounded-full bg-error-container px-4 py-2 text-on-error-container disabled:opacity-40">Khóa bán</button></article>)}</div>}
+    <section className="rounded-lg bg-surface-container-lowest p-5"><h2 className="mb-3 text-xl font-semibold">Lịch sử khóa bán</h2>{!loading && !locks.length && <p>Chưa có lệnh khóa.</p>}{locks.map(lock => <div key={lock.lockId} className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/20 py-3"><div><strong>#{lock.lockId} · Phòng {rooms.find(r => r.roomId === lock.roomId)?.roomNumber || lock.roomId}</strong><p>{new Date(/Z$|[+-]\d{2}:\d{2}$/.test(lock.startsAt) ? lock.startsAt : lock.startsAt + 'Z').toLocaleString('vi-VN')} – {new Date(/Z$|[+-]\d{2}:\d{2}$/.test(lock.endsAt) ? lock.endsAt : lock.endsAt + 'Z').toLocaleString('vi-VN')}</p><p>{lock.reason} · {lock.status}</p></div>{(lock.status === 'Active' || lock.status === 'Scheduled') && <button disabled={pending} onClick={() => void release(lock)} className="rounded-full bg-primary px-4 py-2 text-on-primary disabled:opacity-40">Mở bán lại</button>}</div>)}</section>
+    <EmergencyLockModal isOpen={lockRooms !== null} hotelId={hotelId} initialRoomIds={lockRooms || undefined} onClose={() => setLockRooms(null)} onConfirmLock={() => { setRevision(r => r + 1); onShowToast?.('Đã lưu lệnh khóa bán.'); }} />
+  </section>;
 };

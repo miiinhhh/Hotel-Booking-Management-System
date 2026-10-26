@@ -205,7 +205,8 @@ public class BookingRepository : IBookingRepository
     {
         var query = _context.BookingDetails
             .Where(d => d.RoomId == roomId)
-            .Where(d => d.Booking.BookingStatus != BookingStatus.Cancelled && d.Booking.BookingStatus != BookingStatus.Expired)
+            .Where(d => d.Booking.BookingStatus == BookingStatus.Confirmed || d.Booking.BookingStatus == BookingStatus.CheckedIn ||
+                (d.Booking.BookingStatus == BookingStatus.Pending && (d.Booking.HoldExpiresAt == null || d.Booking.HoldExpiresAt > DateTime.UtcNow)))
             .Where(d => d.Booking.CheckInDate < checkOut && d.Booking.CheckOutDate > checkIn);
 
         if (excludeBookingId.HasValue)
@@ -220,6 +221,9 @@ public class BookingRepository : IBookingRepository
     {
         await _context.Bookings.AddAsync(booking);
     }
+
+    public Task<bool> TryReserveAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking);
+    public Task<bool> TrySaveReservedAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking, updating: true);
 
     public Task UpdateAsync(Booking booking)
     {

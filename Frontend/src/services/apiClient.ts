@@ -13,13 +13,15 @@ export interface UserTokenPayload {
   hotelId?: number;
 }
 
+import { getStoredAccessToken } from './authApi';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Lấy token từ localStorage hoặc sessionStorage
  */
 export function getAuthToken(): string | null {
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+  return getStoredAccessToken() || localStorage.getItem('token') || sessionStorage.getItem('token') || null;
 }
 
 /**

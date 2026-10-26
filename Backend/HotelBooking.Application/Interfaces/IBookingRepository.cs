@@ -13,6 +13,8 @@ public interface IBookingRepository
     Task<bool> IsStaffAssignedToBookingAsync(long bookingId, long staffUserId);
     Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId);
     Task AddAsync(Booking booking);
+    Task<bool> TryReserveAsync(Booking booking);
+    Task<bool> TrySaveReservedAsync(Booking booking);
     Task UpdateAsync(Booking booking);
     Task AddStatusHistoryAsync(BookingStatusHistory history);
     Task SaveChangesAsync();

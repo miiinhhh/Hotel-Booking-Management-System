@@ -1,6 +1,7 @@
 using HotelBooking.Application.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
 
 namespace HotelBooking.API.Controllers;
 
@@ -37,12 +38,14 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("login")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponse>> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
         var response = await authService.LoginAsync(request, cancellationToken);
-        return response is null ? Unauthorized() : Ok(response);
+        return response is null
+            ? Unauthorized(AuthenticationProblems.InvalidCredentials(HttpContext))
+            : Ok(response);
     }
 }

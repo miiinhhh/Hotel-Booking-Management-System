@@ -31,6 +31,8 @@ export interface AssignStaffAreasRequest {
   areaIds: number[];
 }
 
+export type { ApiResponse };
+
 /**
  * Lấy danh sách nhân viên và các phân khu phụ trách theo khách sạn (Admin Portal)
  */
@@ -79,12 +81,16 @@ export async function removeAssignment(
  * Lấy các phân khu mà nhân viên đang đăng nhập được phụ trách (Staff Portal - Active Zone)
  */
 export async function getMyAssignedAreas(
-  userId?: number,
+  hotelIdOrUserId?: number,
   hotelId?: number
 ): Promise<ApiResponse<StaffAssignedArea[]>> {
   const params = new URLSearchParams();
-  if (userId) params.append('userId', String(userId));
-  if (hotelId) params.append('hotelId', String(hotelId));
+  if (hotelId !== undefined) {
+    if (hotelIdOrUserId) params.append('userId', String(hotelIdOrUserId));
+    params.append('hotelId', String(hotelId));
+  } else if (hotelIdOrUserId !== undefined) {
+    params.append('hotelId', String(hotelIdOrUserId));
+  }
 
   const query = params.toString() ? `?${params.toString()}` : '';
   return apiClient<StaffAssignedArea[]>(`/api/staff/me/assigned-areas${query}`);

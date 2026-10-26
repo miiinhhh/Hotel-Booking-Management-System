@@ -31,4 +31,5 @@ public sealed class RoomType
         RoomTypeName = name.Trim(); Description = description; BasePrice = price; Capacity = capacity; NumberOfBeds = beds; UpdatedAt = DateTime.UtcNow;
     }
     public void Deactivate() { IsActive = false; UpdatedAt = DateTime.UtcNow; }
+    public void Activate() { IsActive = true; UpdatedAt = DateTime.UtcNow; }
 }

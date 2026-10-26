@@ -1,5 +1,7 @@
 using HotelBooking.Application.Rooms;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
+using Microsoft.AspNetCore.Authorization;
 namespace HotelBooking.API.Controllers;
 
 [ApiController]
@@ -11,13 +13,20 @@ public sealed class RoomTypesController(RoomService service) : ControllerBase
     [HttpGet("{id:int:min(1)}")]
     public async Task<ActionResult<RoomTypeDto>> Get(int hotelId, int id, CancellationToken ct) => Ok(await service.GetType(hotelId, id, ct));
     [HttpPost("~/api/hotels/{hotelId:int:min(1)}/areas/{areaId:int:min(1)}/room-types")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<RoomTypeDto>> Create(int hotelId, int areaId, RoomTypeRequest request, CancellationToken ct)
     {
         var result = await service.CreateType(hotelId, areaId, request, ct);
         return CreatedAtAction(nameof(Get), new { hotelId, id = result.RoomTypeId }, result);
     }
     [HttpPut("{id:int:min(1)}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<RoomTypeDto>> Update(int hotelId, int id, RoomTypeRequest request, CancellationToken ct) => Ok(await service.UpdateType(hotelId, id, request, ct));
     [HttpDelete("{id:int:min(1)}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Delete(int hotelId, int id, CancellationToken ct) { await service.DeleteType(hotelId, id, ct); return NoContent(); }
+    [HttpPatch("{id:int:min(1)}/status")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    public async Task<ActionResult<RoomTypeDto>> SetStatus(int hotelId, int id, RoomTypeStatusRequest request, CancellationToken ct) =>
+        Ok(await service.SetTypeStatus(hotelId, id, request.IsActive!.Value, ct));
 }

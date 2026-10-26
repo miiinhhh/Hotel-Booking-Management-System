@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse } from './apiClient';
+import { getStoredAccessToken } from './authApi';
 
 export interface CalculatePriceRequest {
   checkInDate: string; // YYYY-MM-DD
@@ -81,6 +82,8 @@ export interface ConfirmPaymentRequest {
   isSuccessful: boolean;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 /**
  * Tính toán chi tiết giá đặt phòng
  */
@@ -150,4 +153,31 @@ export async function confirmBookingPayment(
     method: 'PUT',
     body: JSON.stringify({ isSuccessful }),
   });
+}
+
+/**
+ * Tạo đơn đặt phòng mới (Khách hàng)
+ */
+export async function createBooking(input: {
+  checkInDate: string;
+  checkOutDate: string;
+  numberOfGuests: number;
+  paymentMethod: string;
+  voucherCode?: string;
+  specialRequests?: string;
+  rooms: { roomId: number }[];
+  guests: { fullName: string; phone: string; email: string; isPrimaryGuest: boolean }[];
+}): Promise<{ bookingId: number; bookingCode: string }> {
+  const token = getStoredAccessToken();
+  if (!token) throw new Error('Vui lòng đăng nhập bằng tài khoản khách hàng trước khi đặt phòng.');
+  const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success || !result.data) {
+    throw new Error(result?.detail || result?.title || result?.message || 'Không tạo được booking. Vui lòng kiểm tra phòng trống lại.');
+  }
+  return result.data;
 }

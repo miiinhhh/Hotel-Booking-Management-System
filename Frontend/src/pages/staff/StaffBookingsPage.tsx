@@ -39,6 +39,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     { areaId: 2, areaName: 'Zone B: Ocean Wing', areaType: 'Zone', totalRooms: 36 },
   ]);
 
+
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
