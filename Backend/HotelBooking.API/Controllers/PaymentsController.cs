@@ -5,6 +5,7 @@ using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
 
 namespace HotelBooking.API.Controllers;
 
@@ -21,14 +22,14 @@ public class PaymentsController : BaseAPIController
 
     // POST: api/payments
     [HttpPost]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
     public async Task<IActionResult> CreatePayment(
         [FromBody] CreatePaymentRequest request)
     {
         try
         {
             var result =
-                await _paymentService.CreatePaymentAsync(request);
+                await _paymentService.CreatePaymentAsync(request, GetCurrentUserId()!.Value);
 
             return CreatedAtAction(
                 nameof(GetPayment),
@@ -65,7 +66,10 @@ public class PaymentsController : BaseAPIController
         long id)
     {
         var result =
-            await _paymentService.GetPaymentAsync(id);
+            await _paymentService.GetPaymentAsync(
+                id,
+                GetCurrentUserId()!.Value,
+                User.IsInRole(SystemRoles.Admin) || User.IsInRole(SystemRoles.HotelStaff));
 
         if (result == null)
         {
@@ -80,7 +84,7 @@ public class PaymentsController : BaseAPIController
 
     // GET: api/payments/my-history?page=1&pageSize=10
     [HttpGet("my-history")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
     public async Task<IActionResult> GetMyPaymentHistory(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
@@ -88,7 +92,7 @@ public class PaymentsController : BaseAPIController
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
         {
-            return Unauthorized(new { message = "User is not authenticated." });
+            return Unauthorized(AuthenticationProblems.AuthenticationRequired(HttpContext));
         }
 
         try
@@ -119,7 +123,7 @@ public class PaymentsController : BaseAPIController
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
         {
-            return Unauthorized(new { message = "User is not authenticated." });
+            return Unauthorized(AuthenticationProblems.AuthenticationRequired(HttpContext));
         }
 
         bool isAdmin = User.IsInRole(SystemRoles.Admin);
@@ -147,20 +151,20 @@ public class PaymentsController : BaseAPIController
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status403Forbidden, AuthenticationProblems.Forbidden(HttpContext, ex.Message));
         }
     }
 
     // GET: api/payments?page=1&pageSize=10
     [HttpGet]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public async Task<IActionResult> GetPaymentHistory(
         [FromQuery] PaymentHistoryFilterRequest filter)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
         {
-            return Unauthorized(new { message = "User is not authenticated." });
+            return Unauthorized(AuthenticationProblems.AuthenticationRequired(HttpContext));
         }
 
         bool isAdmin = User.IsInRole(SystemRoles.Admin);
@@ -180,13 +184,13 @@ public class PaymentsController : BaseAPIController
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+            return StatusCode(StatusCodes.Status403Forbidden, AuthenticationProblems.Forbidden(HttpContext, ex.Message));
         }
     }
 
     // PUT: api/payments/1/confirm
     [HttpPut("{id:long}/confirm")]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public async Task<IActionResult> ConfirmPayment(
         long id,
         [FromBody] ConfirmPaymentRequest request)

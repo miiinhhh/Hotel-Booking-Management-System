@@ -6,10 +6,13 @@ namespace HotelBooking.Application.Interfaces;
 public interface IPaymentService
 {
     Task<PaymentResponse> CreatePaymentAsync(
-        CreatePaymentRequest request);
+        CreatePaymentRequest request,
+        long customerId);
 
     Task<PaymentResponse?> GetPaymentAsync(
-        long paymentId);
+        long paymentId,
+        long actorId,
+        bool canManageAll);
 
     Task<IEnumerable<PaymentResponse>> GetPaymentsByBookingAsync(
         long bookingId);

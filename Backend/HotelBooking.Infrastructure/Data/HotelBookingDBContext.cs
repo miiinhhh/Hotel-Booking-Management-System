@@ -14,6 +14,8 @@ public sealed class HotelBookingDBContext(DbContextOptions<HotelBookingDBContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(HotelBookingDBContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(HotelBookingDBContext).Assembly,
+            type => type.Namespace == "HotelBooking.Infrastructure.Data.Configuration");
+        InventoryModel.Configure(modelBuilder);
     }
 }

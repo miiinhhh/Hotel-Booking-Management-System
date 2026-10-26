@@ -1,203 +1,34 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-interface HeaderProps {
-  activeTab?: string;
-  onTabChange?: (tab: string) => void;
-}
+interface HeaderProps { activeTab?: string; onTabChange?: (tab: string) => void; }
 
-export const Header: React.FC<HeaderProps> = ({
-  activeTab = 'kham-pha',
-  onTabChange,
-}) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab = 'kham-pha', onTabChange }) => {
+  const { session, hasRole, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [favoritesCount] = useState(3);
-
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const navItems = [
-    { id: 'kham-pha', label: 'Khám phá' },
-    { id: 'tim-kiem', label: 'Tìm kiếm' },
-    { id: 'dat-phong-cua-toi', label: 'Đặt phòng của tôi' },
-    { id: 'danh-gia', label: 'Đánh giá kỳ nghỉ' },
-    { id: 'uu-dai', label: 'Ưu đãi' },
-    { id: 'yeu-thich', label: 'Yêu thích', badge: favoritesCount },
+    { id: 'kham-pha', label: 'Khám phá' }, { id: 'tim-kiem', label: 'Tìm kiếm' },
+    { id: 'dat-phong-cua-toi', label: 'Đặt phòng của tôi' }, { id: 'danh-gia', label: 'Đánh giá kỳ nghỉ' },
+    { id: 'uu-dai', label: 'Ưu đãi' }, { id: 'yeu-thich', label: 'Yêu thích', badge: 3 },
   ];
+  const navigate = (id: string) => { onTabChange?.(id); setMobileMenuOpen(false); setAccountMenuOpen(false); };
+  const initials = session?.fullName.split(' ').filter(Boolean).map((part) => part[0]).slice(-2).join('').toUpperCase() || '';
 
-  const handleNavClick = (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    if (onTabChange) {
-      onTabChange(id);
-    }
-  };
-
-  return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(120,53,15,0.04)]">
-      <div className="h-20 max-w-[1440px] mx-auto px-margin-mobile md:px-margin flex items-center justify-between gap-space-md">
-        {/* Logo */}
-        <div className="flex items-center gap-space-sm shrink-0">
-          <img
-            alt="StayLuxe Brand Logo"
-            className="h-8 w-auto object-contain"
-            src="https://lh3.googleusercontent.com/aida/AEtjO1UuLKbQYAJ52dPZk6-vWkMW3Pun-2jyQpANXEzqJDtdL4GAdygv_RV5NksezVpnOq7cqfZ3U8a-L1GYf3qD-4d_-o6-jJknZHyBxv5qB9elZ7y5-Kg5oWmr4HSFHkqhYjkBD3JOzAUPK03x-47Xgm8ov8on002cCsMFRr6jPhVOQ18BYA9KQ96uFGoXWDXz29SovuZRDM3UADQicBGNH4-Mty0DXEILl4ffljeKAFuG9g"
-          />
-          <a
-            href="#"
-            onClick={(e) => handleNavClick('kham-pha', e)}
-            className="font-headline-sm text-headline-sm text-on-surface tracking-tight hover:opacity-90 transition-opacity"
-            data-path="kham-pha"
-          >
-            StayLuxe
-          </a>
-        </div>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-space-lg">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                onClick={(e) => handleNavClick(item.id, e)}
-                className={`py-space-xs transition-colors relative inline-flex items-center ${
-                  isActive
-                    ? 'text-primary font-label-lg font-bold'
-                    : 'font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface'
-                }`}
-                data-path={item.id}
-              >
-                <span>{item.label}</span>
-                {item.badge !== undefined && (
-                  <span className="ml-space-xs px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm leading-none flex items-center justify-center">
-                    {item.badge}
-                  </span>
-                )}
-              </a>
-            );
-          })}
-        </nav>
-
-        {/* Right side: Portal shortcuts + User Profile */}
-        <div className="flex items-center gap-space-sm sm:gap-space-md shrink-0">
-          <button
-            type="button"
-            onClick={() => onTabChange?.('admin-portal')}
-            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-sm text-xs font-semibold transition-all border border-outline-variant/50 bg-surface-container-low hover:bg-primary-container hover:text-on-primary"
-            title="Mở cổng quản trị StayLuxe"
-          >
-            <span className="material-symbols-outlined text-[16px]">shield_person</span>
-            <span>Admin</span>
-          </button>
-          {/* Quick Staff Portal Access Button */}
-          <button
-            type="button"
-            onClick={() => onTabChange?.('staff-portal')}
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-sm text-xs font-semibold transition-all border shadow-xs cursor-pointer ${
-              activeTab === 'staff-portal'
-                ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
-                : 'bg-secondary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-secondary-fixed border-secondary-fixed-dim/40'
-            }`}
-            title="Mở Cổng quản lý dành cho nhân viên lễ tân"
-          >
-            <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
-            <span>Staff Portal</span>
-          </button>
-
-          <a
-            className="hidden lg:flex items-center font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
-            data-path="tai-khoan"
-            href="#tai-khoan"
-            onClick={(e) => {
-              e.preventDefault();
-              onTabChange?.('dat-phong-cua-toi');
-            }}
-          >
-            Tài khoản
-          </a>
-
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="flex items-center gap-space-xs p-1 pl-3 rounded-full bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer border-0"
-            aria-label="Menu tài khoản"
-          >
-            <span className="material-symbols-outlined text-outline text-[18px]">
-              menu
-            </span>
-            <img
-              alt="Profile"
-              className="w-8 h-8 rounded-full object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_O1CP62hapmTqL5uB2S-b3PrZypkqqy015u_tkdPphRD1yOTMFeX6xk_O_M6Bw12PoUyN5XC8TBPAW80wd3KheaeplGvR7H1TnqGRuS7KTkU6XuAdTBdL7sUFepWC5Ng9QJe7xQFdLxCQ8eQo4SJmQXfWtmRp2rkQDqdcLWfDyuca_6Ha_v63hfQzFnSvwvmMCgnZUqofATaLF8vb2xralSQzS8NUQJm3EaHFSYn0"
-            />
-          </button>
-        </div>
+  return <header className="fixed left-0 right-0 top-0 z-50 bg-surface-container-lowest/90 shadow-[0_1px_8px_rgba(120,53,15,0.04)] backdrop-blur-xl">
+    <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-space-md px-margin-mobile md:px-margin">
+      <button onClick={() => navigate('kham-pha')} className="flex shrink-0 items-center gap-space-sm" aria-label="Về trang chủ StayLuxe"><img alt="StayLuxe" className="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1UuLKbQYAJ52dPZk6-vWkMW3Pun-2jyQpANXEzqJDtdL4GAdygv_RV5NksezVpnOq7cqfZ3U8a-L1GYf3qD-4d_-o6-jJknZHyBxv5qB9elZ7y5-Kg5oWmr4HSFHkqhYjkBD3JOzAUPK03x-47Xgm8ov8on002cCsMFRr6jPhVOQ18BYA9KQ96uFGoXWDXz29SovuZRDM3UADQicBGNH4-Mty0DXEILl4ffljeKAFuG9g" /><span className="font-headline-sm text-headline-sm text-on-surface">StayLuxe</span></button>
+      <nav className="hidden items-center gap-space-lg md:flex">{navItems.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`relative inline-flex items-center py-space-xs ${activeTab === item.id ? 'font-label-lg font-bold text-primary' : 'font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface'}`}><span>{item.label}</span>{item.badge !== undefined && <span className="ml-space-xs rounded-full bg-primary px-2 py-0.5 text-label-sm leading-none text-on-primary">{item.badge}</span>}</button>)}</nav>
+      <div className="relative flex shrink-0 items-center gap-space-sm sm:gap-space-md">
+        {hasRole('Admin') && <button onClick={() => navigate('admin-portal')} className="hidden items-center gap-1.5 rounded-full border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 text-xs font-semibold hover:bg-primary-container hover:text-on-primary lg:inline-flex"><span className="material-symbols-outlined text-[16px]">shield_person</span>Admin</button>}
+        {(hasRole('Hotel Staff') || hasRole('Admin')) && <button onClick={() => navigate('staff-portal')} className="hidden items-center gap-1.5 rounded-full border border-secondary-fixed-dim/40 bg-secondary-fixed/50 px-3 py-1.5 text-xs font-semibold text-on-secondary-fixed hover:bg-primary-container hover:text-on-primary sm:inline-flex"><span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>Staff Portal</button>}
+        {!session && <button onClick={() => navigate('dang-nhap')} className="hidden text-sm font-semibold text-on-surface-variant hover:text-primary lg:block">Đăng nhập</button>}
+        <button type="button" onClick={() => { if (window.innerWidth < 768) setMobileMenuOpen((value) => !value); else setAccountMenuOpen((value) => !value); }} className="flex items-center gap-space-xs rounded-full bg-surface-container-low p-1 pl-3 hover:bg-surface-container" aria-label="Menu tài khoản"><span className="material-symbols-outlined text-[18px] text-outline">menu</span>{session ? <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">{initials}</span> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high text-outline"><span className="material-symbols-outlined text-xl">person</span></span>}</button>
+        {accountMenuOpen && <div className="absolute right-0 top-12 hidden w-64 rounded-lg border border-outline-variant/30 bg-surface-container-lowest p-2 shadow-xl md:block">{session ? <><div className="border-b border-outline-variant/30 px-3 py-3"><p className="truncate font-semibold">{session.fullName}</p><p className="truncate text-xs text-outline">{session.email}</p></div><button onClick={() => navigate('tai-khoan')} className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">account_circle</span>Hồ sơ cá nhân</button><button onClick={() => navigate('dat-phong-cua-toi')} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">luggage</span>Đặt phòng của tôi</button><button onClick={() => { logout(); navigate('kham-pha'); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-error hover:bg-error-container"><span className="material-symbols-outlined text-xl">logout</span>Đăng xuất</button></> : <><button onClick={() => navigate('dang-nhap')} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">login</span>Đăng nhập</button><button onClick={() => navigate('dang-ky')} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">person_add</span>Đăng ký</button></>}</div>}
       </div>
-
-      {/* Mobile Menu Dropdown */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-surface-container-highest bg-surface-container-lowest px-6 py-4 shadow-lg animate-fadeIn">
-          <div className="flex flex-col gap-3">
-            {navItems.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                onClick={(e) => {
-                  handleNavClick(item.id, e);
-                  setMobileMenuOpen(false);
-                }}
-                className={`py-2 flex items-center justify-between text-body-md ${
-                  activeTab === item.id
-                    ? 'text-primary font-bold'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span>{item.label}</span>
-                {item.badge !== undefined && (
-                  <span className="px-2 py-0.5 rounded-full bg-primary text-on-primary text-xs">
-                    {item.badge}
-                  </span>
-                )}
-              </a>
-            ))}
-
-            <div className="border-t border-surface-container pt-3 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onTabChange?.('admin-portal');
-                  setMobileMenuOpen(false);
-                }}
-                className="py-2.5 px-4 rounded-full bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">shield_person</span>
-                <span>Admin Portal</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onTabChange?.('staff-portal');
-                  setMobileMenuOpen(false);
-                }}
-                className="py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 cursor-pointer shadow-sm text-left"
-              >
-                <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
-                <span>Staff Portal (Quản lý Đặt phòng)</span>
-              </button>
-
-              <a
-                href="#tai-khoan"
-                className="py-2 block text-body-md text-on-surface font-medium"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onTabChange?.('dat-phong-cua-toi');
-                  setMobileMenuOpen(false);
-                }}
-              >
-                Lịch sử đặt phòng &amp; Tài khoản
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-    </header>
-  );
+    </div>
+    {mobileMenuOpen && <div className="border-t border-surface-container-highest bg-surface-container-lowest px-6 py-4 shadow-lg md:hidden"><div className="flex flex-col gap-1">{navItems.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center justify-between py-2.5 text-left ${activeTab === item.id ? 'font-bold text-primary' : 'text-on-surface-variant'}`}><span>{item.label}</span>{item.badge !== undefined && <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-on-primary">{item.badge}</span>}</button>)}<div className="mt-2 border-t border-surface-container pt-3">{session ? <><button onClick={() => navigate('tai-khoan')} className="flex w-full items-center gap-2 py-2.5 font-semibold"><span className="material-symbols-outlined">account_circle</span>Hồ sơ cá nhân</button>{hasRole('Admin') && <button onClick={() => navigate('admin-portal')} className="flex w-full items-center gap-2 py-2.5"><span className="material-symbols-outlined">shield_person</span>Admin Portal</button>}{(hasRole('Hotel Staff') || hasRole('Admin')) && <button onClick={() => navigate('staff-portal')} className="flex w-full items-center gap-2 py-2.5"><span className="material-symbols-outlined">admin_panel_settings</span>Staff Portal</button>}<button onClick={() => { logout(); navigate('kham-pha'); }} className="flex w-full items-center gap-2 py-2.5 text-error"><span className="material-symbols-outlined">logout</span>Đăng xuất</button></> : <div className="grid grid-cols-2 gap-2"><button onClick={() => navigate('dang-nhap')} className="rounded-full bg-surface-container-high px-4 py-2.5 font-semibold">Đăng nhập</button><button onClick={() => navigate('dang-ky')} className="rounded-full bg-primary px-4 py-2.5 font-semibold text-on-primary">Đăng ký</button></div>}</div></div></div>}
+  </header>;
 };
+
 export default Header;

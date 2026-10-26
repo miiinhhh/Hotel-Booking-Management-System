@@ -21,7 +21,7 @@ using Xunit;
 
 namespace HotelBooking.Tests;
 
-public sealed class StaffFactory : WebApplicationFactory<Program>
+public class StaffFactory : WebApplicationFactory<Program>
 {
     private readonly string database = Guid.NewGuid().ToString();
     protected override void ConfigureWebHost(IWebHostBuilder builder)

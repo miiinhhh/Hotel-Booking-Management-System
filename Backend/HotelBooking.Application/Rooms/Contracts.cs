@@ -15,6 +15,7 @@ public sealed record RoomRequest(
     RoomStatus Status,
     [StringLength(500)] string? Description);
 public sealed record RoomTypeDto(int RoomTypeId, int HotelId, int AreaId, string Name, string? Description, decimal BasePrice, int Capacity, int NumberOfBeds, bool IsActive);
+public sealed record RoomTypeStatusRequest([Required] bool? IsActive);
 public sealed record RoomDto(long RoomId, int HotelId, int AreaId, int RoomTypeId, string RoomNumber, int Floor, RoomStatus Status, string? Description, bool IsActive, decimal Price, int Capacity);
 public sealed class NotFoundException(string message) : Exception(message);
 public sealed class ConflictException(string message) : Exception(message);

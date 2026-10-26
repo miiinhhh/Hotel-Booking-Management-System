@@ -1,4 +1,5 @@
 using HotelBooking.Application.Hotels;
+using HotelBooking.Application.Areas;
 using HotelBooking.Infrastructure.Persistence;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Rooms;
@@ -39,12 +40,14 @@ public static class DependencyInjection
         services.AddScoped<IContentAccess, ContentAccess>();
         services.AddSingleton<IImageStorage, LocalImageStorage>();
         services.AddHostedService<ImageCleanupWorker>();
+        services.AddScoped<IHotelAreaRepository, HotelAreaRepository>();
 
         // Module Booking
         services.AddDbContext<BookingDbContext>(options =>
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IBookingRepository, BookingRepository>();
+        services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
         services.AddScoped<IVoucherRepository, VoucherRepository>();
 
         // Module Payment
@@ -64,3 +67,4 @@ public static class DependencyInjection
         return services;
     }
 }
+

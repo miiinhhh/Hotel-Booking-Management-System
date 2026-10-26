@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using HotelBooking.Application.Hotels;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
+using Microsoft.AspNetCore.Authorization;
 
 namespace HotelBooking.API.Controllers;
 
@@ -25,6 +27,7 @@ public sealed class HotelsController(IHotelService service) : ControllerBase
         Ok(await service.GetByIdAsync(hotelId, cancellationToken));
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [ProducesResponseType<HotelResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<HotelResponse>> Create([FromBody] HotelRequest request, CancellationToken cancellationToken)
@@ -34,6 +37,7 @@ public sealed class HotelsController(IHotelService service) : ControllerBase
     }
 
     [HttpPut("{hotelId:int}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [ProducesResponseType<HotelResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -43,6 +47,7 @@ public sealed class HotelsController(IHotelService service) : ControllerBase
         Ok(await service.UpdateAsync(hotelId, request, cancellationToken));
 
     [HttpDelete("{hotelId:int}")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

@@ -27,10 +27,20 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
         model.Entity<Hotel>().ToTable("Hotels").HasKey(x => x.HotelId);
 
         var area = model.Entity<HotelArea>();
-        area.ToTable("HotelAreas");
+        area.ToTable("HotelAreas", table =>
+        {
+            table.HasCheckConstraint("CK_HotelAreas_Type", "[AreaType] IN ('Zone', 'Building')");
+            table.HasCheckConstraint("CK_HotelAreas_FloorCount", "[FloorCount] IS NULL OR [FloorCount] > 0");
+        });
         area.HasKey(x => x.AreaId);
-        area.Property(x => x.AreaName).HasMaxLength(150);
-        area.Property(x => x.AreaType).HasMaxLength(20).IsUnicode(false);
+        area.Property(x => x.AreaName).HasMaxLength(150).IsRequired();
+        area.Property(x => x.AreaType).HasMaxLength(20).IsUnicode(false).IsRequired();
+        area.Property(x => x.Description).HasMaxLength(500);
+        area.Property(x => x.LocationDescription).HasMaxLength(500);
+        area.Property(x => x.IsActive).IsRequired();
+        area.Property(x => x.CreatedAt).HasColumnType("datetime2").IsRequired();
+        area.Property(x => x.UpdatedAt).HasColumnType("datetime2");
+        area.HasIndex(x => new { x.HotelId, x.AreaName }).IsUnique();
         area.HasOne(x => x.Hotel).WithMany().HasForeignKey(x => x.HotelId).OnDelete(DeleteBehavior.Restrict);
         area.HasOne(x => x.ParentArea).WithMany(x => x.SubAreas).HasForeignKey(x => x.ParentAreaId).OnDelete(DeleteBehavior.Restrict);
 
@@ -41,7 +51,7 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
         type.Property(x => x.BasePrice).HasPrecision(18, 2);
         type.HasIndex(x => new { x.HotelId, x.AreaId, x.RoomTypeName }).IsUnique();
         type.HasOne(x => x.Hotel).WithMany(x => x.RoomTypes).HasForeignKey(x => x.HotelId).OnDelete(DeleteBehavior.Restrict);
-        type.HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.Restrict);
+        type.HasOne(x => x.Area).WithMany(x => x.RoomTypes).HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.Restrict);
 
         var room = model.Entity<Room>();
         room.ToTable("Rooms");

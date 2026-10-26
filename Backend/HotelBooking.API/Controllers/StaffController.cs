@@ -1,14 +1,14 @@
 using System.Security.Claims;
 using HotelBooking.Application.Staff;
-using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HotelBooking.API.Authentication;
 
 namespace HotelBooking.API.Controllers;
 
 [ApiController]
 [Route("api/staff")]
-[Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+[Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
 public sealed class StaffController(StaffService service) : ControllerBase
 {
     private long ActorId => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -21,7 +21,7 @@ public sealed class StaffController(StaffService service) : ControllerBase
     public async Task<ActionResult<StaffResponse>> Update(long id, UpdateStaffRequest request, CancellationToken ct) =>
         Ok(await service.Update(ActorId, id, request, ct));
     [HttpPatch("{id:long:min(1)}/status")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<ActionResult<StaffResponse>> SetStatus(long id, StaffStatusRequest request, CancellationToken ct) =>
         Ok(await service.SetActive(ActorId, id, request.IsActive!.Value, ct));
 }

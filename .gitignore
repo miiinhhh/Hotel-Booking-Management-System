@@ -30,5 +30,6 @@ appsettings.Local.json
 Thumbs.db
 
 *.sql
+!Database&Docs/RoomEmergencyLocks.sql
 *.json
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql

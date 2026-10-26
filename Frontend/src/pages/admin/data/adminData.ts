@@ -6,6 +6,7 @@ export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
   { id: 'pricing', label: 'Giá phòng', icon: 'price_change' },
   { id: 'vouchers', label: 'Voucher & Hủy hoàn', icon: 'confirmation_number' },
   { id: 'staff', label: 'Nhân viên & Phân công', icon: 'badge' },
+  { id: 'accounts', label: 'Quản trị tài khoản', icon: 'manage_accounts' },
 ];
 
 export const ZONES = [

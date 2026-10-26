@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ADMIN_NAVIGATION } from '../data/adminData';
 import { AdminPage } from '../types';
+import { useAuth } from '../../../context/AuthContext';
 
 interface AdminShellProps {
   activePage: AdminPage;
@@ -10,6 +11,7 @@ interface AdminShellProps {
 }
 
 export const AdminShell: React.FC<AdminShellProps> = ({ activePage, onPageChange, onExit, children }) => {
+  const { session, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navigate = (page: AdminPage) => {
@@ -43,8 +45,9 @@ export const AdminShell: React.FC<AdminShellProps> = ({ activePage, onPageChange
           </nav>
         </div>
         <div className="border-t border-outline-variant/40 pt-4">
-          <div className="mb-3 flex items-center gap-3 rounded-lg bg-surface-container-lowest p-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined text-lg">shield_person</span></div><div className="min-w-0"><p className="truncate text-sm font-semibold">Alexander Vũ</p><p className="text-xs text-outline">General Director</p></div></div>
-          <button onClick={onExit} className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"><span className="material-symbols-outlined text-lg">logout</span>Về cổng khách hàng</button>
+          <div className="mb-3 flex items-center gap-3 rounded-lg bg-surface-container-lowest p-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined text-lg">shield_person</span></div><div className="min-w-0"><p className="truncate text-sm font-semibold">{session?.fullName || 'Quản trị viên'}</p><p className="truncate text-xs text-outline">{session?.email}</p></div></div>
+          <button onClick={onExit} className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"><span className="material-symbols-outlined text-lg">storefront</span>Về cổng khách hàng</button>
+          <button onClick={() => { logout(); onExit(); }} className="mt-1 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-error hover:bg-error-container"><span className="material-symbols-outlined text-lg">logout</span>Đăng xuất</button>
         </div>
       </aside>
       <div className="lg:pl-72">
