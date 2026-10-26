@@ -4,15 +4,21 @@ using HotelBooking.Domain.Enums;
 using HotelBooking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using RoomPersistenceDbContext = HotelBooking.Infrastructure.Persistence.HotelBookingDbContext;
+
 namespace HotelBooking.Infrastructure.Repositories;
 
 public class BookingRepository : IBookingRepository
 {
     private readonly HotelBookingDBContext _context;
+    private readonly RoomPersistenceDbContext? _roomContext;
 
-    public BookingRepository(HotelBookingDBContext context)
+    public BookingRepository(
+        HotelBookingDBContext context,
+        RoomPersistenceDbContext? roomContext = null)
     {
         _context = context;
+        _roomContext = roomContext;
     }
 
     public async Task<Booking?> GetByIdAsync(long bookingId)
@@ -38,7 +44,15 @@ public class BookingRepository : IBookingRepository
             .FirstOrDefaultAsync(b => b.BookingCode == bookingCode);
     }
 
-    public async Task<List<Booking>> GetListAsync(long? customerId, string? status, string? paymentStatus, DateOnly? fromDate, DateOnly? toDate, int pageIndex, int pageSize)
+    public async Task<List<Booking>> GetListAsync(
+        long? customerId,
+        string? status,
+        string? paymentStatus,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        int pageIndex,
+        int pageSize,
+        long? staffUserId = null)
     {
         var query = _context.Bookings
             .Include(b => b.BookingDetails)
@@ -48,6 +62,32 @@ public class BookingRepository : IBookingRepository
         if (customerId.HasValue)
         {
             query = query.Where(b => b.CustomerId == customerId.Value);
+        }
+
+        // Lọc theo phân khu của Nhân viên (nếu có staffUserId)
+        if (staffUserId.HasValue && _roomContext != null)
+        {
+            var assignedAreaIds = await _roomContext.StaffAreaAssignments
+                .Where(s => s.UserId == staffUserId.Value && s.IsActive)
+                .Select(s => s.AreaId)
+                .ToListAsync();
+
+            if (assignedAreaIds.Count == 0)
+            {
+                return new List<Booking>();
+            }
+
+            var assignedRoomIds = await _roomContext.Rooms
+                .Where(r => assignedAreaIds.Contains(r.AreaId))
+                .Select(r => r.RoomId)
+                .ToListAsync();
+
+            if (assignedRoomIds.Count == 0)
+            {
+                return new List<Booking>();
+            }
+
+            query = query.Where(b => b.BookingDetails.Any(bd => assignedRoomIds.Contains(bd.RoomId)));
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BookingStatus>(status, true, out var parsedStatus))
@@ -77,13 +117,38 @@ public class BookingRepository : IBookingRepository
             .ToListAsync();
     }
 
-    public async Task<int> GetCountAsync(long? customerId, string? status, string? paymentStatus, DateOnly? fromDate, DateOnly? toDate)
+    public async Task<int> GetCountAsync(
+        long? customerId,
+        string? status,
+        string? paymentStatus,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        long? staffUserId = null)
     {
         var query = _context.Bookings.AsQueryable();
 
         if (customerId.HasValue)
         {
             query = query.Where(b => b.CustomerId == customerId.Value);
+        }
+
+        if (staffUserId.HasValue && _roomContext != null)
+        {
+            var assignedAreaIds = await _roomContext.StaffAreaAssignments
+                .Where(s => s.UserId == staffUserId.Value && s.IsActive)
+                .Select(s => s.AreaId)
+                .ToListAsync();
+
+            if (assignedAreaIds.Count == 0) return 0;
+
+            var assignedRoomIds = await _roomContext.Rooms
+                .Where(r => assignedAreaIds.Contains(r.AreaId))
+                .Select(r => r.RoomId)
+                .ToListAsync();
+
+            if (assignedRoomIds.Count == 0) return 0;
+
+            query = query.Where(b => b.BookingDetails.Any(bd => assignedRoomIds.Contains(bd.RoomId)));
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BookingStatus>(status, true, out var parsedStatus))
@@ -107,6 +172,33 @@ public class BookingRepository : IBookingRepository
         }
 
         return await query.CountAsync();
+    }
+
+    public async Task<bool> IsStaffAssignedToBookingAsync(long bookingId, long staffUserId)
+    {
+        if (_roomContext == null) return true;
+
+        var bookingRoomIds = await _context.BookingDetails
+            .Where(bd => bd.BookingId == bookingId)
+            .Select(bd => bd.RoomId)
+            .ToListAsync();
+
+        if (bookingRoomIds.Count == 0) return false;
+
+        return await _roomContext.Rooms
+            .Where(r => bookingRoomIds.Contains(r.RoomId))
+            .AnyAsync(r => _roomContext.StaffAreaAssignments
+                .Any(saa => saa.AreaId == r.AreaId && saa.UserId == staffUserId && saa.IsActive));
+    }
+
+    public async Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId)
+    {
+        if (_roomContext == null) return new List<int>();
+
+        return await _roomContext.StaffAreaAssignments
+            .Where(saa => saa.UserId == staffUserId && saa.IsActive)
+            .Select(saa => saa.AreaId)
+            .ToListAsync();
     }
 
     public async Task<bool> IsRoomBookedAsync(long roomId, DateOnly checkIn, DateOnly checkOut, long? excludeBookingId = null)

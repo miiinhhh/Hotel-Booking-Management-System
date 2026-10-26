@@ -80,7 +80,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     }
   };
 
-  const mapBackendPayment = (pmt: string, dep: number, tot: number): { status: StaffDepositStatus; label: string } => {
+  const mapBackendPayment = (pmt: string, dep: number, _tot: number): { status: StaffDepositStatus; label: string } => {
     if (pmt === 'Paid') return { status: 'paid_100', label: 'Đã trả 100%' };
     if (pmt === 'Refunded') return { status: 'refunded', label: 'Đã hoàn cọc' };
     if (dep > 0) return { status: 'deposited_50', label: `Đã cọc ${dep.toLocaleString('vi-VN')}₫` };

@@ -136,7 +136,7 @@ public class BookingServices : IBookingService
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId)
+    public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff)
     {
         var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
         if (booking == null)
@@ -144,10 +144,34 @@ public class BookingServices : IBookingService
             return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy thông tin đơn đặt phòng.");
         }
 
+        // 1. Quản trị viên: Toàn quyền truy cập
+        if (isAdmin)
+        {
+            return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
+        }
+
+        // 2. Nhân viên lễ tân: Chỉ xem được booking nếu phòng thuộc phân khu được phân công
+        if (isStaff)
+        {
+            bool isAssigned = await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, currentUserId);
+            if (!isAssigned)
+            {
+                return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền truy cập đơn đặt phòng ngoài phân khu được phân công.");
+            }
+
+            return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
+        }
+
+        // 3. Khách hàng: Chống IDOR - Chỉ xem được đơn đặt phòng của chính mình
+        if (booking.CustomerId != currentUserId)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền xem thông tin đơn đặt phòng của khách hàng khác.");
+        }
+
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode)
+    public async Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode, long currentUserId, bool isAdmin, bool isStaff)
     {
         var booking = await _bookingRepository.GetByCodeAsync(bookingCode);
         if (booking == null)
@@ -155,19 +179,55 @@ public class BookingServices : IBookingService
             return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy thông tin đơn đặt phòng theo mã này.");
         }
 
+        if (isAdmin)
+        {
+            return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
+        }
+
+        if (isStaff)
+        {
+            bool isAssigned = await _bookingRepository.IsStaffAssignedToBookingAsync(booking.BookingId, currentUserId);
+            if (!isAssigned)
+            {
+                return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền truy cập đơn đặt phòng ngoài phân khu được phân công.");
+            }
+
+            return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
+        }
+
+        if (booking.CustomerId != currentUserId)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền xem thông tin đơn đặt phòng của khách hàng khác.");
+        }
+
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking));
     }
 
-    public async Task<ApiResponse<List<BookingListDto>>> GetBookingsAsync(BookingFilterRequest filter)
+    public async Task<ApiResponse<List<BookingListDto>>> GetBookingsAsync(BookingFilterRequest filter, long currentUserId, bool isAdmin, bool isStaff)
     {
+        long? filterCustomerId = filter.CustomerId;
+        long? staffUserId = null;
+
+        // Chống IDOR: Nếu là Khách hàng (không phải Admin và không phải Staff), ép buộc chỉ lấy đơn của chính mình
+        if (!isAdmin && !isStaff)
+        {
+            filterCustomerId = currentUserId;
+        }
+        else if (isStaff && !isAdmin)
+        {
+            // Phân quyền Staff: Lọc theo phân khu của nhân viên phụ trách
+            staffUserId = currentUserId;
+        }
+
         var bookings = await _bookingRepository.GetListAsync(
-            filter.CustomerId,
+            filterCustomerId,
             filter.Status,
             filter.PaymentStatus,
             filter.FromDate,
             filter.ToDate,
             filter.PageIndex,
-            filter.PageSize
+            filter.PageSize,
+            staffUserId
         );
 
         var listDto = bookings.Select(b => new BookingListDto
@@ -189,12 +249,18 @@ public class BookingServices : IBookingService
         return ApiResponse<List<BookingListDto>>.SuccessResult(listDto);
     }
 
-    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, CancelBookingRequest request)
+    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId);
         if (booking == null)
         {
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
+        }
+
+        // Chống IDOR: Khách hàng chỉ được phép hủy đơn của chính mình. Quản trị viên có quyền hủy hỗ trợ khách.
+        if (!isAdmin && booking.CustomerId != currentUserId)
+        {
+            return ApiResponse<bool>.FailureResult("Bạn không có quyền hủy đơn đặt phòng của khách hàng khác.");
         }
 
         if (booking.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed or BookingStatus.Cancelled or BookingStatus.Expired)
@@ -213,9 +279,11 @@ public class BookingServices : IBookingService
             BookingId = booking.BookingId,
             OldStatus = oldStatus,
             NewStatus = BookingStatus.Cancelled.ToString(),
-            ChangedByUserId = userId,
+            ChangedByUserId = currentUserId,
             ChangedAt = DateTime.UtcNow,
-            Note = $"Khách/Admin hủy đơn. Lý do: {request.Reason}"
+            Note = isAdmin && booking.CustomerId != currentUserId
+                ? $"Quản trị viên (ID: {currentUserId}) hủy đơn. Lý do: {request.Reason}"
+                : $"Khách hàng hủy đơn. Lý do: {request.Reason}"
         });
 
         await _bookingRepository.UpdateAsync(booking);
@@ -224,12 +292,22 @@ public class BookingServices : IBookingService
         return ApiResponse<bool>.SuccessResult(true, "Hủy đơn đặt phòng thành công.");
     }
 
-    public async Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, UpdateBookingRequest request)
+    public async Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, bool isAdmin, UpdateBookingRequest request)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId);
         if (booking == null)
         {
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
+        }
+
+        // Phân quyền Staff: Nếu không phải Admin, phải kiểm tra xem nhân viên có phụ trách phân khu chứa phòng này hay không
+        if (!isAdmin)
+        {
+            bool isAssigned = await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, staffUserId);
+            if (!isAssigned)
+            {
+                return ApiResponse<bool>.FailureResult("Bạn không có quyền cập nhật trạng thái đơn đặt phòng ngoài phân khu được phân công.");
+            }
         }
 
         if (!Enum.TryParse<BookingStatus>(request.NewStatus, true, out var newStatus))
@@ -258,7 +336,7 @@ public class BookingServices : IBookingService
         await _bookingRepository.UpdateAsync(booking);
         await _bookingRepository.SaveChangesAsync();
 
-        return ApiResponse<bool>.SuccessResult(true, "Cập nhật trạng thái đơn đặt phòng thành công.");
+        return ApiResponse<bool>.SuccessResult(true, $"Cập nhật trạng thái đơn đặt phòng sang '{newStatus}' thành công.");
     }
 
     private static BookingResponseDto MapToResponseDto(Booking booking)
