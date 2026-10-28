@@ -17,7 +17,7 @@ public class BookingRepository : IBookingRepository
 
     public async Task<Booking?> GetByIdAsync(long bookingId)
     {
-        return await _context.Bookings.FindAsync(bookingId);
+        return await _context.Bookings.Include(b => b.BookingDetails).FirstOrDefaultAsync(b => b.BookingId == bookingId);
     }
 
     public async Task<Booking?> GetByIdWithDetailsAsync(long bookingId)

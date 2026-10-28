@@ -197,10 +197,10 @@ public class PricingService : IPricingService
             }
         }
 
-        // 4. Đồng bộ công thức thuế (10% VAT) và cọc (30% Deposit)
-        decimal estimatedTax = Math.Round(totalSubTotal * 0.10m, 2);
+        // 4. Đồng bộ công thức thuế (0% VAT) và cọc (70% Deposit)
+        decimal estimatedTax = Math.Round(totalSubTotal * 0m, 2);
         decimal estimatedTotal = totalSubTotal + feeAmount + estimatedTax;
-        decimal estimatedDeposit = Math.Round(estimatedTotal * 0.30m, 2);
+        decimal estimatedDeposit = Math.Round(estimatedTotal * 0.70m, 2);
 
         return new PriceCalculationResultDto
         {

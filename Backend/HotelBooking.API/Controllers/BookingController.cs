@@ -1,10 +1,11 @@
 using System.Security.Claims;
-using HotelBooking.Application.DTOs.Booking;
-using HotelBooking.Application.Interfaces;
 using HotelBooking.API.Authentication;
+using HotelBooking.Application.DTOs.Booking;
+using HotelBooking.Application.DTOs.Cancellation;
+using HotelBooking.Application.Interfaces;
+using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using HotelBooking.Domain.Entities;
 
 namespace HotelBooking.API.Controllers;
 
@@ -24,9 +25,10 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Tính toán và xem trước chi tiết chi phí đặt phòng (Báo giá & áp dụng Voucher thời gian thực)
+    /// Tính toán và xem trước giá đặt phòng
     /// </summary>
     [HttpPost("calculate-price")]
+    [AllowAnonymous]
     public async Task<IActionResult> CalculatePrice([FromBody] CalculatePriceRequest request, CancellationToken ct)
     {
         var result = await _pricingService.CalculatePriceAsync(request, ct);
@@ -39,7 +41,7 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Tạo đơn đặt phòng mới (Khách hàng)
+    /// Đặt phòng mới (Dành cho khách hàng đã đăng nhập)
     /// </summary>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
@@ -63,7 +65,9 @@ public class BookingController : BaseAPIController
     [Authorize]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _bookingService.GetBookingByIdAsync(id, GetCurrentUserId(), CanManageAllBookings());
+        long currentUserId = GetCurrentUserId();
+
+        var result = await _bookingService.GetBookingByIdAsync(id, currentUserId, CanManageAllBookings());
         if (!result.Success)
         {
             return NotFound(result);
@@ -73,13 +77,15 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Tra cứu đơn đặt phòng theo mã BookingCode (Ví dụ: BK20261006123456789)
+    /// Lấy chi tiết đơn đặt phòng theo mã BookingCode
     /// </summary>
-    [HttpGet("code/{bookingCode}")]
+    [HttpGet("code/{code}")]
     [Authorize]
-    public async Task<IActionResult> GetByCode(string bookingCode)
+    public async Task<IActionResult> GetByCode(string code)
     {
-        var result = await _bookingService.GetBookingByCodeAsync(bookingCode, GetCurrentUserId(), CanManageAllBookings());
+        long currentUserId = GetCurrentUserId();
+
+        var result = await _bookingService.GetBookingByCodeAsync(code, currentUserId, CanManageAllBookings());
         if (!result.Success)
         {
             return NotFound(result);
@@ -89,13 +95,31 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Tìm kiếm và lọc danh sách đơn đặt phòng (Hỗ trợ phân trang, lọc theo khách hàng, ngày, trạng thái)
+    /// Lấy danh sách đơn đặt phòng có phân trang và bộ lọc (Dành cho Lễ tân/Admin)
     /// </summary>
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public async Task<IActionResult> GetList([FromQuery] BookingFilterRequest filter)
     {
         var result = await _bookingService.GetBookingsAsync(filter);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Xem trước chi tiết hoàn hủy phòng (Khách hàng hoặc Quản trị viên)
+    /// </summary>
+    [HttpGet("{id:long}/preview-cancel")]
+    [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]
+    public async Task<IActionResult> PreviewCancelBooking(long id)
+    {
+        long currentUserId = GetCurrentUserId();
+
+        var result = await _bookingService.PreviewCancelBookingAsync(id, currentUserId, CanManageAllBookings());
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
         return Ok(result);
     }
 
@@ -108,7 +132,7 @@ public class BookingController : BaseAPIController
     {
         long currentUserId = GetCurrentUserId();
 
-        var result = await _bookingService.CancelBookingAsync(id, currentUserId, User.IsInRole(SystemRoles.Admin), request);
+        var result = await _bookingService.CancelBookingAsync(id, currentUserId, CanManageAllBookings(), request);
         if (!result.Success)
         {
             return BadRequest(result);

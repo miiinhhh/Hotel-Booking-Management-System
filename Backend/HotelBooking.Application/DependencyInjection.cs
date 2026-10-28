@@ -18,9 +18,10 @@ public static class DependencyInjection
         services.AddScoped<IRoomSearchService, RoomSearchService>();
         services.AddScoped<HotelAreaService>();
 
-        // Dynamic Room Pricing & Voucher Services
+        // Dynamic Room Pricing, Voucher & Cancellation Policy Services
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IVoucherService, VoucherService>();
+        services.AddScoped<ICancellationPolicyService, CancellationPolicyService>();
 
         return services;
     }

@@ -8,9 +8,9 @@ namespace HotelBooking.Application.Services;
 
 public class BookingPricingService : IBookingPricingService
 {
-    private const decimal ServiceFeeRate = 0.05m; // 5% phí phục vụ
-    private const decimal VatTaxRate = 0.10m;     // 10% thuế VAT
-    private const decimal DefaultDepositPercent = 30m; // 30% tiền cọc
+    private const decimal ServiceFeeRate = 0m;    // 0% phí phục vụ
+    private const decimal VatTaxRate = 0m;        // 0% thuế VAT
+    private const decimal DefaultDepositPercent = 70m; // 70% tiền cọc
 
     private readonly IRoomRepository _roomRepository;
     private readonly IVoucherRepository _voucherRepository;

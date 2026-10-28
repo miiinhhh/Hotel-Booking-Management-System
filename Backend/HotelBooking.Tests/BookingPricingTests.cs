@@ -127,20 +127,20 @@ public sealed class BookingPricingTests
         Assert.Equal(0m, data.DiscountAmount);
 
         // Phí phục vụ 5% = 100.000đ
-        Assert.Equal(100_000m, data.FeeAmount);
+        Assert.Equal(0m, data.FeeAmount);
 
         // VAT 10% trên (2.000.000 + 100.000) = 210.000đ
-        Assert.Equal(210_000m, data.TaxAmount);
+        Assert.Equal(0m, data.TaxAmount);
 
         // Tổng cộng = 2.000.000 + 100.000 + 210.000 = 2.310.000đ
-        Assert.Equal(2_310_000m, data.TotalAmount);
+        Assert.Equal(2_000_000m, data.TotalAmount);
 
         // Đặt cọc 30% = 693.000đ
-        Assert.Equal(30m, data.DepositPercentage);
-        Assert.Equal(693_000m, data.DepositAmount);
+        Assert.Equal(70m, data.DepositPercentage);
+        Assert.Equal(1_400_000m, data.DepositAmount);
 
         // Còn lại = 1.617.000đ
-        Assert.Equal(1_617_000m, data.RemainingAmount);
+        Assert.Equal(600_000m, data.RemainingAmount);
     }
 
     [Fact]
@@ -182,13 +182,13 @@ public sealed class BookingPricingTests
         Assert.Equal(1_800_000m, data.SubTotalAfterDiscount);
 
         // Fee 5% của 1.800.000 = 90.000đ
-        Assert.Equal(90_000m, data.FeeAmount);
+        Assert.Equal(0m, data.FeeAmount);
 
         // Tax 10% của (1.800.000 + 90.000) = 189.000đ
-        Assert.Equal(189_000m, data.TaxAmount);
+        Assert.Equal(0m, data.TaxAmount);
 
         // Total = 1.800.000 + 90.000 + 189.000 = 2.079.000đ
-        Assert.Equal(2_079_000m, data.TotalAmount);
+        Assert.Equal(1_800_000m, data.TotalAmount);
     }
 
     [Fact]
@@ -343,7 +343,7 @@ public sealed class BookingPricingTests
 
         // Đảm bảo voucher 10% được áp dụng: giảm 200.000đ
         Assert.Equal(200_000m, booking.DiscountAmount);
-        Assert.Equal(2_079_000m, booking.TotalAmount);
+        Assert.Equal(1_800_000m, booking.TotalAmount);
 
         // Đảm bảo UsedCount của voucher được tăng lên 1
         var updatedVoucher = await bookingDb.Vouchers.FindAsync(voucher.VoucherId);

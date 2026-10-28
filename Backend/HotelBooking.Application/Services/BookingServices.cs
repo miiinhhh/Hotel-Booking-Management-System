@@ -2,10 +2,13 @@ namespace HotelBooking.Application.Services;
 
 using HotelBooking.Application.Common;
 using HotelBooking.Application.DTOs.Booking;
+using HotelBooking.Application.DTOs.Cancellation;
 using HotelBooking.Application.DTOs.Voucher;
 using HotelBooking.Application.Interfaces;
+using HotelBooking.Application.Rooms;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Domain.Enums;
+using Microsoft.Extensions.DependencyInjection;
 using BookingPriceCalculationResultDto = HotelBooking.Application.DTOs.Booking.PriceCalculationResultDto;
 
 public class BookingServices : IBookingService
@@ -13,15 +16,33 @@ public class BookingServices : IBookingService
     private readonly IBookingRepository _bookingRepository;
     private readonly IBookingPricingService _pricingService;
     private readonly IVoucherRepository _voucherRepository;
+    private readonly ICancellationPolicyService? _cancellationPolicyService;
+    private readonly IPaymentRepository? _paymentRepository;
+    private readonly IRoomRepository? _roomRepository;
 
     public BookingServices(
         IBookingRepository bookingRepository,
         IBookingPricingService pricingService,
         IVoucherRepository voucherRepository)
+        : this(bookingRepository, pricingService, voucherRepository, null, null, null)
+    {
+    }
+
+    [ActivatorUtilitiesConstructor]
+    public BookingServices(
+        IBookingRepository bookingRepository,
+        IBookingPricingService pricingService,
+        IVoucherRepository voucherRepository,
+        ICancellationPolicyService? cancellationPolicyService,
+        IPaymentRepository? paymentRepository,
+        IRoomRepository? roomRepository)
     {
         _bookingRepository = bookingRepository;
         _pricingService = pricingService;
         _voucherRepository = voucherRepository;
+        _cancellationPolicyService = cancellationPolicyService;
+        _paymentRepository = paymentRepository;
+        _roomRepository = roomRepository;
     }
 
     public async Task<ApiResponse<BookingResponseDto>> CreateBookingAsync(long customerId, CreateBookingRequest request)
@@ -208,6 +229,67 @@ public class BookingServices : IBookingService
         return ApiResponse<List<BookingListDto>>.SuccessResult(listDto);
     }
 
+    public async Task<ApiResponse<CancelPreviewResponseDto>> PreviewCancelBookingAsync(long bookingId, long userId, bool canManageAll)
+    {
+        var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId)
+                      ?? await _bookingRepository.GetByIdAsync(bookingId);
+        if (booking == null)
+        {
+            return ApiResponse<CancelPreviewResponseDto>.FailureResult("Không tìm thấy đơn đặt phòng.");
+        }
+
+        EnsureBookingAccess(booking, userId, canManageAll);
+
+        if (booking.BookingStatus == BookingStatus.Cancelled ||
+            booking.BookingStatus == BookingStatus.Completed ||
+            booking.BookingStatus == BookingStatus.Expired)
+        {
+            return ApiResponse<CancelPreviewResponseDto>.FailureResult($"Không thể xem trước hủy cho đơn đặt phòng đang ở trạng thái: {booking.BookingStatus}.");
+        }
+
+        int hotelId = await ResolveHotelIdAsync(booking);
+        var totalPaid = _paymentRepository != null 
+            ? await _paymentRepository.GetTotalPaidAmountAsync(bookingId) 
+            : 0m;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var daysRemaining = booking.CheckInDate.DayNumber - today.DayNumber;
+
+        CancellationPolicy? policy = null;
+        if (_cancellationPolicyService != null && hotelId > 0)
+        {
+            policy = await _cancellationPolicyService.GetApplicablePolicyAsync(hotelId, daysRemaining);
+        }
+
+        CancelPreviewResponseDto preview;
+        if (_cancellationPolicyService != null)
+        {
+            preview = _cancellationPolicyService.CalculateCancellation(booking, totalPaid, policy);
+        }
+        else
+        {
+            preview = new CancelPreviewResponseDto
+            {
+                BookingId = booking.BookingId,
+                BookingCode = booking.BookingCode,
+                CheckInDate = booking.CheckInDate,
+                CheckOutDate = booking.CheckOutDate,
+                DaysRemaining = daysRemaining,
+                TotalAmount = booking.TotalAmount,
+                TotalPaid = totalPaid,
+                AppliedPolicyName = "Chưa có chính sách hủy phòng",
+                RefundPercentage = 0m,
+                RefundAmount = 0m,
+                PenaltyPercentage = 100m,
+                PenaltyAmount = totalPaid,
+                IsEligibleForRefund = false,
+                Message = "Chưa có chính sách hủy phòng phù hợp."
+            };
+        }
+
+        return ApiResponse<CancelPreviewResponseDto>.SuccessResult(preview, "Lấy thông tin xem trước hủy phòng thành công.");
+    }
+
     public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, bool canManageAll, CancelBookingRequest request)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId);
@@ -225,11 +307,79 @@ public class BookingServices : IBookingService
             return ApiResponse<bool>.FailureResult($"Không thể hủy đơn đặt phòng đang ở trạng thái: {booking.BookingStatus}.");
         }
 
+        int hotelId = await ResolveHotelIdAsync(booking);
+        var totalPaid = _paymentRepository != null 
+            ? await _paymentRepository.GetTotalPaidAmountAsync(bookingId) 
+            : 0m;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var daysRemaining = booking.CheckInDate.DayNumber - today.DayNumber;
+
+        CancellationPolicy? policy = null;
+        if (_cancellationPolicyService != null && hotelId > 0)
+        {
+            policy = await _cancellationPolicyService.GetApplicablePolicyAsync(hotelId, daysRemaining);
+        }
+
+        CancelPreviewResponseDto calculation;
+        if (_cancellationPolicyService != null)
+        {
+            calculation = _cancellationPolicyService.CalculateCancellation(booking, totalPaid, policy);
+        }
+        else
+        {
+            calculation = new CancelPreviewResponseDto
+            {
+                RefundPercentage = 0m,
+                RefundAmount = 0m,
+                PenaltyPercentage = 100m,
+                PenaltyAmount = totalPaid,
+                AppliedPolicyName = "Default"
+            };
+        }
+
         var oldStatus = booking.BookingStatus.ToString();
         booking.BookingStatus = BookingStatus.Cancelled;
         booking.CancellationReason = request.Reason;
         booking.CancelledAt = DateTime.UtcNow;
         booking.UpdatedAt = DateTime.UtcNow;
+
+        if (totalPaid > 0m)
+        {
+            if (calculation.RefundAmount >= totalPaid)
+            {
+                booking.PaymentStatus = "Refunded";
+            }
+            else if (calculation.RefundAmount > 0m)
+            {
+                booking.PaymentStatus = "PartiallyPaid";
+            }
+        }
+
+        // Tạo bản ghi hoàn tiền trong Payments (chống trùng lặp refund)
+        if (calculation.RefundAmount > 0m && _paymentRepository != null)
+        {
+            var existingPayments = await _paymentRepository.GetByBookingIdAsync(booking.BookingId);
+            bool hasRefundAlready = existingPayments != null && existingPayments.Any(p => p.PaymentType == PaymentType.Refund);
+            if (!hasRefundAlready)
+            {
+                var refundPayment = new Payment
+                {
+                    BookingId = booking.BookingId,
+                    PaymentMethod = Enum.TryParse<PaymentMethod>(booking.PaymentMethod, true, out var pm) ? pm : PaymentMethod.Deposit,
+                    PaymentType = PaymentType.Refund,
+                    Amount = calculation.RefundAmount,
+                    Status = PaymentStatus.Paid,
+                    TransactionCode = $"REFUND-{booking.BookingCode}-{DateTime.UtcNow:yyyyMMddHHmmss}",
+                    PaidAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _paymentRepository.CreateAsync(refundPayment);
+            }
+        }
+
+        // Ghi lại lịch sử thay đổi trạng thái kèm đầy đủ thông tin hoàn hủy vào BookingStatusHistory.Note
+        var auditNote = $"Khách/Admin hủy đơn. Lý do: {request.Reason}. Chính sách: {calculation.AppliedPolicyName}. Đã thanh toán: {totalPaid:N0} VNĐ, Hoàn trả: {calculation.RefundAmount:N0} VNĐ ({calculation.RefundPercentage}%), Phí phạt: {calculation.PenaltyAmount:N0} VNĐ ({calculation.PenaltyPercentage}%).";
 
         await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
         {
@@ -238,7 +388,7 @@ public class BookingServices : IBookingService
             NewStatus = BookingStatus.Cancelled.ToString(),
             ChangedByUserId = userId,
             ChangedAt = DateTime.UtcNow,
-            Note = $"Khách/Admin hủy đơn. Lý do: {request.Reason}"
+            Note = auditNote
         });
 
         await _bookingRepository.UpdateAsync(booking);
@@ -282,6 +432,32 @@ public class BookingServices : IBookingService
         await _bookingRepository.SaveChangesAsync();
 
         return ApiResponse<bool>.SuccessResult(true, "Cập nhật trạng thái đơn đặt phòng thành công.");
+    }
+
+    private async Task<int> ResolveHotelIdAsync(Booking booking)
+    {
+        var details = booking.BookingDetails;
+        if (details == null || details.Count == 0)
+        {
+            var fullBooking = await _bookingRepository.GetByIdWithDetailsAsync(booking.BookingId);
+            details = fullBooking?.BookingDetails;
+        }
+
+        if (details != null && details.Count > 0 && _roomRepository != null)
+        {
+            var firstRoomId = details.First().RoomId;
+            var room = await _roomRepository.FindRoomAsync(firstRoomId, default);
+            if (room?.RoomType != null)
+            {
+                return room.RoomType.HotelId;
+            }
+            if (room?.Area != null)
+            {
+                return room.Area.HotelId;
+            }
+        }
+
+        return 0;
     }
 
     private static BookingResponseDto MapToResponseDto(Booking booking)
