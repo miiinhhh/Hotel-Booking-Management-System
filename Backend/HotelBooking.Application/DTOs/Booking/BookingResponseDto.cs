@@ -19,6 +19,7 @@ public class BookingResponseDto
     public decimal DepositAmount { get; set; }
     public decimal RemainingAmount { get; set; }
     public long? VoucherId { get; set; }
+    public string? VoucherCode { get; set; }
     public string? SpecialRequests { get; set; }
     public DateTime? HoldExpiresAt { get; set; }
     public string? CancellationReason { get; set; }

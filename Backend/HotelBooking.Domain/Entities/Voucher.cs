@@ -1,5 +1,4 @@
 using HotelBooking.Domain.Enums;
-
 namespace HotelBooking.Domain.Entities;
 
 public class Voucher
@@ -9,6 +8,8 @@ public class Voucher
     public VoucherType VoucherType { get; set; } = VoucherType.Percentage;
     public decimal DiscountValue { get; set; }
     public decimal MinimumOrderAmount { get; set; }
+    public decimal? MaxDiscountAmount { get; set; }
+    public int UsageLimitPerCustomer { get; set; } = 1;
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
     public int? UsageLimit { get; set; }
@@ -68,6 +69,15 @@ public class Voucher
             _ => 0m
         };
 
+        if (MaxDiscountAmount is > 0m)
+        {
+            discount = Math.Min(discount, MaxDiscountAmount.Value);
+        }
+
         return Math.Clamp(discount, 0m, orderAmount);
     }
+
+    // Navigation properties
+    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<VoucherUsage> VoucherUsages { get; set; } = new List<VoucherUsage>();
 }

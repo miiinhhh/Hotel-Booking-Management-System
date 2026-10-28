@@ -73,10 +73,10 @@ public class BookingServices : IBookingService
             SubTotal = rb.SubTotal
         }).ToList();
 
-        // 4. Sinh mã đặt phòng duy nhất: BK + yyyyMMddHHmmss + 3 số ngẫu nhiên
+        // 6. Sinh mã đặt phòng duy nhất: BK + yyyyMMddHHmmss + 3 số ngẫu nhiên
         string bookingCode = $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{Random.Shared.Next(100, 999)}";
 
-        // 5. Khởi tạo Entity Booking
+        // 7. Khởi tạo Entity Booking
         var booking = new Booking
         {
             BookingCode = bookingCode,
@@ -136,7 +136,9 @@ public class BookingServices : IBookingService
             await _voucherRepository.IncrementUsedCountAsync(pricing.VoucherId.Value);
         }
 
-        return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
+        var responseDto = MapToResponseDto(booking);
+
+        return ApiResponse<BookingResponseDto>.SuccessResult(responseDto, "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
     }
 
     public async Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff)
@@ -372,6 +374,7 @@ public class BookingServices : IBookingService
             DepositAmount = booking.DepositAmount,
             RemainingAmount = booking.RemainingAmount,
             VoucherId = booking.VoucherId,
+            VoucherCode = booking.Voucher?.Code,
             SpecialRequests = booking.SpecialRequests,
             HoldExpiresAt = booking.HoldExpiresAt,
             CancellationReason = booking.CancellationReason,

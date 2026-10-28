@@ -44,6 +44,8 @@ public static class DependencyInjection
 
         services.AddScoped<IBookingRepository, BookingRepository>();
         services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
+        services.AddScoped<IRoomPriceHistoryRepository, RoomPriceHistoryRepository>();
+        services.AddScoped<IPriceSurgeRuleRepository, PriceSurgeRuleRepository>();
         services.AddScoped<IVoucherRepository, VoucherRepository>();
 
         // Module Payment
