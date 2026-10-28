@@ -36,7 +36,12 @@ public static class DependencyInjection
         services.AddScoped<HotelBooking.Application.Staff.IStaffRepository, HotelBooking.Infrastructure.Data.StaffRepository>();
         services.AddScoped<IStaffAreaAssignmentRepository, StaffAreaAssignmentRepository>();
         services.AddScoped<IRoomSearchRepository, RoomSearchRepository>();
+        services.AddScoped<IPropertyContentRepository, PropertyContentRepository>();
+        services.AddScoped<IContentAccess, ContentAccess>();
+        services.AddSingleton<IImageStorage, LocalImageStorage>();
+        services.AddHostedService<ImageCleanupWorker>();
         services.AddScoped<IHotelAreaRepository, HotelAreaRepository>();
+        services.AddScoped<IDiscoveryRepository, DiscoveryRepository>();
 
         // Module Booking
         services.AddDbContext<BookingDbContext>(options =>

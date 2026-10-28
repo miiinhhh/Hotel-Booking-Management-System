@@ -58,15 +58,7 @@ export const StickyActionBar: React.FC<StickyActionBarProps> = ({
             </span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-secondary-fixed/40 text-on-secondary-fixed">
-            <span className="material-symbols-outlined text-primary-container text-[18px]">
-              beach_access
-            </span>
-            <span className="font-label-md text-label-md font-semibold">
-              Bãi biển biệt lập
-            </span>
-          </div>
-        </div>
+</div>
 
         {/* Date and CTA */}
         <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-4">

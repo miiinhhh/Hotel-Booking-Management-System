@@ -52,6 +52,9 @@ export interface ResortAmenity {
 }
 
 export interface HotelDetail {
+  checkIn?: string;
+  checkOut?: string;
+  guestsPerRoom?: number;
   id: string;
   name: string;
   categoryTag: string;

@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:5131
+@checkIn = 2026-11-01
+@checkOut = 2026-11-03
+@hotelId = 1
+@accessToken = REPLACE_WITH_CURRENT_ACCOUNT_JWT
+
+### Public discovery: reference price, dates, total guests and rooms
+GET {{baseUrl}}/api/discovery/hotels?location=Huế&checkIn={{checkIn}}&checkOut={{checkOut}}&adults=4&children=0&rooms=2&minPrice=0&sort=price_asc&page=1&pageSize=12
+
+### Public detail (active hotel only)
+GET {{baseUrl}}/api/discovery/hotels/{{hotelId}}?checkIn={{checkIn}}&checkOut={{checkOut}}
+
+### Current account Wishlist
+GET {{baseUrl}}/api/me/wishlist
+Authorization: Bearer {{accessToken}}
+
+### Idempotent save
+PUT {{baseUrl}}/api/me/wishlist/{{hotelId}}
+Authorization: Bearer {{accessToken}}
+
+### Idempotent remove
+DELETE {{baseUrl}}/api/me/wishlist/{{hotelId}}
+Authorization: Bearer {{accessToken}}
+
+### Published cancellation text (Admin; not a payment formula)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/policy
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "cancellationPolicy": "Vui lòng liên hệ khách sạn để xác nhận điều kiện hủy." }
+
+### Admin overview: exclusive end date
+GET {{baseUrl}}/api/admin/reports/overview?from=2026-11-01&to=2026-12-01&hotelId={{hotelId}}
+Authorization: Bearer {{accessToken}}
+
+### Admin CSV (same filters)
+GET {{baseUrl}}/api/admin/reports/export?from=2026-11-01&to=2026-12-01&hotelId={{hotelId}}
+Authorization: Bearer {{accessToken}}

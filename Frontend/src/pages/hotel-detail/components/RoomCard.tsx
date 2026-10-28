@@ -214,7 +214,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             </span>
           </div>
           <span className="font-body-md text-body-md text-on-surface-variant text-xs mt-0.5">
-            Đã bao gồm thuế GTGT & phí dịch vụ
+            Giá tham khảo, xác nhận lại khi đặt
           </span>
           <span className="inline-flex items-center gap-1 text-tertiary font-label-sm text-label-sm mt-2 xl:self-end">
             <span className="material-symbols-outlined text-[15px]">

@@ -5,7 +5,7 @@ namespace HotelBooking.Application.Rooms;
 public sealed record RoomTypeRequest(
     [Required, StringLength(100)] string Name,
     string? Description,
-    [Range(typeof(decimal), "0", "9999999999999999.99")] decimal BasePrice,
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal BasePrice,
     [Range(1, int.MaxValue)] int Capacity,
     [Range(1, int.MaxValue)] int NumberOfBeds);
 public sealed record RoomRequest(
