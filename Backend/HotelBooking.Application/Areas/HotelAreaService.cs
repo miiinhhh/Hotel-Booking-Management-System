@@ -93,8 +93,10 @@ public sealed class HotelAreaService(IHotelAreaRepository repository)
         int? parentAreaId,
         CancellationToken cancellationToken)
     {
-        if (string.Equals(areaType?.Trim(), "Zone", StringComparison.OrdinalIgnoreCase) || !parentAreaId.HasValue)
+        if (string.Equals(areaType?.Trim(), "Zone", StringComparison.OrdinalIgnoreCase))
             return;
+        if (!parentAreaId.HasValue)
+            throw new DomainRuleException("A Building must belong to a parent Zone.");
         if (parentAreaId.Value == currentAreaId)
             throw new ConflictException("An area cannot be its own parent.");
 

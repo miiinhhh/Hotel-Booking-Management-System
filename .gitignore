@@ -37,3 +37,4 @@ Thumbs.db
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscovery.sql
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscoveryDemo.sql
+!Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelAreas.sql

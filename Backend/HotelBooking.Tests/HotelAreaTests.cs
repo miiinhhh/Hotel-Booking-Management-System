@@ -65,6 +65,8 @@ public sealed class HotelAreaTests
             service.CreateAsync(1, Request("Wrong Hotel", "Building", secondHotelZone.AreaId), Ct));
         await Assert.ThrowsAsync<ConflictException>(() =>
             service.CreateAsync(1, Request("Nested Building", "Building", building.AreaId), Ct));
+        await Assert.ThrowsAsync<DomainRuleException>(() =>
+            service.CreateAsync(1, Request("Missing Parent", "Building"), Ct));
     }
 
     [Fact]
@@ -114,7 +116,7 @@ public sealed class HotelAreaTests
     [InlineData("", "Zone", null, null)]
     [InlineData("Area", "Floor", null, null)]
     [InlineData("Area", "Zone", 1, null)]
-    [InlineData("Area", "Building", null, 0)]
+    [InlineData("Area", "Building", null, null)]
     public void Entity_RejectsInvalidSchemaValues(string name, string type, int? parentId, int? floorCount)
     {
         Assert.Throws<DomainRuleException>(() =>
