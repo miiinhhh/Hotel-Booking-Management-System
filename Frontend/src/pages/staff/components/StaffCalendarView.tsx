@@ -27,7 +27,7 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
 
   const handleConfirmLock = (data: EmergencyLockFormData) => {
     onShowToast?.(
-      `Đã kích hoạt khóa phòng khẩn cấp cho ${data.roomNumbers.join(', ')} thuộc ${data.buildingAndCategory}. Đã gỡ khỏi OTA.`
+      `Đã kích hoạt khóa phòng khẩn cấp cho ${data.roomNumbers.join(', ')} thuộc ${data.buildingAndCategory}. Đã lưu lệnh khóa trong hệ thống.`
     );
   };
 

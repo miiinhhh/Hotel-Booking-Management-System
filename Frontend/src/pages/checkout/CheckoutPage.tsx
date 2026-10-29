@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckoutUrgencyBanner } from './components/CheckoutUrgencyBanner';
 import { CheckoutStepper } from './components/CheckoutStepper';
 import { ContactInfoSection } from './components/ContactInfoSection';
@@ -6,7 +6,8 @@ import { SpecialRequestsSection } from './components/SpecialRequestsSection';
 import { PaymentMethodSection } from './components/PaymentMethodSection';
 import { OrderSummaryCard } from './components/OrderSummaryCard';
 import { DEFAULT_CHECKOUT_DATA } from './data/mockCheckoutData';
-import { calculateBookingPrice } from '../../services/bookingApi';
+import { useAuth } from '../../context/AuthContext';
+import { calculateBookingPrice, createBooking } from '../../services/bookingApi';
 import {
   CheckoutBookingData,
   CheckoutContactInfo,
@@ -25,12 +26,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   onNavigateBack,
   onBookingSuccess,
 }) => {
+  const { profile } = useAuth();
+  const [error, setError] = useState('');
+  const [quoting, setQuoting] = useState(false);
   const [bookingData, setBookingData] = useState<CheckoutBookingData>(initialBookingData);
 
   const [contactInfo, setContactInfo] = useState<CheckoutContactInfo>({
-    fullName: 'Nguyễn Văn An',
-    phone: '+84 912 345 678',
-    email: 'an.nguyen@example.com',
+    fullName: profile?.fullName || '',
+    phone: profile?.phone || '',
+    email: profile?.email || '',
     isBookingForOther: false,
     otherGuestName: '',
   });
@@ -56,70 +60,48 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     );
   };
 
+  const paymentMethod = selectedPaymentMethod === 'pay_at_hotel' ? 'Cash' : 'Deposit';
+  const applyPrice = (data: import('../../services/bookingApi').PriceCalculationResult, coupon = '') => {
+    setBookingData(prev => ({ ...prev, originalPrice: data.subTotal + data.taxAmount + data.feeAmount,
+      couponCode: coupon, couponDiscount: data.discountAmount, totalPrice: data.totalAmount,
+      depositPercentage: data.depositPercentage, depositAmount: data.depositAmount, remainingAmount: data.remainingAmount }));
+  };
+  useEffect(() => {
+    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) return;
+    let active = true; setQuoting(true);
+    calculateBookingPrice({ roomIds: [bookingData.roomId], checkInDate: bookingData.checkIn, checkOutDate: bookingData.checkOut, paymentMethod }).then(result => {
+      if (!active) return;
+      if (result.success && result.data) { applyPrice(result.data); setError(''); }
+      else setError(result.message || 'Không tính được giá.');
+    }).finally(() => { if (active) setQuoting(false); });
+    return () => { active = false; };
+  }, [bookingData.roomId, bookingData.checkIn, bookingData.checkOut, paymentMethod]);
+
   const handleApplyCoupon = async (code: string): Promise<boolean> => {
+    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) { setError('Chọn phòng và ngày lưu trú trước.'); return false; }
+    const result = await calculateBookingPrice({ roomIds: [bookingData.roomId], checkInDate: bookingData.checkIn, checkOutDate: bookingData.checkOut, paymentMethod, voucherCode: code.trim() });
+    if (!result.success || !result.data) { setError(result.message || 'Không áp dụng được voucher.'); return false; }
+    applyPrice(result.data, code.trim()); setError(''); return true;
+  };
+
+  const handleConfirmBooking = async () => {
+    if (isSubmitting || quoting) return;
+    setError('');
+    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) { setError('Vui lòng quay lại kiểm tra phòng trống và chọn phòng thực tế.'); return; }
+    if (!contactInfo.fullName.trim() || !contactInfo.email.includes('@') || !contactInfo.phone.trim()) { setError('Nhập đầy đủ họ tên, email và số điện thoại liên hệ.'); return; }
+    if (selectedPaymentMethod === 'card_international') { setError('Thanh toán thẻ quốc tế chưa được hỗ trợ. Vui lòng chọn phương thức khác.'); return; }
+    setIsSubmitting(true); setSubmissionStep(1);
     try {
-      const res = await calculateBookingPrice({
-        checkInDate: '2026-11-01',
-        checkOutDate: '2026-11-04',
-        roomIds: [1],
-        voucherCode: code.toUpperCase(),
-        paymentMethod: 'Deposit',
-      });
-
-      if (res.success && res.data && res.data.discountAmount > 0) {
-        const data = res.data;
-        setBookingData((prev) => ({
-          ...prev,
-          couponCode: code.toUpperCase(),
-          couponDiscount: data.discountAmount,
-          totalPrice: data.totalAmount,
-          depositAmount: data.depositAmount,
-          remainingAmount: data.remainingAmount,
-        }));
-        return true;
-      }
-    } catch {
-      // fallback below
-    }
-
-    if (code.toUpperCase() === 'STAYLUXEVIP' || code.toUpperCase() === 'LUXE2025' || code.toUpperCase() === 'SUMMER2026' || code.toUpperCase() === 'LUXE2026') {
-      const discount = 1000000;
-      const newTotal = Math.max(0, bookingData.originalPrice - discount);
-      const newDeposit = Math.round((newTotal * bookingData.depositPercentage) / 100);
-      setBookingData((prev) => ({
-        ...prev,
-        couponCode: code.toUpperCase(),
-        couponDiscount: discount,
-        totalPrice: newTotal,
-        depositAmount: newDeposit,
-        remainingAmount: newTotal - newDeposit,
-      }));
-      return true;
-    }
-    return false;
-  };
-
-  const handleConfirmBooking = () => {
-    setIsSubmitting(true);
-    setSubmissionStep(1);
-
-    setTimeout(() => {
+      const result = await createBooking({ checkInDate: bookingData.checkIn, checkOutDate: bookingData.checkOut,
+        numberOfGuests: bookingData.numberOfGuests || 1, paymentMethod, voucherCode: bookingData.couponCode || undefined,
+        specialRequests: [...specialRequests.filter(r => r.selected).map(r => r.label), additionalNotes].filter(Boolean).join('; '),
+        rooms: [{ roomId: bookingData.roomId }], guests: [{ fullName: contactInfo.isBookingForOther ? contactInfo.otherGuestName || contactInfo.fullName : contactInfo.fullName, phone: contactInfo.phone, email: contactInfo.email, isPrimaryGuest: true }] });
       setSubmissionStep(2);
-
-      setTimeout(() => {
-        setIsSubmitting(false);
-        const generatedBookingCode = `#BK-${Math.floor(100000 + Math.random() * 900000)}`;
-        if (onBookingSuccess) {
-          onBookingSuccess(generatedBookingCode);
-        } else {
-          alert(
-            `Chúc mừng ${contactInfo.fullName}! Đơn đặt phòng ${generatedBookingCode} đã được khởi tạo thành công.`
-          );
-        }
-      }, 1500);
-    }, 1500);
+      if (onBookingSuccess) onBookingSuccess(result.bookingCode);
+      else alert(`Đã tạo booking ${result.bookingCode}. Vui lòng hoàn tất thanh toán theo hướng dẫn.`);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không tạo được booking.'); }
+    finally { setIsSubmitting(false); }
   };
-
   return (
     <main className="w-full pt-20 bg-background min-h-screen">
       <div className="flex flex-col w-full relative">
@@ -131,6 +113,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           {/* Main 1440px Wrapper */}
           <div className="max-w-[1440px] mx-auto w-full px-margin-mobile md:px-margin py-space-md md:py-space-lg flex flex-col gap-space-lg">
             {/* Top Urgency Banner with Live Countdown */}
+            {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
             <CheckoutUrgencyBanner />
 
             {/* Stepper & Headline Area */}
@@ -169,7 +152,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 selectedPaymentMethod={selectedPaymentMethod}
                 onApplyCoupon={handleApplyCoupon}
                 onConfirmBooking={handleConfirmBooking}
-                isSubmitting={isSubmitting}
+                isSubmitting={isSubmitting || quoting}
                 submissionStep={submissionStep}
               />
             </div>

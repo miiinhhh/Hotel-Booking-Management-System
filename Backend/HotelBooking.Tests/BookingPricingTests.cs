@@ -312,6 +312,12 @@ public sealed class BookingPricingTests
 
         var voucherRepo = new VoucherRepository(bookingDb);
         var bookingRepo = new BookingRepository(bookingDb);
+        // InMemory contexts do not share SQL tables; seed inventory projections explicitly.
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryHotel { HotelId = 1, IsActive = true });
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryArea { AreaId = 1, HotelId = 1, IsActive = true });
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryType { RoomTypeId = 1, HotelId = 1, AreaId = 1, IsActive = true, Capacity = 2, BasePrice = pricePerNight, RoomTypeName = "Deluxe" });
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryRoom { RoomId = roomId, RoomTypeId = 1, AreaId = 1, RoomNumber = "101", Status = "Available", IsActive = true });
+        await bookingDb.SaveChangesAsync();
         var bookingService = new BookingServices(bookingRepo, pricingService, voucherRepo);
 
         var request = new CreateBookingRequest

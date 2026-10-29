@@ -10,14 +10,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab = 'kham-pha', onTabCha
   const navItems = [
     { id: 'kham-pha', label: 'Khám phá' }, { id: 'tim-kiem', label: 'Tìm kiếm' },
     { id: 'dat-phong-cua-toi', label: 'Đặt phòng của tôi' }, { id: 'danh-gia', label: 'Đánh giá kỳ nghỉ' },
-    { id: 'uu-dai', label: 'Ưu đãi' }, { id: 'yeu-thich', label: 'Yêu thích', badge: 3 },
+    { id: 'uu-dai', label: 'Ưu đãi' }, { id: 'yeu-thich', label: 'Yêu thích', badge: undefined },
   ];
   const navigate = (id: string) => { onTabChange?.(id); setMobileMenuOpen(false); setAccountMenuOpen(false); };
   const initials = session?.fullName.split(' ').filter(Boolean).map((part) => part[0]).slice(-2).join('').toUpperCase() || '';
 
   return <header className="fixed left-0 right-0 top-0 z-50 bg-surface-container-lowest/90 shadow-[0_1px_8px_rgba(120,53,15,0.04)] backdrop-blur-xl">
     <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-space-md px-margin-mobile md:px-margin">
-      <button onClick={() => navigate('kham-pha')} className="flex shrink-0 items-center gap-space-sm" aria-label="Về trang chủ StayLuxe"><img alt="StayLuxe" className="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1UuLKbQYAJ52dPZk6-vWkMW3Pun-2jyQpANXEzqJDtdL4GAdygv_RV5NksezVpnOq7cqfZ3U8a-L1GYf3qD-4d_-o6-jJknZHyBxv5qB9elZ7y5-Kg5oWmr4HSFHkqhYjkBD3JOzAUPK03x-47Xgm8ov8on002cCsMFRr6jPhVOQ18BYA9KQ96uFGoXWDXz29SovuZRDM3UADQicBGNH4-Mty0DXEILl4ffljeKAFuG9g" /><span className="font-headline-sm text-headline-sm text-on-surface">StayLuxe</span></button>
+      <button onClick={() => navigate('kham-pha')} className="flex shrink-0 items-center gap-space-sm" aria-label="Về trang chủ StayLuxe"><span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-on-primary">S</span><span className="font-headline-sm text-headline-sm text-on-surface">StayLuxe</span></button>
       <nav className="hidden items-center gap-space-lg md:flex">{navItems.map((item) => <button key={item.id} onClick={() => navigate(item.id)} className={`relative inline-flex items-center py-space-xs ${activeTab === item.id ? 'font-label-lg font-bold text-primary' : 'font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface'}`}><span>{item.label}</span>{item.badge !== undefined && <span className="ml-space-xs rounded-full bg-primary px-2 py-0.5 text-label-sm leading-none text-on-primary">{item.badge}</span>}</button>)}</nav>
       <div className="relative flex shrink-0 items-center gap-space-sm sm:gap-space-md">
         {hasRole('Admin') && <button onClick={() => navigate('admin-portal')} className="hidden items-center gap-1.5 rounded-full border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 text-xs font-semibold hover:bg-primary-container hover:text-on-primary lg:inline-flex"><span className="material-symbols-outlined text-[16px]">shield_person</span>Admin</button>}

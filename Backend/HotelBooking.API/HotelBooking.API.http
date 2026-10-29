@@ -1,5 +1,4 @@
-@HotelBooking.API_HostAddress = http://localhost:5131
-@accessToken = replace-with-jwt-access-token
+@HotelBooking.API_HostAddress = https://localhost:7131
 
 ### Register a Customer
 POST {{HotelBooking.API_HostAddress}}/api/auth/register
@@ -25,16 +24,9 @@ Content-Type: application/json
 GET {{HotelBooking.API_HostAddress}}/api/me
 Authorization: Bearer {{accessToken}}
 
-### Staff/Admin resource
+### Staff-only resource
 GET {{HotelBooking.API_HostAddress}}/api/staff
 Authorization: Bearer {{accessToken}}
-
-### Missing token returns RFC 7807 with code AUTH_TOKEN_MISSING
-GET {{HotelBooking.API_HostAddress}}/api/me
-
-### Invalid token returns RFC 7807 with code AUTH_TOKEN_INVALID
-GET {{HotelBooking.API_HostAddress}}/api/me
-Authorization: Bearer invalid-token
 
 ### Admin-only resource
 GET {{HotelBooking.API_HostAddress}}/api/admin
@@ -46,6 +38,65 @@ Authorization: Bearer {{accessToken}}
 @areaId = 1
 @roomTypeId = 1
 @roomId = 1
+
+### Create amenity (Admin JWT)
+POST {{baseUrl}}/api/amenities
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Wi-Fi",
+  "description": "Internet mien phi"
+}
+
+### List active amenities
+GET {{baseUrl}}/api/amenities
+
+### Assign amenity to Hotel (replace ID)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/amenities/1
+Authorization: Bearer {{accessToken}}
+
+### Assign amenity to Room
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}/amenities/1
+Authorization: Bearer {{accessToken}}
+
+### Remove amenity from Room
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}/amenities/1
+Authorization: Bearer {{accessToken}}
+
+### Upload Hotel image: replace local-image.png with a real JPEG/PNG/WebP path
+POST {{baseUrl}}/api/hotels/{{hotelId}}/images
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=hotel-image-boundary
+
+--hotel-image-boundary
+Content-Disposition: form-data; name="file"; filename="hotel.png"
+Content-Type: image/png
+
+< ./local-image.png
+--hotel-image-boundary
+Content-Disposition: form-data; name="isPrimary"
+
+true
+--hotel-image-boundary--
+
+### List Room images
+GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/{{roomId}}/images
+
+### Select primary image (replace image ID)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/images/1/primary
+Authorization: Bearer {{accessToken}}
+
+### Reorder all Hotel images (replace IDs)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/images/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "imageIds": [2, 1] }
+
+### Delete image
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/images/1
+Authorization: Bearer {{accessToken}}
 
 ### List active Zones and Buildings
 GET {{baseUrl}}/api/hotels/{{hotelId}}/areas
@@ -104,6 +155,61 @@ Authorization: Bearer {{accessToken}}
 
 ### Public room search: name + inclusive reference price + pagination
 GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search?roomTypeName=deluxe&minPrice=500000&maxPrice=900000&pageNumber=1&pageSize=20
+
+### List active Zones and Buildings
+GET {{baseUrl}}/api/hotels/{{hotelId}}/areas
+
+### List all Zones and Buildings, including inactive records
+GET {{baseUrl}}/api/hotels/{{hotelId}}/areas?includeInactive=true
+
+### Create a Zone (Admin token required)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Central Zone",
+  "areaType": "Zone",
+  "parentAreaId": null,
+  "description": "Main guest area",
+  "locationDescription": "Near the lobby",
+  "floorCount": null,
+  "isActive": true
+}
+
+### Create a Building under an existing Zone (Admin token required)
+POST {{baseUrl}}/api/hotels/{{hotelId}}/areas
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Tower A",
+  "areaType": "Building",
+  "parentAreaId": {{areaId}},
+  "description": "Guest room building",
+  "locationDescription": "North side",
+  "floorCount": 12,
+  "isActive": true
+}
+
+### Update a Zone or Building (Admin token required)
+PUT {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "areaName": "Central Zone",
+  "areaType": "Zone",
+  "parentAreaId": null,
+  "description": "Updated main guest area",
+  "locationDescription": "Near the lobby",
+  "floorCount": null,
+  "isActive": true
+}
+
+### Soft-delete an Area (Admin token required)
+DELETE {{baseUrl}}/api/hotels/{{hotelId}}/areas/{{areaId}}
+Authorization: Bearer {{accessToken}}
 
 ### Public room search: all currently available and visible rooms
 GET {{baseUrl}}/api/hotels/{{hotelId}}/rooms/search
@@ -194,7 +300,6 @@ Content-Type: application/json
 
 ### Create Booking (Authoritative pricing calculated on server)
 POST {{baseUrl}}/api/bookings
-Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -221,15 +326,12 @@ Content-Type: application/json
 
 ### Get all Areas of Hotel (with room stats)
 GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/areas
-Authorization: Bearer {{accessToken}}
 
 ### Get all Staff Members and their assigned areas
 GET {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments
-Authorization: Bearer {{accessToken}}
 
 ### Sync Staff Assigned Areas (Assign/Reassign multiple areas to a staff member)
 PUT {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/sync
-Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -239,9 +341,7 @@ Content-Type: application/json
 
 ### Remove a specific assignment
 DELETE {{baseUrl}}/api/hotels/{{hotelId}}/staff-assignments/1
-Authorization: Bearer {{accessToken}}
 
 ### Get assigned areas for current staff member (Staff Portal - Active Zone)
-GET {{baseUrl}}/api/staff/me/assigned-areas
-Authorization: Bearer {{accessToken}}
+GET {{baseUrl}}/api/staff/me/assigned-areas?userId=2
 

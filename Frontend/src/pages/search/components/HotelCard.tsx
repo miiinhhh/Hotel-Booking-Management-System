@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Hotel } from '../types';
 
 interface HotelCardProps {
@@ -12,12 +12,12 @@ export const HotelCard: React.FC<HotelCardProps> = ({
   onSelect,
   onFavoriteToggle,
 }) => {
-  const [isFavorite, setIsFavorite] = useState(hotel.isFavorite ?? false);
+  const isFavorite = hotel.isFavorite ?? false;
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const nextState = !isFavorite;
-    setIsFavorite(nextState);
+
     onFavoriteToggle?.(hotel.id, nextState);
   };
 
@@ -173,7 +173,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
               </span>
             </div>
             <span className="font-label-sm text-label-sm text-outline-variant mb-space-xs">
-              / đêm · Đã bao gồm thuế & phí
+              / đêm · Giá tham khảo
             </span>
             <button
               type="button"

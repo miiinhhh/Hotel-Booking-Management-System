@@ -312,16 +312,6 @@ public class VoucherService : IVoucherService
         return true;
     }
 
-    private static VoucherType ParseVoucherType(string? voucherType)
-    {
-        if (Enum.TryParse<VoucherType>(voucherType, true, out var parsed))
-        {
-            return parsed;
-        }
-
-        return VoucherType.Percentage;
-    }
-
     private static VoucherResponseDto MapToDto(Voucher v)
     {
         return new VoucherResponseDto
@@ -341,5 +331,15 @@ public class VoucherService : IVoucherService
             CreatedAt = v.CreatedAt,
             UpdatedAt = v.UpdatedAt
         };
+    }
+
+    private static VoucherType ParseVoucherType(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !Enum.TryParse<VoucherType>(value.Trim(), true, out var type) || !Enum.IsDefined(type))
+        {
+            throw new ArgumentException("VoucherType phải là 'Percentage' hoặc 'FixedAmount'.");
+        }
+
+        return type;
     }
 }

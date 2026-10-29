@@ -70,6 +70,6 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
         builder.HasMany(v => v.VoucherUsages)
             .WithOne(u => u.Voucher)
             .HasForeignKey(u => u.VoucherId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

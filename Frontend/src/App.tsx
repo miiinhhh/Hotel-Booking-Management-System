@@ -9,7 +9,7 @@ import CheckoutPage from './pages/checkout/CheckoutPage';
 import StaffBookingsPage from './pages/staff/StaffBookingsPage';
 import ReviewPage from './pages/reviews/ReviewPage';
 import AdminPortal from './pages/admin/AdminPortal';
-import { MOCK_HOTEL_DETAIL } from './pages/hotel-detail/data/mockHotelDetail';
+import { defaultSelection, DiscoverySelection, discoveryApi, toHotelDetail } from './services/discoveryApi';
 import { DEFAULT_CHECKOUT_DATA } from './pages/checkout/data/mockCheckoutData';
 import { Hotel } from './pages/search/types';
 import { HotelDetail, Room } from './pages/hotel-detail/types';
@@ -20,68 +20,53 @@ import { useAuth } from './context/AuthContext';
 function App() {
   const { session, hasRole } = useAuth();
   const [activeTab, setActiveTab] = useState('tim-kiem');
-  const [searchParams, setSearchParams] = useState({
-    location: 'Đà Nẵng, Việt Nam',
-    dates: '15 Th04 – 18 Th04',
-    guests: '2 người lớn · 1 phòng',
-  });
-  const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail>(MOCK_HOTEL_DETAIL);
+  const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
+  const [detailStatus, setDetailStatus] = useState('');
+  const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail | null>(null);
   const [currentCheckoutData, setCurrentCheckoutData] =
     useState<CheckoutBookingData>(DEFAULT_CHECKOUT_DATA);
 
-  const handleSearchFromDashboard = (params: {
-    location: string;
-    dates: string;
-    guests: string;
-  }) => {
+  const handleSearchFromDashboard = (params: DiscoverySelection) => {
     setSearchParams(params);
     setActiveTab('tim-kiem');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSelectHotelFromSearch = (hotel: Hotel) => {
-    if (hotel.id === 'intercontinental-danang') {
-      setCurrentHotelDetail(MOCK_HOTEL_DETAIL);
-    } else {
-      setCurrentHotelDetail({
-        ...MOCK_HOTEL_DETAIL,
-        id: hotel.id,
-        name: hotel.name,
-        address: hotel.location,
-        distanceToBeach: hotel.distanceInfo || 'Cách biển 100m',
-        ratingScore: hotel.ratingScore,
-        ratingText: hotel.ratingText,
-        reviewCount: hotel.reviewCount,
-        starRating: hotel.starRating,
-        galleryImages: {
-          ...MOCK_HOTEL_DETAIL.galleryImages,
-          hero: {
-            ...MOCK_HOTEL_DETAIL.galleryImages.hero,
-            url: hotel.image,
-            caption: hotel.name,
-          },
-        },
-      });
-    }
-
-    setActiveTab('chi-tiet-phong');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleSelectHotelFromSearch = async (hotel: Hotel, selection = searchParams) => {
+    setDetailStatus('Đang tải thông tin khách sạn…');
+    try {
+      const detail = await discoveryApi.detail(Number(hotel.id), selection);
+      setCurrentHotelDetail(toHotelDetail(detail, selection)); setDetailStatus('');
+      setActiveTab('chi-tiet-phong'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) { setDetailStatus(error instanceof Error ? error.message : 'Không tải được khách sạn.'); }
   };
-
   const handleNavigateToCheckout = (room?: Room, totalPrice?: number) => {
-    if (room && totalPrice) {
+    if (room && totalPrice !== undefined) {
       const deposit = Math.round((totalPrice * 30) / 100);
       setCurrentCheckoutData({
         ...DEFAULT_CHECKOUT_DATA,
-        hotelName: currentHotelDetail.name,
-        location: currentHotelDetail.address,
-        hotelImage: currentHotelDetail.galleryImages.hero.url,
+        hotelName: room.hotelName || currentHotelDetail?.name || '',
+        location: room.hotelAddress || currentHotelDetail?.address || '',
         roomName: room.name,
+        roomId: room.roomId,
+        hotelId: room.hotelId,
+        checkIn: room.checkIn,
+        checkOut: room.checkOut,
+        numberOfGuests: room.requestedGuests || 1,
+        guestsText: `${room.requestedGuests || 1} khách`,
+        memberDiscount: 0,
+        couponCode: '',
+        couponDiscount: 0,
+        starRatingText: '',
+        hotelImage: room.image,
+        checkInDateText: room.checkIn || '',
+        checkOutDateText: room.checkOut || '',
+        nightsCount: room.checkIn && room.checkOut ? Math.round((Date.parse(room.checkOut) - Date.parse(room.checkIn)) / 86400000) : 1,
         roomAmenities: room.features.map((f) => f.text).slice(0, 3),
         totalPrice: totalPrice,
         depositAmount: deposit,
         remainingAmount: totalPrice - deposit,
-        originalPrice: totalPrice + 1000000,
+        originalPrice: totalPrice,
       });
     }
     setActiveTab('thanh-toan');
@@ -134,10 +119,13 @@ function App() {
         }}
       />
 
+      {detailStatus && <p role="status" className="mx-5 mt-24 rounded-lg bg-surface-container p-4">{detailStatus}</p>}
       {/* Main Content Area */}
       <div className="flex-1">
-        {activeTab === 'tim-kiem' && (
+        {(activeTab === 'tim-kiem' || activeTab === 'yeu-thich') && (
           <SearchPage
+            initialSelection={searchParams}
+            initialShowSaved={activeTab === 'yeu-thich'}
             initialLocation={searchParams.location}
             initialDates={searchParams.dates}
             initialGuests={searchParams.guests}
@@ -146,8 +134,9 @@ function App() {
           />
         )}
 
-        {activeTab === 'chi-tiet-phong' && (
+        {activeTab === 'chi-tiet-phong' && currentHotelDetail && (
           <HotelDetailPage
+            key={`${currentHotelDetail.id}-${currentHotelDetail.datesText}`}
             hotelData={currentHotelDetail}
             onNavigateHome={() => setActiveTab('kham-pha')}
             onNavigateSearch={() => setActiveTab('tim-kiem')}

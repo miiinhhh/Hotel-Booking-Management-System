@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { discoveryApi } from '../../../services/discoveryApi';
 
 interface BreadcrumbHeaderProps {
   hotelName: string;
+  hotelId?: number;
   onNavigateHome?: () => void;
   onNavigateSearch?: () => void;
   isInitiallyFavorited?: boolean;
@@ -9,15 +11,20 @@ interface BreadcrumbHeaderProps {
 
 export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
   hotelName,
+  hotelId,
   onNavigateHome,
   onNavigateSearch,
   isInitiallyFavorited = false,
 }) => {
   const [isFavorited, setIsFavorited] = useState(isInitiallyFavorited);
   const [shareText, setShareText] = useState('Chia sẻ');
+  useEffect(() => { let alive = true; discoveryApi.wishlist().then(items => { if (alive) setIsFavorited(items.some(item => item.hotelId === hotelId)); }).catch(() => {}); return () => { alive = false; }; }, [hotelId]);
 
-  const handleFavoriteClick = () => {
-    setIsFavorited(!isFavorited);
+  const [favoriteError, setFavoriteError] = useState('');
+  const handleFavoriteClick = async () => {
+    if (!hotelId) return;
+    try { await discoveryApi.save(hotelId, !isFavorited); setIsFavorited(!isFavorited); setFavoriteError(''); }
+    catch (error) { setFavoriteError(error instanceof Error ? error.message : 'Không lưu được.'); }
   };
 
   const handleShareClick = async () => {
@@ -25,7 +32,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
       try {
         await navigator.share({
           title: `${hotelName} - StayLuxe`,
-          text: `Khám phá khu nghỉ dưỡng tuyệt tác tại Đà Nẵng trên StayLuxe`,
+          text: `Khám phá ${hotelName} trên StayLuxe`,
           url: window.location.href,
         });
       } catch {
@@ -40,7 +47,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           setShareText('Chia sẻ');
         }, 2000);
       } catch {
-        setShareText('Đã sao chép!');
+        setShareText('Không sao chép được');
         setTimeout(() => {
           setShareText('Chia sẻ');
         }, 2000);
@@ -70,13 +77,13 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           onClick={onNavigateSearch}
           className="hover:text-primary transition-colors cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit"
         >
-          Đà Nẵng
+          Khách sạn
         </button>
         <span className="material-symbols-outlined text-outline-variant text-[16px]">
           chevron_right
         </span>
         <span className="hover:text-primary transition-colors cursor-pointer">
-          Bán đảo Sơn Trà
+          Chi tiết
         </span>
         <span className="material-symbols-outlined text-outline-variant text-[16px]">
           chevron_right
@@ -87,6 +94,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
       </nav>
 
       {/* Action Buttons: Share & Favorite */}
+      {favoriteError && <p role="alert">{favoriteError}</p>}
       <div className="flex items-center gap-space-xs self-end sm:self-auto">
         {onNavigateSearch && (
           <button

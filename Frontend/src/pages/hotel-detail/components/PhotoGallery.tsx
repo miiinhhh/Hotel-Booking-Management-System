@@ -24,6 +24,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ gallery }) => {
     { url: gallery.hero.url, caption: gallery.hero.caption },
     ...gallery.thumbnails,
   ];
+  if (gallery.totalCount === 0) return <section className="rounded-xl bg-surface-container-low p-8 text-center"><p>Khách sạn chưa đăng ảnh.</p></section>;
 
   const handleNextPhoto = () => {
     if (activeModalIndex !== null) {

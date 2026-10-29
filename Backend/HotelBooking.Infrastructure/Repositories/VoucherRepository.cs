@@ -1,5 +1,3 @@
-using System.Data;
-using Dapper;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Infrastructure.Data;
@@ -10,16 +8,10 @@ namespace HotelBooking.Infrastructure.Repositories;
 public class VoucherRepository : IVoucherRepository
 {
     private readonly HotelBookingDBContext _context;
-    private readonly IDbConnection? _connection;
 
-    public VoucherRepository(HotelBookingDBContext context) : this(context, null)
-    {
-    }
-
-    public VoucherRepository(HotelBookingDBContext context, IDbConnection? connection)
+    public VoucherRepository(HotelBookingDBContext context)
     {
         _context = context;
-        _connection = connection;
     }
 
     public async Task<Voucher?> GetByIdAsync(long voucherId, CancellationToken ct = default)
@@ -36,7 +28,9 @@ public class VoucherRepository : IVoucherRepository
         }
 
         var normalizedCode = code.Trim().ToUpperInvariant();
+
         return await _context.Vouchers
+            .AsNoTracking()
             .FirstOrDefaultAsync(v => v.Code.ToUpper() == normalizedCode, ct);
     }
 
@@ -91,49 +85,28 @@ public class VoucherRepository : IVoucherRepository
 
     public async Task<bool> IncrementUsedCountAtomicAsync(long voucherId, CancellationToken ct = default)
     {
-        if (_connection != null && _context.Database.IsSqlServer())
+        if (_context.Database.ProviderName?.EndsWith("InMemory", StringComparison.OrdinalIgnoreCase) == true)
         {
-            const string sql = """
-                UPDATE Vouchers
-                SET UsedCount = UsedCount + 1,
-                    UpdatedAt = SYSDATETIME()
-                WHERE VoucherId = @VoucherId
-                  AND IsActive = 1
-                  AND (UsageLimit IS NULL OR UsedCount < UsageLimit);
-                """;
-
-            if (_connection.State != ConnectionState.Open)
+            var voucher = await _context.Vouchers.FindAsync([voucherId], ct);
+            if (voucher == null || !voucher.IsActive || (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit.Value))
             {
-                _connection.Open();
+                return false;
             }
 
-            var affectedRows = await _connection.ExecuteAsync(
-                new CommandDefinition(sql, new { VoucherId = voucherId }, cancellationToken: ct));
-
-            return affectedRows > 0;
-        }
-
-        var voucher = await _context.Vouchers.FindAsync([voucherId], ct);
-        if (voucher == null || !voucher.IsActive || (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit.Value))
-        {
-            return false;
-        }
-
-        voucher.UsedCount++;
-        voucher.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(ct);
-        return true;
-    }
-
-    public async Task IncrementUsedCountAsync(long voucherId, CancellationToken ct = default)
-    {
-        var voucher = await _context.Vouchers.FindAsync([voucherId], ct);
-        if (voucher != null)
-        {
             voucher.UsedCount++;
             voucher.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
+            return true;
         }
+
+        var affectedRows = await _context.Vouchers
+            .Where(v => v.VoucherId == voucherId
+                && v.IsActive
+                && (!v.UsageLimit.HasValue || v.UsedCount < v.UsageLimit.Value))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(v => v.UsedCount, v => v.UsedCount + 1)
+                .SetProperty(v => v.UpdatedAt, DateTime.UtcNow), ct);
+        return affectedRows > 0;
     }
 
     public async Task AddUsageRecordAsync(VoucherUsage usage, CancellationToken ct = default)
@@ -149,8 +122,18 @@ public class VoucherRepository : IVoucherRepository
             .AnyAsync(v => v.Code == normalizedCode && (!excludeVoucherId.HasValue || v.VoucherId != excludeVoucherId.Value), ct);
     }
 
-    public async Task SaveChangesAsync(CancellationToken ct = default)
+    public async Task IncrementUsedCountAsync(long voucherId, CancellationToken ct = default)
     {
+        var voucher = await _context.Vouchers.FindAsync([voucherId], ct);
+        if (voucher == null)
+        {
+            return;
+        }
+
+        voucher.UsedCount++;
+        voucher.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
     }
+
+    public Task SaveChangesAsync(CancellationToken ct = default) => _context.SaveChangesAsync(ct);
 }

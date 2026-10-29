@@ -5,7 +5,7 @@ namespace HotelBooking.Application.Rooms;
 public sealed record RoomTypeRequest(
     [Required, StringLength(100)] string Name,
     string? Description,
-    [Range(typeof(decimal), "0", "9999999999999999.99")] decimal BasePrice,
+    [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true)] decimal BasePrice,
     [Range(1, int.MaxValue)] int Capacity,
     [Range(1, int.MaxValue)] int NumberOfBeds);
 public sealed record RoomRequest(
@@ -15,6 +15,7 @@ public sealed record RoomRequest(
     RoomStatus Status,
     [StringLength(500)] string? Description);
 public sealed record RoomTypeDto(int RoomTypeId, int HotelId, int AreaId, string Name, string? Description, decimal BasePrice, int Capacity, int NumberOfBeds, bool IsActive);
+public sealed record RoomTypeStatusRequest([Required] bool? IsActive);
 public sealed record RoomDto(long RoomId, int HotelId, int AreaId, int RoomTypeId, string RoomNumber, int Floor, RoomStatus Status, string? Description, bool IsActive, decimal Price, int Capacity);
 public sealed class NotFoundException(string message) : Exception(message);
 public sealed class ConflictException(string message) : Exception(message);

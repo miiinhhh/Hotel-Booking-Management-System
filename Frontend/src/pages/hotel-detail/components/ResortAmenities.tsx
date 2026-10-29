@@ -13,10 +13,10 @@ export const ResortAmenities: React.FC<ResortAmenitiesProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="font-label-sm text-label-sm uppercase tracking-widest text-primary font-bold">
-            Trải nghiệm đỉnh cao
+            Thông tin tiện ích
           </span>
           <h2 className="font-headline-sm text-headline-sm text-on-surface mt-0.5">
-            Tiện ích đặc quyền tại khu nghỉ dưỡng
+            Tiện ích khách sạn
           </h2>
         </div>
         <span className="font-body-md text-body-md text-on-surface-variant max-w-md">

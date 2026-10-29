@@ -9,7 +9,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems) : IExce
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
-        if (exception is UnauthorizedAccessException or HotelBooking.Application.Staff.StaffAccessDeniedException)
+        if (exception is HotelBooking.Application.Interfaces.ContentAccessDeniedException or UnauthorizedAccessException or HotelBooking.Application.Staff.StaffAccessDeniedException or InventoryAccessException)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return await problems.TryWriteAsync(new ProblemDetailsContext

@@ -7,10 +7,10 @@ using HotelBooking.Application.DTOs.Cancellation;
 public interface IBookingService
 {
     Task<ApiResponse<BookingResponseDto>> CreateBookingAsync(long customerId, CreateBookingRequest request);
-    Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId, long actorId, bool canManageAll);
-    Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode, long actorId, bool canManageAll);
-    Task<ApiResponse<List<BookingListDto>>> GetBookingsAsync(BookingFilterRequest filter);
-    Task<ApiResponse<CancelPreviewResponseDto>> PreviewCancelBookingAsync(long bookingId, long userId, bool canManageAll);
-    Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long userId, bool canManageAll, CancelBookingRequest request);
-    Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, UpdateBookingRequest request);
+    Task<ApiResponse<BookingResponseDto>> GetBookingByIdAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff);
+    Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode, long currentUserId, bool isAdmin, bool isStaff);
+    Task<ApiResponse<List<BookingListDto>>> GetBookingsAsync(BookingFilterRequest filter, long currentUserId, bool isAdmin, bool isStaff);
+    Task<ApiResponse<CancelPreviewResponseDto>> PreviewCancelBookingAsync(long bookingId, long currentUserId, bool isAdmin);
+    Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request);
+    Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, bool isAdmin, UpdateBookingRequest request);
 }

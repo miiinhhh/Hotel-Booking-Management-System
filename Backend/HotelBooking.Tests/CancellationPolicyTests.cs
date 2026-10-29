@@ -145,12 +145,12 @@ public class CancellationPolicyTests
             return Task.FromResult(Bookings.FirstOrDefault(b => b.BookingCode == bookingCode));
         }
 
-        public Task<List<Booking>> GetListAsync(long? customerId, string? status, string? paymentStatus, DateOnly? fromDate, DateOnly? toDate, int pageIndex, int pageSize)
+        public Task<List<Booking>> GetListAsync(long? customerId, string? status, string? paymentStatus, DateOnly? fromDate, DateOnly? toDate, int pageIndex, int pageSize, long? staffUserId = null)
         {
             return Task.FromResult(Bookings);
         }
 
-        public Task<int> GetCountAsync(long? customerId, string? status, string? paymentStatus, DateOnly? fromDate, DateOnly? toDate)
+        public Task<int> GetCountAsync(long? customerId, string? status, string? paymentStatus, DateOnly? fromDate, DateOnly? toDate, long? staffUserId = null)
         {
             return Task.FromResult(Bookings.Count);
         }
@@ -160,11 +160,23 @@ public class CancellationPolicyTests
             return Task.FromResult(false);
         }
 
+        public Task<bool> IsStaffAssignedToBookingAsync(long bookingId, long staffUserId) => Task.FromResult(true);
+
+        public Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId) => Task.FromResult(new List<int>());
+
         public Task AddAsync(Booking booking)
         {
             Bookings.Add(booking);
             return Task.CompletedTask;
         }
+
+        public Task<bool> TryReserveAsync(Booking booking)
+        {
+            Bookings.Add(booking);
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> TrySaveReservedAsync(Booking booking) => Task.FromResult(true);
 
         public Task UpdateAsync(Booking booking)
         {
@@ -607,12 +619,12 @@ public class CancellationPolicyTests
         };
         bookingRepo.Bookings.Add(booking);
 
-        // Khách hàng ID = 99 truy cập đơn của khách ID = 10 mà không phải admin
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            bookingService.PreviewCancelBookingAsync(8, 99, false));
+        // Khách hàng ID = 99 truy cập đơn của khách ID = 10 mà không phải admin -> Bị chặn chống IDOR
+        var preview = await bookingService.PreviewCancelBookingAsync(8, 99, false);
+        Assert.False(preview.Success);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            bookingService.CancelBookingAsync(8, 99, false, new CancelBookingRequest { Reason = "Hack" }));
+        var cancel = await bookingService.CancelBookingAsync(8, 99, false, new CancelBookingRequest { Reason = "Hack" });
+        Assert.False(cancel.Success);
     }
 
     [Fact]

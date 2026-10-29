@@ -19,10 +19,6 @@ public class Voucher
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
-    // Navigation properties
-    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
-    public ICollection<VoucherUsage> VoucherUsages { get; set; } = new List<VoucherUsage>();
-
     public bool IsValidNow(decimal orderAmount, out string? reason)
     {
         if (!IsActive)
@@ -46,13 +42,13 @@ public class Voucher
 
         if (UsageLimit.HasValue && UsedCount >= UsageLimit.Value)
         {
-            reason = "Mã ưu đãi đã vượt quá số lượt sử dụng tối đa.";
+            reason = "Mã ưu đãi đã đạt giới hạn số lượt sử dụng tối đa.";
             return false;
         }
 
         if (orderAmount < MinimumOrderAmount)
         {
-            reason = $"Đơn hàng tối thiểu {MinimumOrderAmount:N0}đ để áp dụng mã ưu đãi này.";
+            reason = $"Đơn đặt phòng tối thiểu {MinimumOrderAmount:N0} VNĐ để áp dụng mã ưu đãi này.";
             return false;
         }
 
@@ -74,11 +70,15 @@ public class Voucher
             _ => 0m
         };
 
-        if (VoucherType == VoucherType.Percentage && MaxDiscountAmount.HasValue && MaxDiscountAmount.Value > 0)
+        if (MaxDiscountAmount is > 0m)
         {
             discount = Math.Min(discount, MaxDiscountAmount.Value);
         }
 
         return Math.Clamp(discount, 0m, orderAmount);
     }
+
+    // Navigation properties
+    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<VoucherUsage> VoucherUsages { get; set; } = new List<VoucherUsage>();
 }

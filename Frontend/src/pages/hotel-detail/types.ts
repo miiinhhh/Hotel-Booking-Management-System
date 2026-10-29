@@ -18,6 +18,13 @@ export interface RoomFeature {
 }
 
 export interface Room {
+  roomId?: number;
+  hotelId?: number;
+  hotelName?: string;
+  hotelAddress?: string;
+  requestedGuests?: number;
+  checkIn?: string;
+  checkOut?: string;
   id: string;
   name: string;
   tag: string;
@@ -45,6 +52,9 @@ export interface ResortAmenity {
 }
 
 export interface HotelDetail {
+  checkIn?: string;
+  checkOut?: string;
+  guestsPerRoom?: number;
   id: string;
   name: string;
   categoryTag: string;

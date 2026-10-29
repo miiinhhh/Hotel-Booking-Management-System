@@ -1,0 +1,30 @@
+@base = http://localhost:5131
+@hotelId = 1
+@roomId = 1
+@lockId = 1
+@token = replace-with-admin-or-assigned-staff-jwt
+@checkIn = 2026-11-01
+@checkOut = 2026-11-03
+
+### Check inventory for actual stay dates (change the dates if necessary)
+GET {{base}}/api/hotels/{{hotelId}}/rooms/availability?checkIn={{checkIn}}&checkOut={{checkOut}}
+
+### Create a room lock; response 201 contains the LockId to use below
+POST {{base}}/api/hotels/{{hotelId}}/rooms/emergency-locks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "roomIds": [{{roomId}}],
+  "startsAt": "2026-11-01T00:00:00Z",
+  "endsAt": "2026-11-03T00:00:00Z",
+  "reason": "Bao tri dieu hoa"
+}
+
+### List locks in the caller's permitted scope
+GET {{base}}/api/hotels/{{hotelId}}/rooms/emergency-locks
+Authorization: Bearer {{token}}
+
+### Release, retaining audit history
+PATCH {{base}}/api/hotels/{{hotelId}}/rooms/emergency-locks/{{lockId}}/release
+Authorization: Bearer {{token}}

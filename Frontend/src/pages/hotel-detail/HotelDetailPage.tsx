@@ -36,7 +36,8 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
     totalPrice?: number
   ) => {
     if (onNavigateCheckout) {
-      onNavigateCheckout(room, totalPrice);
+      const nights = room.checkIn && room.checkOut ? Math.round((Date.parse(room.checkOut) - Date.parse(room.checkIn)) / 86400000) : 1;
+      onNavigateCheckout(room, totalPrice ?? (room.packages?.[0]?.pricePerNight || 0) * nights);
       return;
     }
     const formattedPrice = totalPrice?.toLocaleString('vi-VN') || '';
@@ -82,6 +83,7 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
             {/* Breadcrumbs & Quick Share/Save Actions */}
             <BreadcrumbHeader
               hotelName={hotelData.name}
+              hotelId={Number(hotelData.id)}
               onNavigateHome={onNavigateHome}
               onNavigateSearch={onNavigateSearch}
             />
@@ -114,7 +116,11 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
 
             {/* Room Types Inventory */}
             <RoomInventory
+              hotelId={Number(hotelData.id) > 0 ? Number(hotelData.id) : undefined}
               rooms={hotelData.rooms}
+              initialCheckIn={hotelData.checkIn}
+              initialCheckOut={hotelData.checkOut}
+              initialGuests={hotelData.guestsPerRoom}
               datesText={hotelData.datesText}
               durationNights={hotelData.durationNights}
               guestsText={hotelData.guestsText}
@@ -123,7 +129,7 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
             />
 
             {/* Policies & Resort Commitments Section */}
-            <HotelPolicies />
+            <HotelPolicies policy={hotelData.cancelPolicySummary} checkIn={hotelData.checkInTime} checkOut={hotelData.checkOutTime} />
           </div>
         </div>
 

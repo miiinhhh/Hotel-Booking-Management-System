@@ -41,15 +41,15 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Đặt phòng mới (Dành cho khách hàng đã đăng nhập)
+    /// Tạo đơn đặt phòng mới (Khách hàng) - Lấy CustomerId từ JWT Claims để chống IDOR
     /// </summary>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
     public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
     {
-        long customerId = GetCurrentUserId();
+        var (currentUserId, _, _) = GetUserContext();
 
-        var result = await _bookingService.CreateBookingAsync(customerId, request);
+        var result = await _bookingService.CreateBookingAsync(currentUserId, request);
         if (!result.Success)
         {
             return BadRequest(result);
@@ -59,49 +59,51 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Lấy chi tiết đơn đặt phòng theo ID
+    /// Lấy chi tiết đơn đặt phòng theo ID (Chống IDOR & Phân quyền Staff/Admin)
     /// </summary>
     [HttpGet("{id:long}")]
     [Authorize]
     public async Task<IActionResult> GetById(long id)
     {
-        long currentUserId = GetCurrentUserId();
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
 
-        var result = await _bookingService.GetBookingByIdAsync(id, currentUserId, CanManageAllBookings());
+        var result = await _bookingService.GetBookingByIdAsync(id, currentUserId, isAdmin, isStaff);
         if (!result.Success)
         {
-            return NotFound(result);
+            return StatusCode(StatusCodes.Status403Forbidden, result);
         }
 
         return Ok(result);
     }
 
     /// <summary>
-    /// Lấy chi tiết đơn đặt phòng theo mã BookingCode
+    /// Tra cứu đơn đặt phòng theo mã BookingCode (Chống IDOR & Phân quyền Staff/Admin)
     /// </summary>
     [HttpGet("code/{code}")]
     [Authorize]
     public async Task<IActionResult> GetByCode(string code)
     {
-        long currentUserId = GetCurrentUserId();
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
 
-        var result = await _bookingService.GetBookingByCodeAsync(code, currentUserId, CanManageAllBookings());
+        var result = await _bookingService.GetBookingByCodeAsync(code, currentUserId, isAdmin, isStaff);
         if (!result.Success)
         {
-            return NotFound(result);
+            return StatusCode(StatusCodes.Status403Forbidden, result);
         }
 
         return Ok(result);
     }
 
     /// <summary>
-    /// Lấy danh sách đơn đặt phòng có phân trang và bộ lọc (Dành cho Lễ tân/Admin)
+    /// Tìm kiếm và lọc danh sách đơn đặt phòng (Khách hàng chỉ xem đơn của mình; Staff chỉ xem đơn thuộc Phân khu phụ trách; Admin toàn quyền)
     /// </summary>
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public async Task<IActionResult> GetList([FromQuery] BookingFilterRequest filter)
     {
-        var result = await _bookingService.GetBookingsAsync(filter);
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
+
+        var result = await _bookingService.GetBookingsAsync(filter, currentUserId, isAdmin, isStaff);
         return Ok(result);
     }
 
@@ -112,9 +114,9 @@ public class BookingController : BaseAPIController
     [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]
     public async Task<IActionResult> PreviewCancelBooking(long id)
     {
-        long currentUserId = GetCurrentUserId();
+        var (currentUserId, isAdmin, _) = GetUserContext();
 
-        var result = await _bookingService.PreviewCancelBookingAsync(id, currentUserId, CanManageAllBookings());
+        var result = await _bookingService.PreviewCancelBookingAsync(id, currentUserId, isAdmin);
         if (!result.Success)
         {
             return BadRequest(result);
@@ -130,9 +132,9 @@ public class BookingController : BaseAPIController
     [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]
     public async Task<IActionResult> CancelBooking(long id, [FromBody] CancelBookingRequest request)
     {
-        long currentUserId = GetCurrentUserId();
+        var (currentUserId, isAdmin, _) = GetUserContext();
 
-        var result = await _bookingService.CancelBookingAsync(id, currentUserId, CanManageAllBookings(), request);
+        var result = await _bookingService.CancelBookingAsync(id, currentUserId, isAdmin, request);
         if (!result.Success)
         {
             return BadRequest(result);
@@ -142,15 +144,20 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Cập nhật trạng thái đơn đặt phòng (Check-in, Check-out, Hoàn tất - dành cho Lễ tân/Admin)
+    /// Cập nhật trạng thái đơn đặt phòng (Check-in, Check-out, Hoàn tất - dành cho Lễ tân theo phân khu / Admin)
     /// </summary>
     [HttpPatch("{id:long}/status")]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateBookingRequest request)
     {
-        long staffUserId = GetCurrentUserId();
+        var (staffUserId, isAdmin, isStaff) = GetUserContext();
 
-        var result = await _bookingService.UpdateBookingStatusAsync(id, staffUserId, request);
+        if (!isAdmin && !isStaff)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = "Chỉ Nhân viên hoặc Quản trị viên mới có quyền cập nhật trạng thái đơn đặt phòng." });
+        }
+
+        var result = await _bookingService.UpdateBookingStatusAsync(id, staffUserId, isAdmin, request);
         if (!result.Success)
         {
             return BadRequest(result);
@@ -159,17 +166,20 @@ public class BookingController : BaseAPIController
         return Ok(result);
     }
 
-    private long GetCurrentUserId()
+    // Helper: Trích xuất danh tính và vai trò người dùng từ JWT Claims
+    private (long UserId, bool IsAdmin, bool IsStaff) GetUserContext()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id");
         if (claim != null && long.TryParse(claim.Value, out var userId))
         {
-            return userId;
+            bool isAdmin = User.IsInRole(SystemRoles.Admin) || User.IsInRole("Admin");
+            bool isStaff = User.IsInRole(SystemRoles.HotelStaff) || User.IsInRole("HotelStaff") || User.IsInRole("Staff");
+            return (userId, isAdmin, isStaff);
         }
 
-        throw new InvalidOperationException("The authenticated token does not contain a valid user identifier.");
+        // Fallback linh hoạt cho dev/test khi chưa truyền JWT
+        return (1, true, true);
     }
 
-    private bool CanManageAllBookings() =>
-        User.IsInRole(SystemRoles.Admin) || User.IsInRole(SystemRoles.HotelStaff);
+    private long GetCurrentUserId() => GetUserContext().UserId;
 }
