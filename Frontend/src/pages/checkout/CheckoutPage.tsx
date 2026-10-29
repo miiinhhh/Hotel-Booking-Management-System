@@ -8,6 +8,7 @@ import { OrderSummaryCard } from './components/OrderSummaryCard';
 import { DEFAULT_CHECKOUT_DATA } from './data/mockCheckoutData';
 import { useAuth } from '../../context/AuthContext';
 import { calculateBookingPrice, createBooking } from '../../services/bookingApi';
+import { createVnPayPayment } from '../../services/paymentApi';
 import {
   CheckoutBookingData,
   CheckoutContactInfo,
@@ -96,9 +97,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         numberOfGuests: bookingData.numberOfGuests || 1, paymentMethod, voucherCode: bookingData.couponCode || undefined,
         specialRequests: [...specialRequests.filter(r => r.selected).map(r => r.label), additionalNotes].filter(Boolean).join('; '),
         rooms: [{ roomId: bookingData.roomId }], guests: [{ fullName: contactInfo.isBookingForOther ? contactInfo.otherGuestName || contactInfo.fullName : contactInfo.fullName, phone: contactInfo.phone, email: contactInfo.email, isPrimaryGuest: true }] });
-      setSubmissionStep(2);
+            setSubmissionStep(2);
+
+      // Nếu phương thức là qr_napas / Deposit: tự động chuyển sang cổng VNPay Sandbox
+      if (paymentMethod === 'Deposit') {
+        const vnpayRes = await createVnPayPayment(result.bookingId, 'Deposit');
+        if (vnpayRes.success && vnpayRes.data?.paymentUrl) {
+          window.location.href = vnpayRes.data.paymentUrl;
+          return;
+        } else {
+          setError(vnpayRes.message || 'Không thể tạo liên kết thanh toán VNPay.');
+          return;
+        }
+      }
+
       if (onBookingSuccess) onBookingSuccess(result.bookingCode);
-      else alert(`Đã tạo booking ${result.bookingCode}. Vui lòng hoàn tất thanh toán theo hướng dẫn.`);
+      else alert(`Đã tạo booking ${result.bookingCode}. Vui lòng hoàn tất thanh toán tiền mặt khi nhận phòng.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không tạo được booking.'); }
     finally { setIsSubmitting(false); }
   };

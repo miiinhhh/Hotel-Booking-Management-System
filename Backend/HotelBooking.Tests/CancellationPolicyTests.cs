@@ -80,6 +80,12 @@ public class CancellationPolicyTests
             return Task.FromResult(Payments.FirstOrDefault(p => p.PaymentId == paymentId));
         }
 
+        public Task<Payment?> GetByTransactionCodeAsync(string transactionCode)
+        {
+            var item = Payments.FirstOrDefault(p => p.TransactionCode == transactionCode);
+            return Task.FromResult(item);
+        }
+
         public Task<IEnumerable<Payment>> GetByBookingIdAsync(long bookingId)
         {
             var items = Payments.Where(p => p.BookingId == bookingId).ToList();
@@ -106,6 +112,30 @@ public class CancellationPolicyTests
                 return Task.FromResult(true);
             }
             return Task.FromResult(false);
+        }
+
+        public Task<bool> UpdateStatusIfPendingAsync(long paymentId, string status, DateTime? paidAt)
+        {
+            var item = Payments.FirstOrDefault(p => p.PaymentId == paymentId);
+            if (item != null && item.Status == PaymentStatus.Pending)
+            {
+                if (Enum.TryParse<PaymentStatus>(status, true, out var ps))
+                {
+                    item.Status = ps;
+                }
+                item.PaidAt = paidAt;
+                return Task.FromResult(true);
+            }
+            return Task.FromResult(false);
+        }
+
+        public Task CancelPendingPaymentsForBookingAsync(long bookingId)
+        {
+            foreach (var p in Payments.Where(p => p.BookingId == bookingId && p.Status == PaymentStatus.Pending))
+            {
+                p.Status = PaymentStatus.Failed;
+            }
+            return Task.CompletedTask;
         }
 
         public Task<decimal> GetTotalPaidAmountAsync(long bookingId)

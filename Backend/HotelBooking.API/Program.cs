@@ -14,10 +14,14 @@ using System.Text.Json.Serialization;
 using HotelBooking.API.Errors;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Infrastructure;
+using HotelBooking.Infrastructure.Common;
 using HotelBooking.API.Authentication;
 using HotelBooking.Domain.Entities;
+using HotelBooking.Application.DTOs.Payment;
 
 var builder = WebApplication.CreateBuilder(args);
+DotEnvLoader.Load(builder.Environment.ContentRootPath);
+
 builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvents>();
 
 if (builder.Environment.IsDevelopment())
@@ -72,6 +76,11 @@ if (Encoding.UTF8.GetByteCount(jwt.SecretKey) < 32)
     throw new InvalidOperationException("Jwt:SecretKey must be at least 32 characters.");
 if (jwt.ExpirationMinutes is < 1 or > 1440)
     throw new InvalidOperationException("Jwt:ExpirationMinutes must be between 1 and 1440.");
+
+// Cấu hình tích hợp VNPay
+builder.Services.Configure<VnPaySettings>(builder.Configuration.GetSection(VnPaySettings.SectionName));
+var vnPaySettings = builder.Configuration.GetSection(VnPaySettings.SectionName).Get<VnPaySettings>() ?? new VnPaySettings();
+builder.Services.AddSingleton(vnPaySettings);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

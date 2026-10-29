@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookingItem } from '../types';
+import { previewCancelBooking, CancellationPreviewDto } from '../../../services/bookingApi';
 
 interface CancelBookingModalProps {
   isOpen: boolean;
@@ -15,12 +16,29 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
   onConfirmCancel,
 }) => {
   const [cancelReason, setCancelReason] = useState('Thay đổi lịch trình đột xuất');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [preview, setPreview] = useState<CancellationPreviewDto | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !booking) {
+      setPreview(null);
+      return;
+    }
+
+    const bookingIdNum = Number(booking.id);
+    if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
+      setLoadingPreview(true);
+      previewCancelBooking(bookingIdNum)
+        .then((res) => {
+          if (res.success && res.data) {
+            setPreview(res.data);
+          }
+        })
+        .finally(() => setLoadingPreview(false));
+    }
+  }, [isOpen, booking]);
 
   if (!isOpen || !booking) return null;
-
-  const refundAmountText = booking.paidAmount
-    ? `${booking.paidAmount.toLocaleString('vi-VN')}đ`
-    : `${booking.totalAmount.toLocaleString('vi-VN')}đ`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fadeIn">
@@ -47,18 +65,50 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
           </div>
         </div>
 
-        <div className="bg-surface-container-low rounded p-space-md mb-space-md">
-          <div className="flex justify-between items-center pb-2 mb-2 border-b border-surface-container">
+        <div className="bg-surface-container-low rounded p-space-md mb-space-md space-y-2">
+          <div className="flex justify-between items-center pb-2 border-b border-surface-container">
             <span className="font-label-md text-label-md text-on-surface-variant">Mã đơn:</span>
-            <span className="font-headline-sm text-[16px] text-primary">
+            <span className="font-headline-sm text-[16px] text-primary font-bold">
               {booking.bookingCode}
             </span>
           </div>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Theo chính sách lưu trú, bạn đủ điều kiện{' '}
-            <strong className="text-on-surface">hoàn trả 100% tiền cọc</strong> ({refundAmountText}).
-            Số tiền sẽ được chuyển hoàn về tài khoản nguồn trong 24 giờ làm việc.
-          </p>
+
+          {loadingPreview ? (
+            <p className="text-xs text-outline py-2 flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+              Đang tra cứu chính sách hủy phòng có thẩm quyền từ máy chủ...
+            </p>
+          ) : preview ? (
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Số tiền đã thanh toán:</span>
+                <span className="font-semibold">{preview.paidAmount.toLocaleString('vi-VN')} ₫</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Tỷ lệ hoàn tiền:</span>
+                <span className="font-bold text-emerald-600">{preview.refundPercentage}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Số tiền hoàn dự kiến:</span>
+                <strong className="text-emerald-700 font-bold">{preview.refundAmount.toLocaleString('vi-VN')} ₫</strong>
+              </div>
+              {preview.penaltyAmount > 0 && (
+                <div className="flex justify-between text-xs text-error">
+                  <span>Phí phạt hủy phòng:</span>
+                  <span>{preview.penaltyAmount.toLocaleString('vi-VN')} ₫</span>
+                </div>
+              )}
+              {preview.policyDescription && (
+                <p className="text-xs text-outline pt-1 italic">
+                  Chính sách: {preview.policyDescription}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              Theo quy định, yêu cầu hủy phòng sẽ được tính toán tiền phạt và tiền hoàn tự động dựa trên thời điểm hủy so với ngày nhận phòng.
+            </p>
+          )}
         </div>
 
         <div className="mb-space-lg">

@@ -61,6 +61,28 @@ public class PaymentRepository : IPaymentRepository
             new { BookingId = bookingId });
     }
 
+    public async Task<Payment?> GetByTransactionCodeAsync(string transactionCode)
+    {
+        const string sql = """
+            SELECT
+                PaymentId,
+                BookingId,
+                PaymentMethod,
+                PaymentType,
+                Amount,
+                Status,
+                TransactionCode,
+                PaidAt,
+                CreatedAt
+            FROM Payments
+            WHERE TransactionCode = @TransactionCode;
+            """;
+
+        return await _connection.QuerySingleOrDefaultAsync<Payment>(
+            sql,
+            new { TransactionCode = transactionCode });
+    }
+
     public async Task<long> CreateAsync(Payment payment)
     {
         const string sql = """
@@ -127,6 +149,42 @@ public class PaymentRepository : IPaymentRepository
             });
 
         return affectedRows > 0;
+    }
+
+    public async Task<bool> UpdateStatusIfPendingAsync(
+        long paymentId,
+        string status,
+        DateTime? paidAt)
+    {
+        const string sql = """
+            UPDATE Payments
+            SET
+                Status = @Status,
+                PaidAt = @PaidAt
+            WHERE PaymentId = @PaymentId AND Status = 'Pending';
+            """;
+
+        var affectedRows = await _connection.ExecuteAsync(
+            sql,
+            new
+            {
+                PaymentId = paymentId,
+                Status = status,
+                PaidAt = paidAt
+            });
+
+        return affectedRows > 0;
+    }
+
+    public async Task CancelPendingPaymentsForBookingAsync(long bookingId)
+    {
+        const string sql = """
+            UPDATE Payments
+            SET Status = 'Failed'
+            WHERE BookingId = @BookingId AND Status = 'Pending';
+            """;
+
+        await _connection.ExecuteAsync(sql, new { BookingId = bookingId });
     }
 
     public async Task<decimal> GetTotalPaidAmountAsync(

@@ -9,12 +9,21 @@ public interface IPaymentRepository
 
     Task<IEnumerable<Payment>> GetByBookingIdAsync(long bookingId);
 
+    Task<Payment?> GetByTransactionCodeAsync(string transactionCode);
+
     Task<long> CreateAsync(Payment payment);
 
     Task<bool> UpdateStatusAsync(
         long paymentId,
         string status,
         DateTime? paidAt);
+
+    Task<bool> UpdateStatusIfPendingAsync(
+        long paymentId,
+        string status,
+        DateTime? paidAt);
+
+    Task CancelPendingPaymentsForBookingAsync(long bookingId);
 
     Task<decimal> GetTotalPaidAmountAsync(long bookingId);
 

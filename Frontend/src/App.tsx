@@ -15,11 +15,13 @@ import { Hotel } from './pages/search/types';
 import { HotelDetail, Room } from './pages/hotel-detail/types';
 import { CheckoutBookingData } from './pages/checkout/types';
 import { LoginPage, ProfilePage, RegisterPage } from './pages/account';
+import { VnPayReturnPage } from './pages/checkout/VnPayReturnPage';
 import { useAuth } from './context/AuthContext';
 
 function App() {
   const { session, hasRole } = useAuth();
-  const [activeTab, setActiveTab] = useState('tim-kiem');
+  const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef='));
+  const [activeTab, setActiveTab] = useState(isVnPayReturn ? 'vnpay-return' : 'tim-kiem');
   const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
   const [detailStatus, setDetailStatus] = useState('');
   const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail | null>(null);
@@ -180,6 +182,18 @@ function App() {
         {activeTab === 'dang-nhap' && <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />}
         {activeTab === 'dang-ky' && <RegisterPage onLogin={() => setActiveTab('dang-nhap')} onSuccess={() => setActiveTab('tai-khoan')} />}
         {activeTab === 'tai-khoan' && <ProfilePage onLogin={() => setActiveTab('dang-nhap')} onBookings={() => setActiveTab('dat-phong-cua-toi')} />}
+        {activeTab === 'vnpay-return' && (
+          <VnPayReturnPage
+            onNavigateHome={() => {
+              window.history.replaceState({}, document.title, window.location.pathname);
+              setActiveTab('kham-pha');
+            }}
+            onNavigateMyBookings={() => {
+              window.history.replaceState({}, document.title, window.location.pathname);
+              setActiveTab('dat-phong-cua-toi');
+            }}
+          />
+        )}
       </div>
 
       {/* Footer */}
