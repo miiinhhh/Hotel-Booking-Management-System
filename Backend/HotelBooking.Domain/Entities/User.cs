@@ -9,8 +9,14 @@ public sealed class User
     public string? Phone { get; set; }
     public DateTime? DateOfBirth { get; set; }
     public bool IsActive { get; set; } = true;
+    public int AccessFailedCount { get; set; }
+    public DateTime? LockoutEnd { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public int TokenVersion { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<ExternalLogin> ExternalLogins { get; set; } = new List<ExternalLogin>();
     public ICollection<StaffAreaAssignment> StaffAreaAssignments { get; set; } = new List<StaffAreaAssignment>();
 }

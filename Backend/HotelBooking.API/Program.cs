@@ -64,6 +64,9 @@ builder.Services.AddDbContext<HotelBookingDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<AdvancedAuthOptions>(builder.Configuration.GetSection(AdvancedAuthOptions.SectionName));
+builder.Services.Configure<AuthDeliveryOptions>(builder.Configuration.GetSection(AuthDeliveryOptions.SectionName));
+builder.Services.Configure<GoogleAuthOptions>(builder.Configuration.GetSection(GoogleAuthOptions.SectionName));
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Jwt configuration is missing.");
 if (string.IsNullOrWhiteSpace(jwt.Issuer) || string.IsNullOrWhiteSpace(jwt.Audience))
@@ -72,6 +75,10 @@ if (Encoding.UTF8.GetByteCount(jwt.SecretKey) < 32)
     throw new InvalidOperationException("Jwt:SecretKey must be at least 32 characters.");
 if (jwt.ExpirationMinutes is < 1 or > 1440)
     throw new InvalidOperationException("Jwt:ExpirationMinutes must be between 1 and 1440.");
+var advancedAuth = builder.Configuration.GetSection(AdvancedAuthOptions.SectionName).Get<AdvancedAuthOptions>()
+    ?? throw new InvalidOperationException("AdvancedAuth configuration is missing.");
+if (Encoding.UTF8.GetByteCount(advancedAuth.OtpPepper) < 32)
+    throw new InvalidOperationException("AdvancedAuth:OtpPepper must be at least 32 characters.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -111,6 +118,10 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IOtpSender, OtpSender>();
+builder.Services.AddHttpClient<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddScoped<IHotelService, HotelService>();

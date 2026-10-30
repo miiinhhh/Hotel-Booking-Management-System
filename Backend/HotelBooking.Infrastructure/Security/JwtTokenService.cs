@@ -24,7 +24,8 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(ClaimTypes.Name, user.FullName),
-            new(ClaimTypes.NameIdentifier, user.UserId.ToString())
+            new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+            new("token_version", user.TokenVersion.ToString())
         };
         claims.AddRange(roles.Distinct(StringComparer.Ordinal).Select(role => new Claim(ClaimTypes.Role, role)));
 
