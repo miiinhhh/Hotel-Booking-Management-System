@@ -288,7 +288,7 @@ public class PaymentsController : BaseAPIController
 
         // Với trình duyệt, chuyển hướng về trang kết quả Frontend kèm mã tham chiếu an toàn
         var frontendUrl = _vnPaySettings.FrontendReturnUrl;
-        var redirectUrl = $"{frontendUrl}?bookingId={result.BookingId}&bookingCode={Uri.EscapeDataString(result.BookingCode)}&txnRef={Uri.EscapeDataString(result.TxnRef)}&status={result.Status}&success={result.Success.ToString().ToLowerInvariant()}";
+        var redirectUrl = $"{frontendUrl}?bookingId={result.BookingId}&bookingCode={Uri.EscapeDataString(result.BookingCode ?? "")}&txnRef={Uri.EscapeDataString(result.TxnRef ?? "")}&status={Uri.EscapeDataString(result.Status ?? "")}&amount={result.Amount}&success={result.Success.ToString().ToLowerInvariant()}&message={Uri.EscapeDataString(result.Message ?? "")}";
 
         return Redirect(redirectUrl);
     }

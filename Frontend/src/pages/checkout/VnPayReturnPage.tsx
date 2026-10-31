@@ -16,26 +16,84 @@ export const VnPayReturnPage: React.FC<VnPayReturnPageProps> = ({
 
   // Parse query parameters from URL
   const query = new URLSearchParams(window.location.search);
-  const urlTxnRef = query.get('txnRef') || '';
+  const urlTxnRef = query.get('txnRef') || query.get('vnp_TxnRef') || '';
   const urlBookingCode = query.get('bookingCode') || '';
+  const urlStatus = query.get('status') || '';
+  const urlMessage = query.get('message') || '';
+  const urlSuccess = query.get('success') === 'true';
+  const urlAmount = Number(query.get('amount')) || 0;
 
   const verifyPayment = async (txnRef: string) => {
     setLoading(true);
     setError(null);
     try {
-      if (!txnRef) {
-        setError('Không tìm thấy thông tin tham chiếu giao dịch (txnRef) trong liên kết.');
+      // Nếu Backend đã trả về trạng thái lỗi chữ ký rõ ràng
+      if (urlStatus === 'InvalidSignature') {
+        setError(urlMessage || 'Chữ ký số bảo mật không hợp lệ (Invalid Checksum).');
+        setLoading(false);
         return;
       }
 
-      const res = await getPaymentStatusByTxnRef(txnRef);
-      if (res.success && res.data) {
-        setResult(res.data);
+      if (!txnRef) {
+        if (urlMessage) {
+          setError(urlMessage);
+        } else {
+          setError('Không tìm thấy thông tin tham chiếu giao dịch (txnRef) trong liên kết.');
+        }
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await getPaymentStatusByTxnRef(txnRef);
+        if (res.success && res.data) {
+          setResult(res.data);
+          return;
+        }
+      } catch (apiErr) {
+        // Fallback: nếu gọi API tra cứu gặp lỗi (ví dụ hết hạn token) nhưng URL chuyển hướng từ máy chủ đã xác nhận Paid
+        if (urlStatus === 'Paid' && urlSuccess) {
+          setResult({
+            success: true,
+            message: urlMessage || 'Thanh toán thành công.',
+            bookingId: Number(query.get('bookingId')) || 0,
+            bookingCode: urlBookingCode,
+            txnRef,
+            amount: urlAmount,
+            status: 'Paid',
+          });
+          return;
+        }
+        throw apiErr;
+      }
+
+      if (urlStatus === 'Paid' && urlSuccess) {
+        setResult({
+          success: true,
+          message: urlMessage || 'Thanh toán thành công.',
+          bookingId: Number(query.get('bookingId')) || 0,
+          bookingCode: urlBookingCode,
+          txnRef,
+          amount: urlAmount,
+          status: 'Paid',
+        });
       } else {
-        setError(res.message || 'Không thể xác thực trạng thái giao dịch từ máy chủ.');
+        setError(urlMessage || 'Không thể xác thực trạng thái giao dịch từ máy chủ.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi kết nối khi xác thực thanh toán.');
+      if (urlStatus === 'Paid' && urlSuccess) {
+        setResult({
+          success: true,
+          message: urlMessage || 'Thanh toán thành công.',
+          bookingId: Number(query.get('bookingId')) || 0,
+          bookingCode: urlBookingCode,
+          txnRef,
+          amount: urlAmount,
+          status: 'Paid',
+        });
+      } else {
+        setError(err instanceof Error ? err.message : 'Lỗi kết nối khi xác thực thanh toán.');
+      }
     } finally {
       setLoading(false);
     }

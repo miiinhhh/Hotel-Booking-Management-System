@@ -120,7 +120,7 @@ public class VnPayService : IVnPayService
         vnpay.AddRequestData("vnp_CurrCode", "VND");
         vnpay.AddRequestData("vnp_IpAddr", string.IsNullOrWhiteSpace(clientIp) ? "127.0.0.1" : clientIp);
         vnpay.AddRequestData("vnp_Locale", "vn");
-        vnpay.AddRequestData("vnp_OrderInfo", $"Thanh toan don #{booking.BookingId} ({txnRef})");
+        vnpay.AddRequestData("vnp_OrderInfo", $"Thanh toan don {booking.BookingId} {txnRef}");
         vnpay.AddRequestData("vnp_OrderType", "hotel");
         vnpay.AddRequestData("vnp_ReturnUrl", _settings.ReturnUrl);
         vnpay.AddRequestData("vnp_TxnRef", txnRef);
@@ -153,18 +153,6 @@ public class VnPayService : IVnPayService
             vnpay.AddResponseData(key, value);
         }
 
-        var vnpSecureHash = vnpay.GetResponseData("vnp_SecureHash");
-        if (string.IsNullOrWhiteSpace(vnpSecureHash) ||
-            !vnpay.ValidateSignature(vnpSecureHash, _settings.HashSecret))
-        {
-            return new VnPayCallbackResultDto
-            {
-                Success = false,
-                Message = "Chữ ký số bảo mật không hợp lệ (Invalid Checksum).",
-                Status = "InvalidSignature"
-            };
-        }
-
         var txnRef = vnpay.GetResponseData("vnp_TxnRef");
         var responseCode = vnpay.GetResponseData("vnp_ResponseCode");
         var transactionNo = vnpay.GetResponseData("vnp_TransactionNo");
@@ -174,6 +162,30 @@ public class VnPayService : IVnPayService
         if (long.TryParse(rawAmount, out var parsedAmount))
         {
             amount = parsedAmount / 100m;
+        }
+
+        var vnpSecureHash = vnpay.GetResponseData("vnp_SecureHash");
+        if (string.IsNullOrWhiteSpace(vnpSecureHash) ||
+            !vnpay.ValidateSignature(vnpSecureHash, _settings.HashSecret))
+        {
+            var paymentOnInvalid = !string.IsNullOrWhiteSpace(txnRef)
+                ? await _paymentRepository.GetByTransactionCodeAsync(txnRef)
+                : null;
+            var bookingOnInvalid = paymentOnInvalid != null
+                ? await _bookingRepository.GetByIdAsync(paymentOnInvalid.BookingId)
+                : null;
+
+            return new VnPayCallbackResultDto
+            {
+                Success = false,
+                BookingId = paymentOnInvalid?.BookingId ?? 0,
+                BookingCode = bookingOnInvalid?.BookingCode ?? "",
+                TxnRef = txnRef,
+                TransactionNo = transactionNo,
+                Amount = amount,
+                Message = "Chữ ký số bảo mật không hợp lệ (Invalid Checksum).",
+                Status = "InvalidSignature"
+            };
         }
 
         var payment = await _paymentRepository.GetByTransactionCodeAsync(txnRef);
@@ -270,6 +282,17 @@ public class VnPayService : IVnPayService
             vnpay.AddResponseData(key, value);
         }
 
+        var txnRef = vnpay.GetResponseData("vnp_TxnRef");
+        var responseCode = vnpay.GetResponseData("vnp_ResponseCode");
+        var transactionNo = vnpay.GetResponseData("vnp_TransactionNo");
+        var rawAmount = vnpay.GetResponseData("vnp_Amount");
+
+        decimal amount = 0m;
+        if (long.TryParse(rawAmount, out var parsedAmount))
+        {
+            amount = parsedAmount / 100m;
+        }
+
         var vnpSecureHash = vnpay.GetResponseData("vnp_SecureHash");
         if (string.IsNullOrWhiteSpace(vnpSecureHash) ||
             !vnpay.ValidateSignature(vnpSecureHash, _settings.HashSecret))
@@ -277,20 +300,16 @@ public class VnPayService : IVnPayService
             return VnPayIpnResponse.InvalidChecksum();
         }
 
-        var txnRef = vnpay.GetResponseData("vnp_TxnRef");
-        var responseCode = vnpay.GetResponseData("vnp_ResponseCode");
-        var rawAmount = vnpay.GetResponseData("vnp_Amount");
-
         var payment = await _paymentRepository.GetByTransactionCodeAsync(txnRef);
         if (payment == null)
         {
             return VnPayIpnResponse.OrderNotFound();
         }
 
-        if (long.TryParse(rawAmount, out var parsedAmount))
+        if (long.TryParse(rawAmount, out var ipnParsedAmount))
         {
             var expectedVnpAmount = (long)(payment.Amount * 100);
-            if (parsedAmount != expectedVnpAmount)
+            if (ipnParsedAmount != expectedVnpAmount)
             {
                 return VnPayIpnResponse.InvalidAmount();
             }

@@ -52,6 +52,7 @@ public class VnPayLibrary
         foreach (var (key, value) in _responseData)
         {
             if (!string.IsNullOrEmpty(key) &&
+                key.StartsWith("vnp_", StringComparison.OrdinalIgnoreCase) &&
                 !key.Equals("vnp_SecureHash", StringComparison.OrdinalIgnoreCase) &&
                 !key.Equals("vnp_SecureHashType", StringComparison.OrdinalIgnoreCase))
             {

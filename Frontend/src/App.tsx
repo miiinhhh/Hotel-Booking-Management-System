@@ -20,7 +20,7 @@ import { useAuth } from './context/AuthContext';
 
 function App() {
   const { session, hasRole } = useAuth();
-  const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef='));
+  const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef=') || window.location.search.includes('vnp_TxnRef='));
   const [activeTab, setActiveTab] = useState(isVnPayReturn ? 'vnpay-return' : 'tim-kiem');
   const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
   const [detailStatus, setDetailStatus] = useState('');

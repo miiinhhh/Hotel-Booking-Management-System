@@ -21,13 +21,13 @@ using HotelBooking.Application.DTOs.Payment;
 
 var builder = WebApplication.CreateBuilder(args);
 DotEnvLoader.Load(builder.Environment.ContentRootPath);
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvents>();
 
 if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
-    builder.Configuration.AddEnvironmentVariables();
     builder.Configuration.AddCommandLine(args);
 }
 
