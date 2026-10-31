@@ -17,6 +17,15 @@ public sealed class AuthService(
     private const string GoogleProvider = "Google";
     private readonly AdvancedAuthOptions settings = options.Value;
 
+    public async Task<AccountAvailabilityResponse> CheckRegistrationAvailabilityAsync(string? email, string? phone, CancellationToken ct)
+    {
+        var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : NormalizeEmail(email);
+        var normalizedPhone = NormalizeOptional(phone);
+        var emailAvailable = normalizedEmail is null || await users.FindByEmailAsync(normalizedEmail, ct) is null;
+        var phoneAvailable = normalizedPhone is null || !await users.PhoneExistsAsync(normalizedPhone, 0, ct);
+        return new(emailAvailable, phoneAvailable);
+    }
+
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, AuthClientContext client, CancellationToken ct)
     {
         var email = NormalizeEmail(request.Email);

@@ -17,6 +17,25 @@ namespace HotelBooking.Tests;
 public sealed class AdvancedAuthenticationTests
 {
     [Fact]
+    public async Task Registration_availability_reports_existing_and_unused_identity_values()
+    {
+        using var factory = new StaffFactory();
+        using var client = factory.CreateClient();
+        await factory.Seed();
+
+        var existing = await client.GetFromJsonAsync<AccountAvailabilityResponse>(
+            "/api/auth/availability?email=user4%40example.com");
+        var unused = await client.GetFromJsonAsync<AccountAvailabilityResponse>(
+            "/api/auth/availability?email=new-customer%40example.com&phone=%2B84909999999");
+
+        Assert.NotNull(existing);
+        Assert.False(existing.EmailAvailable);
+        Assert.NotNull(unused);
+        Assert.True(unused.EmailAvailable);
+        Assert.True(unused.PhoneAvailable);
+    }
+
+    [Fact]
     public async Task Email_otp_can_sign_in_and_reset_password()
     {
         using var baseFactory = new StaffFactory();

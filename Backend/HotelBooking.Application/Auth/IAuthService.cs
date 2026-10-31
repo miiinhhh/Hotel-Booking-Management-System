@@ -2,6 +2,7 @@ namespace HotelBooking.Application.Auth;
 
 public interface IAuthService
 {
+    Task<AccountAvailabilityResponse> CheckRegistrationAvailabilityAsync(string? email, string? phone, CancellationToken cancellationToken);
     Task<AuthResponse> RegisterAsync(RegisterRequest request, AuthClientContext client, CancellationToken cancellationToken);
     Task<AuthResult> LoginAsync(LoginRequest request, AuthClientContext client, CancellationToken cancellationToken);
     Task<AuthResult> RefreshAsync(string refreshToken, AuthClientContext client, CancellationToken cancellationToken);

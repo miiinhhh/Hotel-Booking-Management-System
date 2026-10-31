@@ -10,6 +10,12 @@ namespace HotelBooking.API.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
+    [HttpGet("availability"), AllowAnonymous]
+    [ProducesResponseType(typeof(AccountAvailabilityResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AccountAvailabilityResponse>> CheckAvailability(
+        [FromQuery] string? email, [FromQuery] string? phone, CancellationToken ct) =>
+        Ok(await authService.CheckRegistrationAvailabilityAsync(email, phone, ct));
+
     [HttpPost("register"), AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request, CancellationToken ct)
