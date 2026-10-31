@@ -19,22 +19,29 @@ public sealed class UserRepository(HotelBookingDbContext dbContext) : IUserRepos
             .SingleOrDefaultAsync(x => x.Phone == phone, cancellationToken);
 
     public Task<User?> FindByExternalLoginAsync(string provider, string subject, CancellationToken cancellationToken) =>
-        dbContext.ExternalLogins.Where(x => x.Provider == provider && x.ProviderSubject == subject)
-            .Select(x => x.User).Include(x => x.UserRoles).ThenInclude(x => x.Role)
-            .SingleOrDefaultAsync(cancellationToken);
+        dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
+            .SingleOrDefaultAsync(x => x.ExternalLogins.Any(login =>
+                login.Provider == provider && login.ProviderSubject == subject), cancellationToken);
+
+    public Task<bool> EmailExistsAsync(string email, long excludingUserId, CancellationToken cancellationToken) =>
+        dbContext.Users.AnyAsync(x => x.UserId != excludingUserId && x.Email == email, cancellationToken);
+
+    public Task<bool> PhoneExistsAsync(string phone, long excludingUserId, CancellationToken cancellationToken) =>
+        dbContext.Users.AnyAsync(x => x.UserId != excludingUserId && x.Phone == phone, cancellationToken);
 
     public Task<RefreshToken?> FindRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
         dbContext.RefreshTokens.Include(x => x.User).ThenInclude(x => x.UserRoles).ThenInclude(x => x.Role)
             .SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 
     public Task<AuthOtpChallenge?> FindOtpChallengeAsync(Guid challengeId, CancellationToken cancellationToken) =>
-        dbContext.AuthOtpChallenges.Include(x => x.User).ThenInclude(x => x.UserRoles).ThenInclude(x => x.Role)
-            .Include(x => x.User).ThenInclude(x => x.RefreshTokens)
+        dbContext.AuthOtpChallenges.Include(x => x.User!).ThenInclude(x => x.UserRoles).ThenInclude(x => x.Role)
+            .Include(x => x.User!).ThenInclude(x => x.RefreshTokens)
             .SingleOrDefaultAsync(x => x.ChallengeId == challengeId, cancellationToken);
 
     public Task<AuthOtpChallenge?> FindRecentOtpChallengeAsync(string destination, string purpose, DateTime createdAfter, CancellationToken cancellationToken) =>
         dbContext.AuthOtpChallenges.OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefaultAsync(x => x.Destination == destination && x.Purpose == purpose && x.CreatedAt >= createdAfter, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Destination == destination && x.Purpose == purpose &&
+                x.ConsumedAt == null && x.CreatedAt >= createdAfter, cancellationToken);
 
     public Task AddAsync(User user, CancellationToken cancellationToken) =>
         dbContext.Users.AddAsync(user, cancellationToken).AsTask();

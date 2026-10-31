@@ -22,12 +22,15 @@ public sealed class AuthService(
         var email = NormalizeEmail(request.Email);
         if (await users.FindByEmailAsync(email, ct) is not null)
             throw new DuplicateEmailException(email);
+        var phone = NormalizeOptional(request.Phone);
+        if (phone is not null && await users.PhoneExistsAsync(phone, 0, ct))
+            throw new DuplicatePhoneException(phone);
         var customerRole = await CustomerRole(ct);
         var user = new User
         {
             FullName = request.FullName.Trim(), Email = email,
             PasswordHash = passwordHasher.Hash(request.Password),
-            Phone = NormalizeOptional(request.Phone), DateOfBirth = request.DateOfBirth,
+            Phone = phone, DateOfBirth = request.DateOfBirth,
             IsActive = true, CreatedAt = UtcNow
         };
         user.UserRoles.Add(new UserRole { User = user, Role = customerRole, AssignedAt = UtcNow });
@@ -123,7 +126,18 @@ public sealed class AuthService(
         await users.AddOtpChallengeAsync(challenge, ct);
         await users.SaveChangesAsync(ct);
         if (user is not null && user.IsActive)
-            await otpSender.SendAsync(request.Channel, destination, code, request.Purpose, ct);
+        {
+            try
+            {
+                await otpSender.SendAsync(request.Channel, destination, code, request.Purpose, ct);
+            }
+            catch
+            {
+                challenge.ConsumedAt = UtcNow;
+                await users.SaveChangesAsync(ct);
+                throw;
+            }
+        }
         return new(challenge.ChallengeId, new DateTimeOffset(challenge.ExpiresAt, TimeSpan.Zero), settings.OtpResendSeconds);
     }
 

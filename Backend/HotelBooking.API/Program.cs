@@ -18,6 +18,8 @@ using HotelBooking.API.Authentication;
 using HotelBooking.Domain.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsEnvironment("Testing"))
+    builder.Logging.ClearProviders().AddConsole();
 builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvents>();
 
 if (builder.Environment.IsDevelopment())

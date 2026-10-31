@@ -23,6 +23,10 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             return Conflict(Problem(StatusCodes.Status409Conflict, "AUTH_EMAIL_EXISTS", "Registration failed", exception.Message));
         }
+        catch (DuplicatePhoneException exception)
+        {
+            return Conflict(Problem(StatusCodes.Status409Conflict, "AUTH_PHONE_EXISTS", "Registration failed", exception.Message));
+        }
     }
 
     [HttpPost("login"), AllowAnonymous]

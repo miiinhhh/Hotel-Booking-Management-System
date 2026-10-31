@@ -22,11 +22,14 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
             entity.Property(x => x.Email).HasMaxLength(255).IsRequired().IsUnicode(false);
             entity.Property(x => x.PasswordHash).HasMaxLength(255).IsRequired().IsUnicode(false);
             entity.Property(x => x.Phone).HasMaxLength(20).IsUnicode(false);
+            entity.Property(x => x.AvatarStorageKey).HasMaxLength(100).IsUnicode(false);
+            entity.Property(x => x.AvatarContentType).HasMaxLength(50).IsUnicode(false);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("SYSDATETIME()");
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.AccessFailedCount).HasDefaultValue(0);
             entity.Property(x => x.TokenVersion).HasDefaultValue(0);
             entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => x.Phone).IsUnique().HasFilter("[Phone] IS NOT NULL");
             entity.Ignore(x => x.StaffAreaAssignments);
         });
 
