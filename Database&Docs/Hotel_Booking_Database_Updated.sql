@@ -475,10 +475,6 @@
             FOREIGN KEY (CustomerId)
             REFERENCES Users(UserId),
 
-        CONSTRAINT FK_Bookings_Voucher
-            FOREIGN KEY (VoucherId)
-            REFERENCES Vouchers(VoucherId),
-
         CONSTRAINT CK_Bookings_DateRange
             CHECK (CheckOutDate > CheckInDate),
 
@@ -816,6 +812,13 @@
         CONSTRAINT CK_Vouchers_UsedCount
             CHECK (UsedCount >= 0)
     );
+
+    -- Bookings is created earlier because several booking-related tables depend
+    -- on it. Add the Voucher relationship only after Vouchers exists.
+    ALTER TABLE Bookings
+    ADD CONSTRAINT FK_Bookings_Voucher
+        FOREIGN KEY (VoucherId)
+        REFERENCES Vouchers(VoucherId);
 
     -- =========================================================
     -- 23. CANCELLATION_POLICIES -- chính sách hủy phòng: miễn phí, mất cọc, hoàn tiền 50%, hoàn tiền 100%, v.v.

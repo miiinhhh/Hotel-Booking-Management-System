@@ -10,6 +10,11 @@ public static class AuthenticationErrorCodes
     public const string TokenExpired = "AUTH_TOKEN_EXPIRED";
     public const string AccountUnavailable = "AUTH_ACCOUNT_UNAVAILABLE";
     public const string AccessDenied = "AUTH_ACCESS_DENIED";
+    public const string AccountLocked = "AUTH_ACCOUNT_LOCKED";
+    public const string RefreshTokenInvalid = "AUTH_REFRESH_TOKEN_INVALID";
+    public const string OtpInvalid = "AUTH_OTP_INVALID";
+    public const string OtpExpired = "AUTH_OTP_EXPIRED";
+    public const string ExternalProviderRejected = "AUTH_EXTERNAL_PROVIDER_REJECTED";
 }
 
 public static class AuthenticationProblems

@@ -3,7 +3,34 @@ import { ApiError, getStoredAccessToken } from './authApi';
 export type RoomStatus = 'Available' | 'Occupied' | 'Maintenance' | 'Inactive';
 export interface RoomTypeDto { roomTypeId: number; hotelId: number; areaId: number; name: string; description: string | null; basePrice: number; capacity: number; numberOfBeds: number; isActive: boolean }
 export interface RoomTypeInput { name: string; description: string | null; basePrice: number; capacity: number; numberOfBeds: number }
-export interface HotelAreaDto { areaId: number; hotelId: number; areaName: string; areaType: string; parentAreaId: number | null; roomCount: number; isActive: boolean }
+export type HotelAreaType = 'Zone' | 'Building';
+export interface HotelAreaDto {
+  areaId: number;
+  hotelId: number;
+  areaName: string;
+  areaType: HotelAreaType;
+  parentAreaId: number | null;
+  parentAreaName: string | null;
+  description: string | null;
+  locationDescription: string | null;
+  floorCount: number | null;
+  isActive: boolean;
+  childAreaCount: number;
+  roomTypeCount: number;
+  roomCount: number;
+  assignedStaffCount: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
+export interface HotelAreaInput {
+  areaName: string;
+  areaType: HotelAreaType;
+  parentAreaId: number | null;
+  description: string | null;
+  locationDescription: string | null;
+  floorCount: number | null;
+  isActive: boolean;
+}
 export interface RoomDto { roomId: number; hotelId: number; areaId: number; roomTypeId: number; roomNumber: string; floor: number; status: RoomStatus; description: string | null; isActive: boolean; price: number; capacity: number }
 export interface AvailableRoom { roomId: number; hotelId: number; areaId: number; roomTypeId: number; roomTypeName: string; roomNumber: string; floor: number; price: number; capacity: number }
 export interface Availability { checkIn: string; checkOut: string; rooms: AvailableRoom[] }
@@ -29,7 +56,11 @@ const hotel = (id: number) => `/api/hotels/${id}`;
 export const roomApi = {
   hotel: (id: number) => request<{ hotelId: number; hotelName: string; address: string }>(hotel(id)),
   types: (id: number) => request<RoomTypeDto[]>(`${hotel(id)}/room-types`),
-  areas: (id: number) => request<HotelAreaDto[]>(`${hotel(id)}/areas`),
+  areas: (id: number, includeInactive = false) => request<HotelAreaDto[]>(`${hotel(id)}/areas${includeInactive ? '?includeInactive=true' : ''}`),
+  area: (id: number, areaId: number) => request<HotelAreaDto>(`${hotel(id)}/areas/${areaId}`),
+  createArea: (id: number, input: HotelAreaInput) => request<HotelAreaDto>(`${hotel(id)}/areas`, 'POST', input),
+  updateArea: (id: number, areaId: number, input: HotelAreaInput) => request<HotelAreaDto>(`${hotel(id)}/areas/${areaId}`, 'PUT', input),
+  deleteArea: (id: number, areaId: number) => request<void>(`${hotel(id)}/areas/${areaId}`, 'DELETE'),
   rooms: (id: number) => request<RoomDto[]>(`${hotel(id)}/rooms`),
   createType: (id: number, areaId: number, input: RoomTypeInput) => request<RoomTypeDto>(`${hotel(id)}/areas/${areaId}/room-types`, 'POST', input),
   updateType: (id: number, typeId: number, input: RoomTypeInput) => request<RoomTypeDto>(`${hotel(id)}/room-types/${typeId}`, 'PUT', input),

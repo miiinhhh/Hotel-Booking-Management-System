@@ -47,3 +47,29 @@ test('deactivate RoomType accepts empty 204 response', async () => {
     assert.equal(await roomApi.deleteType(7, 8), undefined);
   } finally { globalThis.fetch = original; }
 });
+
+test('admin area CRUD uses hotel-scoped endpoints and includes inactive areas', async () => {
+  const original = globalThis.fetch;
+  const input = { areaName: 'Ocean Wing', areaType: 'Building', parentAreaId: 2, description: null, locationDescription: 'Near beach', floorCount: 8, isActive: true };
+  const calls = [];
+  try {
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : null, authorization: init.headers.Authorization });
+      if (init.method === 'DELETE') return new Response(null, { status: 204 });
+      if (init.method === 'GET') return Response.json([]);
+      return Response.json({ areaId: 12, hotelId: 7, ...input }, { status: init.method === 'POST' ? 201 : 200 });
+    };
+    await roomApi.areas(7, true);
+    await roomApi.createArea(7, input);
+    await roomApi.updateArea(7, 12, input);
+    await roomApi.deleteArea(7, 12);
+    assert.deepEqual(calls.map(call => [call.method, call.url]), [
+      ['GET', 'http://api.test/api/hotels/7/areas?includeInactive=true'],
+      ['POST', 'http://api.test/api/hotels/7/areas'],
+      ['PUT', 'http://api.test/api/hotels/7/areas/12'],
+      ['DELETE', 'http://api.test/api/hotels/7/areas/12'],
+    ]);
+    assert.deepEqual(calls[1].body, input);
+    assert.ok(calls.every(call => call.authorization === 'Bearer test-jwt'));
+  } finally { globalThis.fetch = original; }
+});

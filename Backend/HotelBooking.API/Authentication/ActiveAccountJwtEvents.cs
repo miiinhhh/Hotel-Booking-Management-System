@@ -26,6 +26,13 @@ public sealed class ActiveAccountJwtEvents(IUserRepository users) : JwtBearerEve
             context.Fail("Account is unavailable.");
             return;
         }
+        if (!int.TryParse(context.Principal?.FindFirstValue("token_version"), out var tokenVersion) ||
+            tokenVersion != user.TokenVersion)
+        {
+            context.HttpContext.Items[AuthenticationErrorItem] = AuthenticationErrorCodes.TokenInvalid;
+            context.Fail("The session has been revoked.");
+            return;
+        }
         // Use current database roles, never stale roles from an earlier JWT.
         var identity = (ClaimsIdentity)context.Principal!.Identity!;
         foreach (var claim in identity.FindAll(identity.RoleClaimType).ToArray()) identity.RemoveClaim(claim);

@@ -8,4 +8,6 @@ public sealed record AuthResponse(
     IReadOnlyList<string> Roles,
     string AccessToken,
     DateTimeOffset ExpiresAt,
+    string RefreshToken,
+    DateTimeOffset RefreshExpiresAt,
     string TokenType = "Bearer");

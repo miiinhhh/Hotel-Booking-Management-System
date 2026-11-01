@@ -93,6 +93,8 @@ public sealed class HotelArea
 
         if (normalizedType == "Zone" && parentAreaId.HasValue)
             throw new DomainRuleException("A Zone cannot have a parent area.");
+        if (normalizedType == "Building" && !parentAreaId.HasValue)
+            throw new DomainRuleException("A Building must belong to a parent Zone.");
         if (parentAreaId <= 0)
             throw new DomainRuleException("Parent area ID must be positive.");
         if (description?.Trim().Length > 500)

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { absoluteApiUrl } from '../../services/authApi';
 
 interface HeaderProps { activeTab?: string; onTabChange?: (tab: string) => void; }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab = 'kham-pha', onTabChange }) => {
-  const { session, hasRole, logout } = useAuth();
+  const { session, profile, hasRole, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const navItems = [
@@ -14,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab = 'kham-pha', onTabCha
   ];
   const navigate = (id: string) => { onTabChange?.(id); setMobileMenuOpen(false); setAccountMenuOpen(false); };
   const initials = session?.fullName.split(' ').filter(Boolean).map((part) => part[0]).slice(-2).join('').toUpperCase() || '';
+  const avatarUrl = profile?.avatarUrl ? `${absoluteApiUrl(profile.avatarUrl)}?v=${encodeURIComponent(profile.avatarUpdatedAt || '')}` : null;
 
   return <header className="fixed left-0 right-0 top-0 z-50 bg-surface-container-lowest/90 shadow-[0_1px_8px_rgba(120,53,15,0.04)] backdrop-blur-xl">
     <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-space-md px-margin-mobile md:px-margin">
@@ -23,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab = 'kham-pha', onTabCha
         {hasRole('Admin') && <button onClick={() => navigate('admin-portal')} className="hidden items-center gap-1.5 rounded-full border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 text-xs font-semibold hover:bg-primary-container hover:text-on-primary lg:inline-flex"><span className="material-symbols-outlined text-[16px]">shield_person</span>Admin</button>}
         {(hasRole('Hotel Staff') || hasRole('Admin')) && <button onClick={() => navigate('staff-portal')} className="hidden items-center gap-1.5 rounded-full border border-secondary-fixed-dim/40 bg-secondary-fixed/50 px-3 py-1.5 text-xs font-semibold text-on-secondary-fixed hover:bg-primary-container hover:text-on-primary sm:inline-flex"><span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>Staff Portal</button>}
         {!session && <button onClick={() => navigate('dang-nhap')} className="hidden text-sm font-semibold text-on-surface-variant hover:text-primary lg:block">Đăng nhập</button>}
-        <button type="button" onClick={() => { if (window.innerWidth < 768) setMobileMenuOpen((value) => !value); else setAccountMenuOpen((value) => !value); }} className="flex items-center gap-space-xs rounded-full bg-surface-container-low p-1 pl-3 hover:bg-surface-container" aria-label="Menu tài khoản"><span className="material-symbols-outlined text-[18px] text-outline">menu</span>{session ? <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">{initials}</span> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high text-outline"><span className="material-symbols-outlined text-xl">person</span></span>}</button>
+        <button type="button" onClick={() => { if (window.innerWidth < 768) setMobileMenuOpen((value) => !value); else setAccountMenuOpen((value) => !value); }} className="flex items-center gap-space-xs rounded-full bg-surface-container-low p-1 pl-3 hover:bg-surface-container" aria-label="Menu tài khoản"><span className="material-symbols-outlined text-[18px] text-outline">menu</span>{session ? <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-on-primary">{avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}</span> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high text-outline"><span className="material-symbols-outlined text-xl">person</span></span>}</button>
         {accountMenuOpen && <div className="absolute right-0 top-12 hidden w-64 rounded-lg border border-outline-variant/30 bg-surface-container-lowest p-2 shadow-xl md:block">{session ? <><div className="border-b border-outline-variant/30 px-3 py-3"><p className="truncate font-semibold">{session.fullName}</p><p className="truncate text-xs text-outline">{session.email}</p></div><button onClick={() => navigate('tai-khoan')} className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">account_circle</span>Hồ sơ cá nhân</button><button onClick={() => navigate('dat-phong-cua-toi')} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">luggage</span>Đặt phòng của tôi</button><button onClick={() => { logout(); navigate('kham-pha'); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-error hover:bg-error-container"><span className="material-symbols-outlined text-xl">logout</span>Đăng xuất</button></> : <><button onClick={() => navigate('dang-nhap')} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">login</span>Đăng nhập</button><button onClick={() => navigate('dang-ky')} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-surface-container-low"><span className="material-symbols-outlined text-xl">person_add</span>Đăng ký</button></>}</div>}
       </div>
     </div>
