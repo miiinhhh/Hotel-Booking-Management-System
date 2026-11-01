@@ -1,5 +1,7 @@
 -- Apply once after Hotel_Booking_Database_Updated.sql.
 -- Additive and rerunnable. Existing users and sessions are preserved.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
