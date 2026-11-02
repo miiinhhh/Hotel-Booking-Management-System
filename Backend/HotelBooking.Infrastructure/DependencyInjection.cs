@@ -48,6 +48,7 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IBookingRepository, BookingRepository>();
+        services.AddScoped<HotelBooking.Application.Reviews.IReviewRepository, ReviewRepository>();
         services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
         services.AddScoped<IRoomPriceHistoryRepository, RoomPriceHistoryRepository>();
         services.AddScoped<IPriceSurgeRuleRepository, PriceSurgeRuleRepository>();
