@@ -1,0 +1,60 @@
+@base = http://localhost:5131
+@bookingId = 1
+@hotelId = 1
+@reviewId = 1
+@customerToken = replace-with-customer-jwt
+@adminToken = replace-with-admin-jwt
+
+### Customer creates a review of their Completed booking (new status is Hidden)
+POST {{base}}/api/bookings/{{bookingId}}/review
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "rating": 5, "comment": "Phong sach se, nhan vien than thien." }
+
+### Customer reads their own review, including Hidden/Deleted
+GET {{base}}/api/bookings/{{bookingId}}/review
+Authorization: Bearer {{customerToken}}
+
+### Customer's paged review history
+GET {{base}}/api/me/reviews?page=1&pageSize=20
+Authorization: Bearer {{customerToken}}
+
+### Admin moderation queue (status filter is optional)
+GET {{base}}/api/admin/hotels/{{hotelId}}/reviews?status=Hidden&page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+### Publish a review
+PATCH {{base}}/api/admin/hotels/{{hotelId}}/reviews/{{reviewId}}/moderation
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "status": "Visible", "reason": "Da kiem tra noi dung." }
+
+### Public reviews (no personal account/booking IDs)
+GET {{base}}/api/hotels/{{hotelId}}/reviews?page=1&pageSize=20
+
+### Hotel rating and 1–5 star distribution
+GET {{base}}/api/hotels/{{hotelId}}/rating
+
+### Hide a review (reason required)
+PATCH {{base}}/api/admin/hotels/{{hotelId}}/reviews/{{reviewId}}/moderation
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "status": "Hidden", "reason": "Noi dung chua thong tin ca nhan." }
+
+### Admin audit trail
+GET {{base}}/api/admin/hotels/{{hotelId}}/reviews/{{reviewId}}/history
+Authorization: Bearer {{adminToken}}
+
+### Author edit returns review to Hidden for moderation
+PUT {{base}}/api/bookings/{{bookingId}}/review
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "rating": 4, "comment": "Da cap nhat danh gia." }
+
+### Author soft-delete; deleted review cannot be recreated or restored
+DELETE {{base}}/api/bookings/{{bookingId}}/review
+Authorization: Bearer {{customerToken}}

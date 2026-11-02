@@ -19,4 +19,7 @@
     <ProjectReference Include="../HotelBooking.API/HotelBooking.API.csproj" />
     <ProjectReference Include="../HotelBooking.Infrastructure/HotelBooking.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../../Database&amp;Docs/Reviews.sql" Link="Reviews.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
