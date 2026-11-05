@@ -7,7 +7,8 @@ import { PaymentMethodSection } from './components/PaymentMethodSection';
 import { OrderSummaryCard } from './components/OrderSummaryCard';
 import { DEFAULT_CHECKOUT_DATA } from './data/mockCheckoutData';
 import { useAuth } from '../../context/AuthContext';
-import { calculateBookingPrice, createBooking } from '../../services/bookingApi';
+import { usePriceCalculationQuery } from '../../hooks/useBookingQueries';
+import { createBooking } from '../../services/bookingApi';
 import { createVnPayPayment } from '../../services/paymentApi';
 import {
   CheckoutBookingData,
@@ -29,8 +30,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 }) => {
   const { profile } = useAuth();
   const [error, setError] = useState('');
-  const [quoting, setQuoting] = useState(false);
   const [bookingData, setBookingData] = useState<CheckoutBookingData>(initialBookingData);
+
+  // Hook tính toán giá và voucher có cache thông minh và Invalidation bus
+  const { calculatePrice, invalidateVoucherCache, isCalculating } = usePriceCalculationQuery();
 
   const [contactInfo, setContactInfo] = useState<CheckoutContactInfo>({
     fullName: profile?.fullName || '',
@@ -62,44 +65,129 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   };
 
   const paymentMethod = selectedPaymentMethod === 'pay_at_hotel' ? 'Cash' : 'Deposit';
+
   const applyPrice = (data: import('../../services/bookingApi').PriceCalculationResult, coupon = '') => {
-    setBookingData(prev => ({ ...prev, originalPrice: data.subTotal + data.taxAmount + data.feeAmount,
-      couponCode: coupon, couponDiscount: data.discountAmount, totalPrice: data.totalAmount,
-      depositPercentage: data.depositPercentage, depositAmount: data.depositAmount, remainingAmount: data.remainingAmount }));
+    setBookingData((prev) => ({
+      ...prev,
+      originalPrice: data.subTotal + data.taxAmount + data.feeAmount,
+      couponCode: coupon,
+      couponDiscount: data.discountAmount,
+      totalPrice: data.totalAmount,
+      depositPercentage: data.depositPercentage,
+      depositAmount: data.depositAmount,
+      remainingAmount: data.remainingAmount,
+    }));
   };
+
+  // Tính toán báo giá ban đầu và khi đổi phương thức thanh toán
   useEffect(() => {
     if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) return;
-    let active = true; setQuoting(true);
-    calculateBookingPrice({ roomIds: [bookingData.roomId], checkInDate: bookingData.checkIn, checkOutDate: bookingData.checkOut, paymentMethod }).then(result => {
-      if (!active) return;
-      if (result.success && result.data) { applyPrice(result.data); setError(''); }
-      else setError(result.message || 'Không tính được giá.');
-    }).finally(() => { if (active) setQuoting(false); });
-    return () => { active = false; };
-  }, [bookingData.roomId, bookingData.checkIn, bookingData.checkOut, paymentMethod]);
+    let active = true;
 
+    calculatePrice({
+      roomIds: [bookingData.roomId],
+      checkInDate: bookingData.checkIn,
+      checkOutDate: bookingData.checkOut,
+      paymentMethod,
+      voucherCode: bookingData.couponCode || undefined,
+    }).then((data) => {
+      if (!active) return;
+      if (data) {
+        applyPrice(data, bookingData.couponCode);
+        setError('');
+      } else {
+        setError('Không thể tính toán giá phòng cho ngày đã chọn.');
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [bookingData.roomId, bookingData.checkIn, bookingData.checkOut, paymentMethod, calculatePrice]);
+
+  // Áp dụng Voucher với Cache Invalidation
   const handleApplyCoupon = async (code: string): Promise<boolean> => {
-    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) { setError('Chọn phòng và ngày lưu trú trước.'); return false; }
-    const result = await calculateBookingPrice({ roomIds: [bookingData.roomId], checkInDate: bookingData.checkIn, checkOutDate: bookingData.checkOut, paymentMethod, voucherCode: code.trim() });
-    if (!result.success || !result.data) { setError(result.message || 'Không áp dụng được voucher.'); return false; }
-    applyPrice(result.data, code.trim()); setError(''); return true;
+    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) {
+      setError('Chọn phòng và ngày lưu trú trước.');
+      return false;
+    }
+
+    const cleanCode = code.trim();
+    if (!cleanCode) {
+      // Hủy bỏ voucher
+      invalidateVoucherCache();
+      const fallbackData = await calculatePrice({
+        roomIds: [bookingData.roomId],
+        checkInDate: bookingData.checkIn,
+        checkOutDate: bookingData.checkOut,
+        paymentMethod,
+      });
+      if (fallbackData) applyPrice(fallbackData, '');
+      return true;
+    }
+
+    const data = await calculatePrice({
+      roomIds: [bookingData.roomId],
+      checkInDate: bookingData.checkIn,
+      checkOutDate: bookingData.checkOut,
+      paymentMethod,
+      voucherCode: cleanCode,
+    });
+
+    if (!data) {
+      setError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      return false;
+    }
+
+    applyPrice(data, cleanCode);
+    setError('');
+    return true;
   };
 
   const handleConfirmBooking = async () => {
-    if (isSubmitting || quoting) return;
+    if (isSubmitting || isCalculating) return;
     setError('');
-    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) { setError('Vui lòng quay lại kiểm tra phòng trống và chọn phòng thực tế.'); return; }
-    if (!contactInfo.fullName.trim() || !contactInfo.email.includes('@') || !contactInfo.phone.trim()) { setError('Nhập đầy đủ họ tên, email và số điện thoại liên hệ.'); return; }
-    if (selectedPaymentMethod === 'card_international') { setError('Thanh toán thẻ quốc tế chưa được hỗ trợ. Vui lòng chọn phương thức khác.'); return; }
-    setIsSubmitting(true); setSubmissionStep(1);
-    try {
-      const result = await createBooking({ checkInDate: bookingData.checkIn, checkOutDate: bookingData.checkOut,
-        numberOfGuests: bookingData.numberOfGuests || 1, paymentMethod, voucherCode: bookingData.couponCode || undefined,
-        specialRequests: [...specialRequests.filter(r => r.selected).map(r => r.label), additionalNotes].filter(Boolean).join('; '),
-        rooms: [{ roomId: bookingData.roomId }], guests: [{ fullName: contactInfo.isBookingForOther ? contactInfo.otherGuestName || contactInfo.fullName : contactInfo.fullName, phone: contactInfo.phone, email: contactInfo.email, isPrimaryGuest: true }] });
-            setSubmissionStep(2);
+    if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) {
+      setError('Vui lòng quay lại kiểm tra phòng trống và chọn phòng thực tế.');
+      return;
+    }
+    if (!contactInfo.fullName.trim() || !contactInfo.email.includes('@') || !contactInfo.phone.trim()) {
+      setError('Nhập đầy đủ họ tên, email và số điện thoại liên hệ.');
+      return;
+    }
+    if (selectedPaymentMethod === 'card_international') {
+      setError('Thanh toán thẻ quốc tế chưa được hỗ trợ. Vui lòng chọn phương thức khác.');
+      return;
+    }
 
-      // Nếu phương thức là qr_napas / Deposit: tự động chuyển sang cổng VNPay Sandbox
+    setIsSubmitting(true);
+    setSubmissionStep(1);
+    try {
+      const result = await createBooking({
+        checkInDate: bookingData.checkIn,
+        checkOutDate: bookingData.checkOut,
+        numberOfGuests: bookingData.numberOfGuests || 1,
+        paymentMethod,
+        voucherCode: bookingData.couponCode || undefined,
+        specialRequests: [...specialRequests.filter((r) => r.selected).map((r) => r.label), additionalNotes]
+          .filter(Boolean)
+          .join('; '),
+        rooms: [{ roomId: bookingData.roomId }],
+        guests: [
+          {
+            fullName: contactInfo.isBookingForOther
+              ? contactInfo.otherGuestName || contactInfo.fullName
+              : contactInfo.fullName,
+            phone: contactInfo.phone,
+            email: contactInfo.email,
+            isPrimaryGuest: true,
+          },
+        ],
+      });
+
+      setSubmissionStep(2);
+
+      // Nếu phương thức là Deposit: tự động chuyển sang cổng VNPay Sandbox
       if (paymentMethod === 'Deposit') {
         const vnpayRes = await createVnPayPayment(result.bookingId, 'Deposit');
         if (vnpayRes.success && vnpayRes.data?.paymentUrl) {
@@ -113,9 +201,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       if (onBookingSuccess) onBookingSuccess(result.bookingCode);
       else alert(`Đã tạo booking ${result.bookingCode}. Vui lòng hoàn tất thanh toán tiền mặt khi nhận phòng.`);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không tạo được booking.'); }
-    finally { setIsSubmitting(false); }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không tạo được booking.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
   return (
     <main className="w-full pt-20 bg-background min-h-screen">
       <div className="flex flex-col w-full relative">
@@ -166,7 +258,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 selectedPaymentMethod={selectedPaymentMethod}
                 onApplyCoupon={handleApplyCoupon}
                 onConfirmBooking={handleConfirmBooking}
-                isSubmitting={isSubmitting || quoting}
+                isSubmitting={isSubmitting || isCalculating}
                 submissionStep={submissionStep}
               />
             </div>

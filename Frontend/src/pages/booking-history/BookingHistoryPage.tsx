@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BookingStatsRow } from './components/BookingStatsRow';
 import { AssuranceBanner } from './components/AssuranceBanner';
 import { BookingTabs } from './components/BookingTabs';
@@ -6,7 +6,7 @@ import { BookingTicketCard } from './components/BookingTicketCard';
 import { CancelBookingModal } from './components/CancelBookingModal';
 import { ReviewStayModal } from './components/ReviewStayModal';
 import { FloatingSupport } from './components/FloatingSupport';
-import { getBookingsList, cancelBooking } from '../../services/bookingApi';
+import { useBookingsQuery, useCancelBookingMutation } from '../../hooks/useBookingQueries';
 import { createVnPayPayment } from '../../services/paymentApi';
 import { BookingItem, BookingTab, BookingStats } from './types';
 
@@ -21,9 +21,10 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   onNavigatePayment,
   onNavigateSearch,
 }) => {
-  const [bookings, setBookings] = useState<BookingItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // Query & Mutation hooks có cơ chế Invalidate Cache tự động
+  const { bookings, isLoading, error, refetch } = useBookingsQuery();
+  const { cancelBookingAsync } = useCancelBookingMutation();
+
   const [activeTab, setActiveTab] = useState<BookingTab>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
@@ -41,75 +42,6 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
       setToastMessage(null);
     }, 4000);
   };
-
-  // Fetch bookings from backend API
-  const fetchBookings = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await getBookingsList();
-      if (res.success && res.data) {
-        const apiItems: BookingItem[] = res.data.map((b) => ({
-          id: String(b.bookingId),
-          bookingCode: b.bookingCode,
-          hotelName: b.hotelName || 'Khách sạn StayLuxe',
-          hotelCategory: 'Khu nghỉ dưỡng & Khách sạn cao cấp',
-          location: 'Việt Nam',
-          roomType: b.roomTypeName || 'Phòng nghỉ cao cấp',
-          image: b.imageUrl || '/room-placeholder.svg',
-          imageAlt: b.hotelName || 'StayLuxe Room',
-          checkInDate: b.checkInDate,
-          checkInDetail: `Nhận phòng từ 14:00 · ${b.checkInDate}`,
-          checkOutDate: b.checkOutDate,
-          checkOutDetail: `Trả phòng trước 12:00 · ${b.checkOutDate}`,
-          nightsText: `${b.roomCount || 1} phòng`,
-          guest: {
-            name: 'Khách hàng',
-            countText: `${b.numberOfGuests} khách`,
-          },
-          status: (
-            b.bookingStatus.toLowerCase() === 'confirmed' ? 'confirmed' :
-            b.bookingStatus.toLowerCase() === 'checkedin' ? 'confirmed' :
-            b.bookingStatus.toLowerCase() === 'cancelled' ? 'cancelled' :
-            b.bookingStatus.toLowerCase() === 'completed' || b.bookingStatus.toLowerCase() === 'checkedout' ? 'completed' :
-            'pending'
-          ),
-          statusLabel: b.bookingStatus.toUpperCase(),
-          depositBadge: (
-            b.paymentStatus === 'Paid' ? 'ĐÃ THANH TOÁN 100%' :
-            b.paymentStatus === 'PartiallyPaid' ? 'ĐÃ ĐẶT CỌC' :
-            b.paymentStatus === 'Refunded' ? 'ĐÃ HOÀN TIỀN' :
-            b.paymentStatus === 'RefundPending' ? 'ĐANG CHỜ HOÀN TIỀN' :
-            'CHỜ THANH TOÁN CỌC'
-          ),
-          totalAmount: b.totalAmount,
-          paidAmount: b.depositAmount,
-          remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
-          qrType: b.paymentStatus === 'Paid' ? 'checkin' : 'vietqr',
-          qrCaption: b.paymentStatus === 'Paid' ? 'Mã nhận phòng nhanh' : 'Quét mã thanh toán',
-          amenities: [
-            { icon: 'wifi', text: 'Wi-Fi tốc độ cao' },
-            { icon: 'pool', text: 'Hồ bơi vô cực' },
-            { icon: 'restaurant', text: 'Bữa sáng buffet' }
-          ],
-          isEligibleForReview: b.bookingStatus.toLowerCase() === 'completed',
-        }));
-        setBookings(apiItems);
-      } else {
-        setBookings([]);
-      }
-    } catch (err) {
-      console.error('Lỗi tải danh sách đặt phòng:', err);
-      setError(err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ.');
-      setBookings([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
 
   // Stats calculation
   const stats: BookingStats = useMemo(() => {
@@ -189,18 +121,13 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
     }
   };
 
-  // Cancel booking confirm
+  // Cancel booking confirm sử dụng Mutation và tự động Invalidate Cache
   const handleConfirmCancel = async (bookingId: string, reason: string) => {
     const bookingIdNum = Number(bookingId);
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
-      try {
-        const res = await cancelBooking(bookingIdNum, reason);
-        if (!res.success) {
-          showToast(`Lỗi hủy đơn: ${res.message || 'Không thể hủy trên máy chủ'}`);
-          return;
-        }
-      } catch (err) {
-        showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ'}`);
+      const success = await cancelBookingAsync({ bookingId: bookingIdNum, reason });
+      if (!success) {
+        showToast('Lỗi: Không thể hủy đơn đặt phòng trên máy chủ.');
         return;
       }
     }
@@ -209,22 +136,10 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
     showToast(
       `Đã hủy đơn thành công. Trạng thái đã được đồng bộ tự động theo chính sách lưu trú.`
     );
-    // Reload directly from backend to guarantee 100% data freshness
-    await fetchBookings();
   };
 
   // Submit review confirm
-  const handleSubmitReview = (bookingId: string, rating: number, _comment: string) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              isEligibleForReview: false,
-            }
-          : b
-      )
-    );
+  const handleSubmitReview = (_bookingId: string, rating: number, _comment: string) => {
     setReviewModalBooking(null);
     showToast(
       `Cảm ơn quý khách đã đánh giá ${rating} sao! +250 Điểm StayLuxe Rewards đã được cộng vào tài khoản.`
@@ -315,7 +230,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                   <h3 className="font-headline-sm text-lg text-on-surface">Không thể tải dữ liệu</h3>
                   <p className="font-body-md text-sm text-on-surface-variant max-w-md">{error}</p>
                   <button
-                    onClick={() => fetchBookings()}
+                    onClick={() => refetch()}
                     className="mt-2 px-5 py-2 rounded-full bg-primary text-on-primary font-label-md text-sm hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     Thử lại
