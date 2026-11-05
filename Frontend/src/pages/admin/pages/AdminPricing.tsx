@@ -1,5 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { PageHeading, Toast } from '../components/AdminUi';
+import { PriceHistoryChart } from '../components/PriceHistoryChart';
 import {
   createRoomPriceHistory,
   getHotelsList,
@@ -240,7 +241,7 @@ export const AdminPricing: React.FC = () => {
           </div>
           <button
             onClick={() => setError(null)}
-            className="text-xs font-bold uppercase tracking-wider hover:opacity-80"
+            className="text-xs font-bold uppercase tracking-wider hover:opacity-80 cursor-pointer"
           >
             Đóng
           </button>
@@ -347,7 +348,7 @@ export const AdminPricing: React.FC = () => {
                     type="button"
                     onClick={handleUpdatePermanentBasePrice}
                     disabled={isSubmitting}
-                    className="text-xs font-bold text-primary underline hover:opacity-80"
+                    className="text-xs font-bold text-primary underline hover:opacity-80 cursor-pointer"
                   >
                     Cập nhật làm giá gốc vĩnh viễn (RoomTypes.BasePrice)
                   </button>
@@ -390,15 +391,15 @@ export const AdminPricing: React.FC = () => {
               </div>
             </section>
 
-            {/* BẢNG LỊCH SỬ THAY ĐỔI GIÁ (RoomPriceHistory từ Database) */}
-            <section className="rounded-lg bg-surface-container-lowest p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
+            {/* TRỰC QUAN HÓA BIẾN ĐỘNG GIÁ & BẢNG LỊCH SỬ THAY ĐỔI GIÁ (RoomPriceHistory) */}
+            <section className="rounded-lg bg-surface-container-lowest p-6 shadow-sm space-y-5">
+              <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-headline-sm text-lg font-semibold">
-                    Lịch sử cấu hình giá ({selectedRoom?.name})
+                    Lịch sử biến động giá ({selectedRoom?.name})
                   </h3>
                   <p className="text-xs text-outline">
-                    Dữ liệu thực tế từ bảng RoomPriceHistory trong cơ sở dữ liệu SQL Server.
+                    Biểu đồ trực quan hóa xu hướng giá và bảng dữ liệu từ cơ sở dữ liệu SQL Server.
                   </p>
                 </div>
                 <button
@@ -411,12 +412,21 @@ export const AdminPricing: React.FC = () => {
                       setHistoriesLoading(false);
                     }
                   }}
-                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">refresh</span>
                   Làm mới
                 </button>
               </div>
+
+              {/* Biểu đồ trực quan hóa biến động giá SVG */}
+              {!historiesLoading && (
+                <PriceHistoryChart
+                  histories={priceHistories}
+                  roomTypeName={selectedRoom?.name}
+                  currentBasePrice={selectedRoom?.basePrice}
+                />
+              )}
 
               {historiesLoading ? (
                 <div className="py-6 text-center text-sm text-outline">
@@ -519,7 +529,7 @@ export const AdminPricing: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || !selectedRoom}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary shadow-md hover:bg-primary/90 disabled:opacity-50"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary shadow-md hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
