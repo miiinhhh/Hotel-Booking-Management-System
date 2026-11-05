@@ -11,6 +11,7 @@ public class VnPaySettings
     public string FrontendReturnUrl { get; set; } = "http://localhost:5173/payment/vnpay-return";
     public string? IpnUrl { get; set; }
     public bool TestMode { get; set; } = true;
+    public string ApiUrl { get; set; } = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 }
 
 public class CreateVnPayPaymentRequest
@@ -54,4 +55,22 @@ public class VnPayIpnResponse
     public static VnPayIpnResponse InvalidAmount() => new() { RspCode = "04", Message = "Invalid amount" };
     public static VnPayIpnResponse InvalidChecksum() => new() { RspCode = "97", Message = "Invalid Checksum" };
     public static VnPayIpnResponse UnknownError(string message = "Unknown error") => new() { RspCode = "99", Message = message };
+}
+
+public class VnPayRefundRequest
+{
+    public long BookingId { get; set; }
+    public string? Reason { get; set; }
+}
+
+public class VnPayRefundResultDto
+{
+    public bool Success { get; set; }
+    public string ResponseCode { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public long BookingId { get; set; }
+    public string TxnRef { get; set; } = string.Empty;
+    public decimal RefundAmount { get; set; }
+    public string? VnPayTransactionNo { get; set; }
+    public DateTime? RefundedAt { get; set; }
 }

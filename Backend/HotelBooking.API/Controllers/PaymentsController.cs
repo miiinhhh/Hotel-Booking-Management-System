@@ -342,6 +342,25 @@ public class PaymentsController : BaseAPIController
         }
     }
 
+    /// <summary>
+    /// Gui yeu cau hoan tien qua cong VNPay cho mot don dat phong (Admin / Staff)
+    /// </summary>
+    [HttpPost("vnpay/refund/{bookingId:long}")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    public async Task<IActionResult> RefundVnPayPayment(long bookingId, CancellationToken ct)
+    {
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var currentUserName = User.Identity?.Name ?? GetCurrentUserId()?.ToString() ?? "Staff";
+        var result = await _vnPayService.RefundTransactionAsync(bookingId, currentUserName, clientIp, ct);
+
+        if (!result.Success)
+        {
+            return BadRequest(new { success = false, data = result });
+        }
+
+        return Ok(new { success = true, data = result });
+    }
+
     private long? GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id");

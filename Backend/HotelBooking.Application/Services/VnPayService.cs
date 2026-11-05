@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using HotelBooking.Application.Common;
@@ -7,7 +11,6 @@ using HotelBooking.Application.DTOs.Payment;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Domain.Enums;
-
 namespace HotelBooking.Application.Services;
 
 public class VnPayService : IVnPayService
@@ -15,15 +18,18 @@ public class VnPayService : IVnPayService
     private readonly IPaymentRepository _paymentRepository;
     private readonly IBookingRepository _bookingRepository;
     private readonly VnPaySettings _settings;
+    private readonly HttpClient _httpClient;
 
     public VnPayService(
         IPaymentRepository paymentRepository,
         IBookingRepository bookingRepository,
-        VnPaySettings settings)
+        VnPaySettings settings,
+        HttpClient? httpClient = null)
     {
         _paymentRepository = paymentRepository;
         _bookingRepository = bookingRepository;
         _settings = settings;
+        _httpClient = httpClient ?? new HttpClient();
     }
 
     public async Task<VnPayPaymentResponse> CreatePaymentUrlAsync(
@@ -393,5 +399,172 @@ public class VnPayService : IVnPayService
                 ? "Thanh toán thành công."
                 : (payment.Status == PaymentStatus.Pending ? "Giao dịch đang chờ thanh toán." : "Giao dịch thất bại.")
         };
+    }
+
+    public async Task<VnPayRefundResultDto> RefundTransactionAsync(
+        long bookingId,
+        string createBy = "System",
+        string clientIp = "127.0.0.1",
+        CancellationToken ct = default)
+    {
+        if (bookingId <= 0)
+        {
+            return new VnPayRefundResultDto
+            {
+                Success = false,
+                ResponseCode = "01",
+                Message = "BookingId khong hop le.",
+                BookingId = bookingId
+            };
+        }
+
+        var payments = (await _paymentRepository.GetByBookingIdAsync(bookingId))?.ToList()
+            ?? new List<Payment>();
+
+        var originalPayment = payments.FirstOrDefault(p =>
+            p.PaymentType == PaymentType.Payment &&
+            p.Status == PaymentStatus.Paid);
+
+        if (originalPayment == null || string.IsNullOrWhiteSpace(originalPayment.TransactionCode))
+        {
+            return new VnPayRefundResultDto
+            {
+                Success = false,
+                ResponseCode = "01",
+                Message = "Khong tim thay giao dich thanh toan truc tuyen thanh cong cua don de hoan tien.",
+                BookingId = bookingId
+            };
+        }
+
+        var refundPayment = payments.FirstOrDefault(p =>
+            p.PaymentType == PaymentType.Refund &&
+            p.Status == PaymentStatus.RefundPending)
+            ?? payments.FirstOrDefault(p => p.PaymentType == PaymentType.Refund);
+
+        if (refundPayment == null)
+        {
+            return new VnPayRefundResultDto
+            {
+                Success = false,
+                ResponseCode = "01",
+                Message = "Khong tim thay ban ghi hoan tien (Refund) cho don nay.",
+                BookingId = bookingId,
+                TxnRef = originalPayment.TransactionCode
+            };
+        }
+
+        if (refundPayment.Status == PaymentStatus.Refunded)
+        {
+            return new VnPayRefundResultDto
+            {
+                Success = true,
+                ResponseCode = "00",
+                Message = "Giao dich da duoc hoan tien thanh cong truoc do.",
+                BookingId = bookingId,
+                TxnRef = originalPayment.TransactionCode,
+                RefundAmount = refundPayment.Amount,
+                RefundedAt = refundPayment.PaidAt
+            };
+        }
+
+        var transactionType = refundPayment.Amount >= originalPayment.Amount ? "02" : "03"; // 02: Full, 03: Partial
+        var requestId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+        var version = "2.1.0";
+        var command = "refund";
+        var tmnCode = _settings.TmnCode;
+        var originalTxnRef = originalPayment.TransactionCode;
+        var amountInCents = (long)(refundPayment.Amount * 100);
+        var amountStr = amountInCents.ToString();
+        var orderInfo = $"Hoan tien don dat phong {bookingId} {originalTxnRef}";
+        var transactionNo = "0";
+        var originalTxnDate = (originalPayment.PaidAt ?? originalPayment.CreatedAt).AddHours(7).ToString("yyyyMMddHHmmss");
+        var createDate = DateTime.UtcNow.AddHours(7).ToString("yyyyMMddHHmmss");
+        var ipAddr = string.IsNullOrWhiteSpace(clientIp) ? "127.0.0.1" : clientIp;
+
+        // Chuoi ky checksum Merchant WebAPI VNPay chuan:
+        // vnp_RequestId|vnp_Version|vnp_Command|vnp_TmnCode|vnp_TransactionType|vnp_TxnRef|vnp_Amount|vnp_TransactionNo|vnp_TransactionDate|vnp_CreateBy|vnp_CreateDate|vnp_IpAddr|vnp_OrderInfo
+        var hashRaw = $"{requestId}|{version}|{command}|{tmnCode}|{transactionType}|{originalTxnRef}|{amountStr}|{transactionNo}|{originalTxnDate}|{createBy}|{createDate}|{ipAddr}|{orderInfo}";
+        var secureHash = VnPayLibrary.HmacSha512(_settings.HashSecret, hashRaw);
+
+        var requestPayload = new Dictionary<string, object>
+        {
+            ["vnp_RequestId"] = requestId,
+            ["vnp_Version"] = version,
+            ["vnp_Command"] = command,
+            ["vnp_TmnCode"] = tmnCode,
+            ["vnp_TransactionType"] = transactionType,
+            ["vnp_TxnRef"] = originalTxnRef,
+            ["vnp_Amount"] = amountInCents,
+            ["vnp_OrderInfo"] = orderInfo,
+            ["vnp_TransactionNo"] = 0,
+            ["vnp_TransactionDate"] = originalTxnDate,
+            ["vnp_CreateBy"] = createBy,
+            ["vnp_CreateDate"] = createDate,
+            ["vnp_IpAddr"] = ipAddr,
+            ["vnp_SecureHash"] = secureHash
+        };
+
+        try
+        {
+            var httpClient = _httpClient;
+            var jsonString = JsonSerializer.Serialize(requestPayload);
+            using var httpContent = JsonContent.Create(requestPayload);
+
+            var apiUrl = !string.IsNullOrWhiteSpace(_settings.ApiUrl)
+                ? _settings.ApiUrl
+                : "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+
+            var response = await httpClient.PostAsync(apiUrl, httpContent, ct);
+            var responseBody = await response.Content.ReadAsStringAsync(ct);
+
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+            var responseCode = root.TryGetProperty("vnp_ResponseCode", out var rc) ? rc.GetString() ?? "" : "";
+            var responseMessage = root.TryGetProperty("vnp_Message", out var rm) ? rm.GetString() ?? "" : "";
+            var vnpTransactionNo = root.TryGetProperty("vnp_TransactionNo", out var tn) ? tn.GetString() : null;
+
+            if (responseCode == "00")
+            {
+                var refundedAt = DateTime.UtcNow;
+                await _paymentRepository.UpdateStatusAsync(refundPayment.PaymentId, PaymentStatus.Refunded.ToString(), refundedAt);
+
+                return new VnPayRefundResultDto
+                {
+                    Success = true,
+                    ResponseCode = responseCode,
+                    Message = "Hoan tien qua VNPay thanh cong: " + responseMessage,
+                    BookingId = bookingId,
+                    TxnRef = originalTxnRef,
+                    RefundAmount = refundPayment.Amount,
+                    VnPayTransactionNo = vnpTransactionNo,
+                    RefundedAt = refundedAt
+                };
+            }
+            else
+            {
+                return new VnPayRefundResultDto
+                {
+                    Success = false,
+                    ResponseCode = responseCode,
+                    Message = $"VNPay tu choi hoan tien (Ma loi {responseCode}): {responseMessage}",
+                    BookingId = bookingId,
+                    TxnRef = originalTxnRef,
+                    RefundAmount = refundPayment.Amount,
+                    VnPayTransactionNo = vnpTransactionNo
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            return new VnPayRefundResultDto
+            {
+                Success = false,
+                ResponseCode = "99",
+                Message = "Loi ngoai le khi goi cong hoan tien VNPay: " + ex.Message,
+                BookingId = bookingId,
+                TxnRef = originalTxnRef,
+                RefundAmount = refundPayment.Amount
+            };
+        }
     }
 }

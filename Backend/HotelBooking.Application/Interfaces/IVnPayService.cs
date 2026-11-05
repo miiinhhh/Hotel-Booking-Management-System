@@ -27,4 +27,10 @@ public interface IVnPayService
         bool isAdmin,
         bool isStaff,
         CancellationToken ct = default);
+
+    Task<VnPayRefundResultDto> RefundTransactionAsync(
+        long bookingId,
+        string createBy = "System",
+        string clientIp = "127.0.0.1",
+        CancellationToken ct = default);
 }

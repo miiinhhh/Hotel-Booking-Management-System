@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Text;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -190,7 +192,15 @@ public class VnPayTests
         public Dictionary<string, Payment> StoredPayments { get; } = new();
 
         public Task<Payment?> GetByIdAsync(long paymentId) => Task.FromResult(LastCreatedPayment);
-        public Task<IEnumerable<Payment>> GetByBookingIdAsync(long bookingId) => Task.FromResult<IEnumerable<Payment>>([]);
+                public Task<IEnumerable<Payment>> GetByBookingIdAsync(long bookingId)
+        {
+            var list = StoredPayments.Values.Where(p => p.BookingId == bookingId).ToList();
+            if (LastCreatedPayment != null && LastCreatedPayment.BookingId == bookingId && !list.Contains(LastCreatedPayment))
+            {
+                list.Add(LastCreatedPayment);
+            }
+            return Task.FromResult<IEnumerable<Payment>>(list);
+        }
 
         public Task<Payment?> GetByTransactionCodeAsync(string transactionCode)
         {
@@ -309,5 +319,130 @@ public class VnPayTests
         public Task UpdateAsync(Booking booking) => Task.CompletedTask;
         public Task AddStatusHistoryAsync(BookingStatusHistory history) => Task.CompletedTask;
         public Task SaveChangesAsync() => Task.CompletedTask;
+    }
+
+
+
+    private class MockHttpMessageHandler(string jsonResponse, HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new HttpResponseMessage(statusCode)
+            {
+                Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+            });
+        }
+    }
+
+    [Fact]
+    public async Task VnPayService_RefundTransaction_ReturnsError_WhenNoPaidPaymentFound()
+    {
+        var paymentRepo = new FakePaymentRepo();
+        var bookingRepo = new FakeBookingRepo();
+        var service = new VnPayService(paymentRepo, bookingRepo, _testSettings);
+
+        var result = await service.RefundTransactionAsync(bookingId: 99);
+
+        Assert.False(result.Success);
+        Assert.Equal("01", result.ResponseCode);
+    }
+
+    [Fact]
+    public async Task VnPayService_RefundTransaction_UpdatesPaymentToRefunded_WhenVnPayReturns00()
+    {
+        var paymentRepo = new FakePaymentRepo();
+        var bookingRepo = new FakeBookingRepo();
+
+        var originalPayment = new Payment
+        {
+            PaymentId = 1,
+            BookingId = 10,
+            PaymentType = PaymentType.Payment,
+            Amount = 1000000m,
+            Status = PaymentStatus.Paid,
+            TransactionCode = "STAYLUXE_10_ORIGINAL",
+            PaidAt = DateTime.UtcNow.AddDays(-1),
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        paymentRepo.StoredPayments[originalPayment.TransactionCode] = originalPayment;
+
+        var refundPayment = new Payment
+        {
+            PaymentId = 2,
+            BookingId = 10,
+            PaymentType = PaymentType.Refund,
+            Amount = 1000000m,
+            Status = PaymentStatus.RefundPending,
+            TransactionCode = "REFUND_10_001",
+            CreatedAt = DateTime.UtcNow
+        };
+        paymentRepo.StoredPayments[refundPayment.TransactionCode] = refundPayment;
+
+        var mockHandler = new MockHttpMessageHandler(@"{
+            ""vnp_ResponseId"": ""999"",
+            ""vnp_Command"": ""refund"",
+            ""vnp_ResponseCode"": ""00"",
+            ""vnp_Message"": ""Hoan tien thanh cong"",
+            ""vnp_TransactionNo"": ""778899""
+        }");
+
+        
+        var service = new VnPayService(paymentRepo, bookingRepo, _testSettings, new HttpClient(mockHandler));
+
+        var result = await service.RefundTransactionAsync(bookingId: 10, createBy: "Admin", clientIp: "127.0.0.1");
+
+        Assert.True(result.Success);
+        Assert.Equal("00", result.ResponseCode);
+        Assert.Equal("778899", result.VnPayTransactionNo);
+        Assert.NotNull(result.RefundedAt);
+        Assert.Equal(PaymentStatus.Refunded, refundPayment.Status);
+    }
+
+    [Fact]
+    public async Task VnPayService_RefundTransaction_KeepsRefundPending_WhenVnPayRejects()
+    {
+        var paymentRepo = new FakePaymentRepo();
+        var bookingRepo = new FakeBookingRepo();
+
+        var originalPayment = new Payment
+        {
+            PaymentId = 1,
+            BookingId = 11,
+            PaymentType = PaymentType.Payment,
+            Amount = 500000m,
+            Status = PaymentStatus.Paid,
+            TransactionCode = "STAYLUXE_11_ORIGINAL",
+            PaidAt = DateTime.UtcNow.AddDays(-1),
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        paymentRepo.StoredPayments[originalPayment.TransactionCode] = originalPayment;
+
+        var refundPayment = new Payment
+        {
+            PaymentId = 2,
+            BookingId = 11,
+            PaymentType = PaymentType.Refund,
+            Amount = 500000m,
+            Status = PaymentStatus.RefundPending,
+            TransactionCode = "REFUND_11_001",
+            CreatedAt = DateTime.UtcNow
+        };
+        paymentRepo.StoredPayments[refundPayment.TransactionCode] = refundPayment;
+
+        var mockHandler = new MockHttpMessageHandler(@"{
+            ""vnp_ResponseId"": ""998"",
+            ""vnp_Command"": ""refund"",
+            ""vnp_ResponseCode"": ""95"",
+            ""vnp_Message"": ""Giao dich khong hop le""
+        }");
+
+        
+        var service = new VnPayService(paymentRepo, bookingRepo, _testSettings, new HttpClient(mockHandler));
+
+        var result = await service.RefundTransactionAsync(bookingId: 11);
+
+        Assert.False(result.Success);
+        Assert.Equal("95", result.ResponseCode);
+        Assert.Equal(PaymentStatus.RefundPending, refundPayment.Status);
     }
 }
