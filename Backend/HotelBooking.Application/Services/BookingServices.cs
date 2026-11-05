@@ -1,4 +1,4 @@
-namespace HotelBooking.Application.Services;
+﻿namespace HotelBooking.Application.Services;
 
 using HotelBooking.Application.Common;
 using HotelBooking.Application.DTOs.Booking;

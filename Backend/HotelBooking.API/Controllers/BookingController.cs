@@ -98,7 +98,7 @@ public class BookingController : BaseAPIController
     /// Tìm kiếm và lọc danh sách đơn đặt phòng (Khách hàng chỉ xem đơn của mình; Staff chỉ xem đơn thuộc Phân khu phụ trách; Admin toàn quyền)
     /// </summary>
     [HttpGet]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [Authorize]
     public async Task<IActionResult> GetList([FromQuery] BookingFilterRequest filter)
     {
         var (currentUserId, isAdmin, isStaff) = GetUserContext();

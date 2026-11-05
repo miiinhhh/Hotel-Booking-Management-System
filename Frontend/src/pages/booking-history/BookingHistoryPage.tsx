@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { BookingStatsRow } from './components/BookingStatsRow';
 import { AssuranceBanner } from './components/AssuranceBanner';
 import { BookingTabs } from './components/BookingTabs';
@@ -6,7 +6,6 @@ import { BookingTicketCard } from './components/BookingTicketCard';
 import { CancelBookingModal } from './components/CancelBookingModal';
 import { ReviewStayModal } from './components/ReviewStayModal';
 import { FloatingSupport } from './components/FloatingSupport';
-import { MOCK_BOOKINGS } from './data/mockBookings';
 import { getBookingsList, cancelBooking } from '../../services/bookingApi';
 import { createVnPayPayment } from '../../services/paymentApi';
 import { BookingItem, BookingTab, BookingStats } from './types';
@@ -22,7 +21,9 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   onNavigatePayment,
   onNavigateSearch,
 }) => {
-  const [bookings, setBookings] = useState<BookingItem[]>(MOCK_BOOKINGS);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BookingTab>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('recent');
@@ -40,6 +41,75 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
       setToastMessage(null);
     }, 4000);
   };
+
+  // Fetch bookings from backend API
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await getBookingsList();
+      if (res.success && res.data) {
+        const apiItems: BookingItem[] = res.data.map((b) => ({
+          id: String(b.bookingId),
+          bookingCode: b.bookingCode,
+          hotelName: b.hotelName || 'Khách sạn StayLuxe',
+          hotelCategory: 'Khu nghỉ dưỡng & Khách sạn cao cấp',
+          location: 'Việt Nam',
+          roomType: b.roomTypeName || 'Phòng nghỉ cao cấp',
+          image: b.imageUrl || '/room-placeholder.svg',
+          imageAlt: b.hotelName || 'StayLuxe Room',
+          checkInDate: b.checkInDate,
+          checkInDetail: `Nhận phòng từ 14:00 · ${b.checkInDate}`,
+          checkOutDate: b.checkOutDate,
+          checkOutDetail: `Trả phòng trước 12:00 · ${b.checkOutDate}`,
+          nightsText: `${b.roomCount || 1} phòng`,
+          guest: {
+            name: 'Khách hàng',
+            countText: `${b.numberOfGuests} khách`,
+          },
+          status: (
+            b.bookingStatus.toLowerCase() === 'confirmed' ? 'confirmed' :
+            b.bookingStatus.toLowerCase() === 'checkedin' ? 'confirmed' :
+            b.bookingStatus.toLowerCase() === 'cancelled' ? 'cancelled' :
+            b.bookingStatus.toLowerCase() === 'completed' || b.bookingStatus.toLowerCase() === 'checkedout' ? 'completed' :
+            'pending'
+          ),
+          statusLabel: b.bookingStatus.toUpperCase(),
+          depositBadge: (
+            b.paymentStatus === 'Paid' ? 'ĐÃ THANH TOÁN 100%' :
+            b.paymentStatus === 'PartiallyPaid' ? 'ĐÃ ĐẶT CỌC' :
+            b.paymentStatus === 'Refunded' ? 'ĐÃ HOÀN TIỀN' :
+            b.paymentStatus === 'RefundPending' ? 'ĐANG CHỜ HOÀN TIỀN' :
+            'CHỜ THANH TOÁN CỌC'
+          ),
+          totalAmount: b.totalAmount,
+          paidAmount: b.depositAmount,
+          remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
+          qrType: b.paymentStatus === 'Paid' ? 'checkin' : 'vietqr',
+          qrCaption: b.paymentStatus === 'Paid' ? 'Mã nhận phòng nhanh' : 'Quét mã thanh toán',
+          amenities: [
+            { icon: 'wifi', text: 'Wi-Fi tốc độ cao' },
+            { icon: 'pool', text: 'Hồ bơi vô cực' },
+            { icon: 'restaurant', text: 'Bữa sáng buffet' }
+          ],
+          isEligibleForReview: b.bookingStatus.toLowerCase() === 'completed',
+        }));
+        setBookings(apiItems);
+      } else {
+        setBookings([]);
+      }
+    } catch (err) {
+      console.error('Lỗi tải danh sách đặt phòng:', err);
+      setError(err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ.');
+      setBookings([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   // Stats calculation
   const stats: BookingStats = useMemo(() => {
@@ -99,49 +169,6 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
       showToast(`Mã đặt phòng: ${code}`);
     }
   };
-  useEffect(() => {
-    getBookingsList().then((res) => {
-      if (res.success && res.data && res.data.length > 0) {
-        const apiItems: BookingItem[] = res.data.map((b) => ({
-          id: String(b.bookingId),
-          bookingCode: b.bookingCode,
-          hotelName: 'StayLuxe Luxury Hotel',
-          hotelCategory: 'Khu nghỉ dưỡng di sản 5 sao',
-          location: 'Việt Nam',
-          roomType: 'Phòng nghỉ cao cấp',
-          image: '/room-placeholder.svg',
-          imageAlt: 'StayLuxe Room',
-          checkInDate: b.checkInDate,
-          checkInDetail: `Nhận phòng từ 14:00 · ${b.checkInDate}`,
-          checkOutDate: b.checkOutDate,
-          checkOutDetail: `Trả phòng trước 12:00 · ${b.checkOutDate}`,
-          nightsText: `${b.roomCount || 1} phòng`,
-          guest: {
-            name: 'Khách hàng',
-            countText: `${b.numberOfGuests} khách`,
-          },
-          status: (b.bookingStatus.toLowerCase() === 'confirmed' ? 'confirmed' :
-                  b.bookingStatus.toLowerCase() === 'checkedin' ? 'confirmed' :
-                  b.bookingStatus.toLowerCase() === 'cancelled' ? 'cancelled' :
-                  b.bookingStatus.toLowerCase() === 'completed' || b.bookingStatus.toLowerCase() === 'checkedout' ? 'completed' : 'pending'),
-          statusLabel: b.bookingStatus.toUpperCase(),
-          depositBadge: b.paymentStatus === 'Paid' ? 'ĐÃ THANH TOÁN 100%' : b.paymentStatus === 'PartiallyPaid' ? 'ĐÃ ĐẶT CỌC' : 'CHỜ THANH TOÁN CỌC',
-          totalAmount: b.totalAmount,
-          paidAmount: b.depositAmount,
-          remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
-          qrType: b.paymentStatus === 'Paid' ? 'checkin' : 'vietqr',
-          qrCaption: b.paymentStatus === 'Paid' ? 'Mã nhận phòng nhanh' : 'Quét mã thanh toán',
-          amenities: [
-            { icon: 'wifi', text: 'Wi-Fi tốc độ cao' },
-            { icon: 'pool', text: 'Hồ bơi vô cực' },
-            { icon: 'restaurant', text: 'Bữa sáng buffet' }
-          ],
-          isEligibleForReview: b.bookingStatus.toLowerCase() === 'completed',
-        }));
-        setBookings(apiItems);
-      }
-    });
-  }, []);
 
   const handlePayNow = async (booking: BookingItem) => {
     const bookingIdNum = Number(booking.id);
@@ -178,24 +205,12 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
       }
     }
 
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              status: 'cancelled',
-              statusLabel: 'ĐÃ HỦY (CANCELLED)',
-              depositBadge: 'ĐÃ HOÀN TIỀN',
-              paidAmount: 0,
-              remainingAmount: 0,
-            }
-          : b
-      )
-    );
     setCancelModalBooking(null);
     showToast(
-      `Đã hủy đơn thành công. Tiền hoàn đã được ghi nhận tự động theo chính sách lưu trú.`
+      `Đã hủy đơn thành công. Trạng thái đã được đồng bộ tự động theo chính sách lưu trú.`
     );
+    // Reload directly from backend to guarantee 100% data freshness
+    await fetchBookings();
   };
 
   // Submit review confirm
@@ -273,7 +288,41 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
 
             {/* Booking Ticket Cards List */}
             <div className="flex flex-col gap-space-lg" id="tickets-container">
-              {filteredBookings.length > 0 ? (
+              {isLoading ? (
+                /* Loading State Skeletons */
+                <div className="flex flex-col gap-4 animate-pulse">
+                  {[1, 2].map((n) => (
+                    <div
+                      key={n}
+                      className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/30 flex flex-col md:flex-row gap-6 items-center"
+                    >
+                      <div className="w-full md:w-56 h-36 bg-surface-container-high rounded-xl" />
+                      <div className="flex-1 space-y-3 w-full">
+                        <div className="h-6 bg-surface-container-high rounded-md w-1/3" />
+                        <div className="h-4 bg-surface-container rounded-md w-1/2" />
+                        <div className="h-4 bg-surface-container rounded-md w-1/4" />
+                      </div>
+                      <div className="w-32 h-10 bg-surface-container-high rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : error ? (
+                /* Error State */
+                <div className="bg-surface-container-lowest rounded-2xl p-10 text-center flex flex-col items-center justify-center gap-3 border border-error/20">
+                  <div className="w-14 h-14 rounded-full bg-error-container/20 flex items-center justify-center text-error">
+                    <span className="material-symbols-outlined text-[30px]">error</span>
+                  </div>
+                  <h3 className="font-headline-sm text-lg text-on-surface">Không thể tải dữ liệu</h3>
+                  <p className="font-body-md text-sm text-on-surface-variant max-w-md">{error}</p>
+                  <button
+                    onClick={() => fetchBookings()}
+                    className="mt-2 px-5 py-2 rounded-full bg-primary text-on-primary font-label-md text-sm hover:opacity-90 transition-opacity cursor-pointer"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              ) : filteredBookings.length > 0 ? (
+                /* Bookings List */
                 filteredBookings.map((booking) => (
                   <BookingTicketCard
                     key={booking.id}
@@ -286,7 +335,8 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                   />
                 ))
               ) : (
-                <div className="bg-surface-container-lowest rounded-lg p-12 text-center flex flex-col items-center justify-center gap-3">
+                /* Empty State */
+                <div className="bg-surface-container-lowest rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 border border-outline-variant/20 shadow-sm">
                   <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-outline">
                     <span className="material-symbols-outlined text-[32px]">event_busy</span>
                   </div>
@@ -294,11 +344,17 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                     Không có đơn đặt phòng nào
                   </h3>
                   <p className="font-body-md text-sm text-on-surface-variant max-w-md">
-                    Không tìm thấy đặt phòng phù hợp trong mục này. Quý khách có thể khám phá thêm các khu nghỉ dưỡng đẳng cấp để lên kế hoạch du lịch.
+                    {searchQuery.trim()
+                      ? `Không tìm thấy đơn đặt phòng khớp với từ khóa "${searchQuery}".`
+                      : activeTab === 'upcoming'
+                      ? 'Quý khách chưa có kỳ nghỉ nào sắp diễn ra. Hãy lên kế hoạch cho chuyến đi tiếp theo ngay hôm nay!'
+                      : activeTab === 'completed'
+                      ? 'Chưa có lịch sử các chuyến nghỉ dưỡng đã hoàn tất.'
+                      : 'Quý khách không có đơn đặt phòng nào bị hủy.'}
                   </p>
                   <button
                     onClick={() => onNavigateSearch?.()}
-                    className="mt-2 px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
+                    className="mt-3 px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     Tìm kỳ nghỉ dưỡng mới
                   </button>

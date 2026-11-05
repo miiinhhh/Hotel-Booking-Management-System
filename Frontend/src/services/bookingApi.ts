@@ -50,11 +50,14 @@ export interface BookingListDto {
   checkOutDate: string;
   numberOfGuests: number;
   bookingStatus: string; // "Pending", "Confirmed", "CheckedIn", "CheckedOut", "Cancelled", "Completed"
-  paymentStatus: string; // "Unpaid", "PartiallyPaid", "Paid", "Refunded"
+  paymentStatus: string; // "Unpaid", "PartiallyPaid", "Paid", "RefundPending", "Refunded"
   totalAmount: number;
   depositAmount: number;
   roomCount: number;
   createdAt: string;
+  hotelName?: string;
+  roomTypeName?: string;
+  imageUrl?: string;
 }
 
 export interface BookingFilterRequest {
@@ -110,7 +113,7 @@ export async function calculateBookingPrice(
 }
 
 /**
- * Lấy danh sách booking (Staff Portal / Admin)
+ * Lấy danh sách booking (Staff Portal / Admin / Khách hàng xem đơn của mình)
  */
 export async function getBookingsList(
   filter: BookingFilterRequest = {}

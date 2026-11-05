@@ -14,4 +14,7 @@ public class BookingListDto
     public decimal DepositAmount { get; set; }
     public int RoomCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? HotelName { get; set; }
+    public string? RoomTypeName { get; set; }
+    public string? ImageUrl { get; set; }
 }
