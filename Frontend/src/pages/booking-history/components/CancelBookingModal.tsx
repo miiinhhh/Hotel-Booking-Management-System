@@ -40,6 +40,12 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
 
   if (!isOpen || !booking) return null;
 
+  const paid = Number(preview?.totalPaid ?? preview?.paidAmount ?? booking.paidAmount ?? 0);
+  const refund = Number(preview?.refundAmount ?? 0);
+  const penalty = Number(preview?.penaltyAmount ?? 0);
+  const refundPercent = preview?.refundPercentage ?? 0;
+  const policyDesc = preview?.appliedPolicyName || preview?.policyDescription || preview?.message;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-lg bg-surface-container-lowest rounded-lg p-space-lg shadow-2xl transform transition-transform">
@@ -82,32 +88,38 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Số tiền đã thanh toán:</span>
-                <span className="font-semibold">{preview.paidAmount.toLocaleString('vi-VN')} ₫</span>
+                <span className="font-semibold">{paid.toLocaleString('vi-VN')} ₫</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Tỷ lệ hoàn tiền:</span>
-                <span className="font-bold text-emerald-600">{preview.refundPercentage}%</span>
+                <span className="font-bold text-emerald-600">{refundPercent}%</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Số tiền hoàn dự kiến:</span>
-                <strong className="text-emerald-700 font-bold">{preview.refundAmount.toLocaleString('vi-VN')} ₫</strong>
+                <strong className="text-emerald-700 font-bold">{refund.toLocaleString('vi-VN')} ₫</strong>
               </div>
-              {preview.penaltyAmount > 0 && (
+              {penalty > 0 && (
                 <div className="flex justify-between text-xs text-error">
                   <span>Phí phạt hủy phòng:</span>
-                  <span>{preview.penaltyAmount.toLocaleString('vi-VN')} ₫</span>
+                  <span>{penalty.toLocaleString('vi-VN')} ₫</span>
                 </div>
               )}
-              {preview.policyDescription && (
+              {policyDesc && (
                 <p className="text-xs text-outline pt-1 italic">
-                  Chính sách: {preview.policyDescription}
+                  Chính sách: {policyDesc}
                 </p>
               )}
             </div>
           ) : (
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Theo quy định, yêu cầu hủy phòng sẽ được tính toán tiền phạt và tiền hoàn tự động dựa trên thời điểm hủy so với ngày nhận phòng.
-            </p>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Số tiền cọc đã ghi nhận:</span>
+                <span className="font-semibold">{(booking.paidAmount || 0).toLocaleString('vi-VN')} ₫</span>
+              </div>
+              <p className="font-body-md text-xs text-on-surface-variant pt-1">
+                Yêu cầu hủy phòng sẽ được tính toán tiền phạt và tiền hoàn tự động dựa trên thời điểm hủy so với ngày nhận phòng theo chính sách lưu trú.
+              </p>
+            </div>
           )}
         </div>
 

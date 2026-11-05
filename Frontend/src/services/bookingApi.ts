@@ -79,15 +79,20 @@ export interface UpdateBookingStatusRequest {
 
 export interface CancellationPreviewDto {
   bookingId: number;
+  bookingCode?: string;
   totalAmount: number;
-  paidAmount: number;
+  totalPaid?: number;
+  paidAmount?: number;
   refundPercentage: number;
   penaltyPercentage: number;
   refundAmount: number;
   penaltyAmount: number;
-  policyDescription: string;
+  appliedPolicyName?: string;
+  policyDescription?: string;
   isEligibleForRefund: boolean;
-  daysUntilCheckIn: number;
+  daysRemaining?: number;
+  daysUntilCheckIn?: number;
+  message?: string;
 }
 
 export interface CancelBookingRequest {

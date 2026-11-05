@@ -41,7 +41,9 @@ public class CancelPreviewResponseDto
     public int DaysRemaining { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal TotalPaid { get; set; }
+    public decimal PaidAmount => TotalPaid;
     public string? AppliedPolicyName { get; set; }
+    public string? PolicyDescription => AppliedPolicyName;
     public int? PolicyDaysBeforeCheckIn { get; set; }
     public decimal RefundPercentage { get; set; }
     public decimal RefundAmount { get; set; }
