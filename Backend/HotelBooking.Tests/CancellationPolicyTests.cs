@@ -347,7 +347,8 @@ public class CancellationPolicyTests
         var refundPayment = paymentRepo.Payments.FirstOrDefault(p => p.PaymentType == PaymentType.Refund);
         Assert.NotNull(refundPayment);
         Assert.Equal(2_000_000m, refundPayment.Amount);
-        Assert.Equal(PaymentStatus.Paid, refundPayment.Status);
+        Assert.Equal(PaymentStatus.RefundPending, refundPayment.Status);
+        Assert.Null(refundPayment.PaidAt);
 
         // History recorded
         var history = bookingRepo.Histories.FirstOrDefault();

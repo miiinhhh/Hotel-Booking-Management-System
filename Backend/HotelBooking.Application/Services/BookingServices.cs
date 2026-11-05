@@ -433,9 +433,9 @@ public class BookingServices : IBookingService
                     PaymentMethod = Enum.TryParse<PaymentMethod>(booking.PaymentMethod, true, out var pm) ? pm : PaymentMethod.Deposit,
                     PaymentType = PaymentType.Refund,
                     Amount = calculation.RefundAmount,
-                    Status = PaymentStatus.Paid,
+                    Status = PaymentStatus.RefundPending,
                     TransactionCode = $"REFUND-{booking.BookingCode}-{DateTime.UtcNow:yyyyMMddHHmmss}",
-                    PaidAt = DateTime.UtcNow,
+                    PaidAt = null,
                     CreatedAt = DateTime.UtcNow
                 };
                 await _paymentRepository.CreateAsync(refundPayment);

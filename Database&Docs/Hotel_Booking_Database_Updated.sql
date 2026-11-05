@@ -678,7 +678,8 @@
                     'Pending',
                     'Paid',
                     'Failed',
-                    'Refunded'
+                    'Refunded',
+                    'RefundPending'
                 )
             ),
 
