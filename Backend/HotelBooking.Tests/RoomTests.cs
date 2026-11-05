@@ -30,6 +30,33 @@ public sealed class RoomTests
     private static RoomTypeRequest TypeRequest => new("Deluxe", null, 500000, 2, 1);
     private static RoomRequest Request(int type, string number = "101", RoomStatus status = RoomStatus.Available) => new(type, number, 1, status, null);
 
+    private class FakeRoomPriceHistoryRepository : HotelBooking.Application.Interfaces.IRoomPriceHistoryRepository
+    {
+        public List<RoomPriceHistory> Histories { get; } = new();
+
+        public Task<IReadOnlyList<RoomPriceHistory>> GetHistoriesByRoomTypeAsync(int roomTypeId, CancellationToken ct = default)
+        {
+            var list = Histories.Where(h => h.RoomTypeId == roomTypeId).ToList();
+            return Task.FromResult<IReadOnlyList<RoomPriceHistory>>(list);
+        }
+
+        public Task<RoomPriceHistory> AddHistoryAsync(RoomPriceHistory history, CancellationToken ct = default)
+        {
+            Histories.Add(history);
+            return Task.FromResult(history);
+        }
+
+        public Task<Dictionary<long, (int RoomTypeId, int HotelId, string RoomTypeName, decimal BasePrice)>> GetRoomDetailsForPricingAsync(IEnumerable<long> roomIds, CancellationToken ct = default)
+        {
+            return Task.FromResult(new Dictionary<long, (int RoomTypeId, int HotelId, string RoomTypeName, decimal BasePrice)>());
+        }
+
+        public Task<(TimeOnly CheckInTime, TimeOnly CheckOutTime)?> GetHotelCheckInOutPolicyAsync(int hotelId, CancellationToken ct = default)
+        {
+            return Task.FromResult<(TimeOnly CheckInTime, TimeOnly CheckOutTime)?>(null);
+        }
+    }
+
     [Fact]
     public async Task TypeCanBeReactivatedButDeactivationWithActiveRoomsIsRejected()
     {
@@ -128,6 +155,7 @@ public sealed class RoomTests
         Assert.Throws<DomainRuleException>(() => room.Update(1, "101", 1, RoomStatus.Inactive, null));
         Assert.Throws<DomainRuleException>(() => room.Update(1, "102", 1, RoomStatus.Occupied, null));
     }
+
     [Fact]
     public async Task CrudPersistsPriceCapacityAndSoftDeletion()
     {
@@ -146,6 +174,7 @@ public sealed class RoomTests
         Assert.Equal(RoomStatus.Inactive, (await service.GetRoom(1, room.RoomId, Ct)).Status);
         Assert.False((await service.GetType(1, type.RoomTypeId, Ct)).IsActive);
     }
+
     [Fact]
     public async Task RejectsDuplicateNumbersIncludingInactiveRooms()
     {
@@ -155,6 +184,7 @@ public sealed class RoomTests
         await service.DeleteRoom(1, room.RoomId, Ct);
         await Assert.ThrowsAsync<ConflictException>(() => service.CreateRoom(1, 1, Request(type.RoomTypeId, " 101 "), Ct));
     }
+
     [Fact]
     public async Task NumberCanRepeatAcrossAreasButTypeMustMatchArea()
     {
@@ -166,6 +196,7 @@ public sealed class RoomTests
         Assert.Equal(2, (await service.ListRooms(1, Ct)).Count);
         await Assert.ThrowsAsync<ConflictException>(() => service.CreateRoom(1, 2, Request(first.RoomTypeId, "102"), Ct));
     }
+
     [Fact]
     public async Task RejectsWrongHotelAndTypeDeletionWithActiveRooms()
     {
@@ -176,5 +207,64 @@ public sealed class RoomTests
         await Assert.ThrowsAsync<NotFoundException>(() => service.UpdateType(2, type.RoomTypeId, TypeRequest, Ct));
         await Assert.ThrowsAsync<ConflictException>(() => service.DeleteType(1, type.RoomTypeId, Ct));
         await Assert.ThrowsAsync<ConflictException>(() => service.CreateType(1, 1, TypeRequest with { Name = " Deluxe " }, Ct));
+    }
+
+    [Fact]
+    public async Task CreateType_AutomaticallyLogsInitialBasePriceToRoomPriceHistory()
+    {
+        using var db = Database();
+        var fakePriceHistory = new FakeRoomPriceHistoryRepository();
+        var service = new RoomService(new RoomRepository(db), fakePriceHistory);
+
+        var created = await service.CreateType(1, 1, new RoomTypeRequest("Executive Suite", null, 800000, 2, 1), Ct, changedByUserId: 42);
+
+        Assert.Single(fakePriceHistory.Histories);
+        var entry = fakePriceHistory.Histories[0];
+        Assert.Equal(created.RoomTypeId, entry.RoomTypeId);
+        Assert.Equal(800000m, entry.Price);
+        Assert.Equal(42, entry.ChangedByUserId);
+        Assert.Null(entry.EffectiveTo);
+        Assert.True(entry.EffectiveFrom <= DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task UpdateType_WhenBasePriceChanges_AutomaticallyLogsToRoomPriceHistory()
+    {
+        using var db = Database();
+        var fakePriceHistory = new FakeRoomPriceHistoryRepository();
+        var service = new RoomService(new RoomRepository(db), fakePriceHistory);
+
+        var created = await service.CreateType(1, 1, new RoomTypeRequest("Executive Suite", null, 800000, 2, 1), Ct, changedByUserId: 42);
+        fakePriceHistory.Histories.Clear(); // clear creation log
+
+        var updated = await service.UpdateType(1, created.RoomTypeId,
+            new RoomTypeRequest("Executive Suite", "Updated desc", 950000, 2, 1), Ct, changedByUserId: 99);
+
+        Assert.Equal(950000m, updated.BasePrice);
+        Assert.Single(fakePriceHistory.Histories);
+        var entry = fakePriceHistory.Histories[0];
+        Assert.Equal(created.RoomTypeId, entry.RoomTypeId);
+        Assert.Equal(950000m, entry.Price);
+        Assert.Equal(99, entry.ChangedByUserId);
+        Assert.Null(entry.EffectiveTo);
+        Assert.True(entry.EffectiveFrom <= DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task UpdateType_WhenBasePriceDoesNotChange_DoesNotLogToRoomPriceHistory()
+    {
+        using var db = Database();
+        var fakePriceHistory = new FakeRoomPriceHistoryRepository();
+        var service = new RoomService(new RoomRepository(db), fakePriceHistory);
+
+        var created = await service.CreateType(1, 1, new RoomTypeRequest("Executive Suite", null, 800000, 2, 1), Ct, changedByUserId: 42);
+        fakePriceHistory.Histories.Clear();
+
+        // Only updating description and beds, but BasePrice remains 800000
+        var updated = await service.UpdateType(1, created.RoomTypeId,
+            new RoomTypeRequest("Executive Suite VIP", "New desc", 800000, 3, 2), Ct, changedByUserId: 99);
+
+        Assert.Equal(800000m, updated.BasePrice);
+        Assert.Empty(fakePriceHistory.Histories);
     }
 }
