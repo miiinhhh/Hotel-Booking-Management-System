@@ -298,6 +298,8 @@ public class PaymentRepository : IPaymentRepository
             new { BookingId = bookingId });
     }
 
+    public Task<bool> HasStaffAreaAccessAsync(long staffUserId, long bookingId) => IsStaffAssignedToBookingAsync(bookingId, staffUserId);
+
     public async Task<bool> IsStaffAssignedToBookingAsync(long bookingId, long staffUserId)
     {
         const string sql = """

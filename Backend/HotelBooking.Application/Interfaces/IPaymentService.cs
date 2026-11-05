@@ -12,7 +12,8 @@ public interface IPaymentService
     Task<PaymentResponse?> GetPaymentAsync(
         long paymentId,
         long actorId,
-        bool canManageAll);
+        bool isAdmin,
+        bool isStaff);
 
     Task<IEnumerable<PaymentResponse>> GetPaymentsByBookingAsync(
         long bookingId);

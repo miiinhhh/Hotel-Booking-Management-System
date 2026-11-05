@@ -38,6 +38,8 @@ public interface IPaymentRepository
 
     Task<bool> IsStaffAssignedToBookingAsync(long bookingId, long staffUserId);
 
+    Task<bool> HasStaffAreaAccessAsync(long staffUserId, long bookingId);
+
     Task<(IReadOnlyList<PaymentHistoryDto> Items, int TotalCount)> GetCustomerPaymentHistoryAsync(
         long customerId,
         int page,

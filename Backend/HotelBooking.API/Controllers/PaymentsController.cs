@@ -60,24 +60,40 @@ public class PaymentsController : BaseAPIController
     // GET: api/payments/1
     [HttpGet("{id:long}")]
     [Authorize]
-    public async Task<IActionResult> GetPayment(
-        long id)
+    public async Task<IActionResult> GetPayment(long id)
     {
-        var result =
-            await _paymentService.GetPaymentAsync(
-                id,
-                GetCurrentUserId()!.Value,
-                User.IsInRole(SystemRoles.Admin) || User.IsInRole(SystemRoles.HotelStaff));
-
-        if (result == null)
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
         {
-            return NotFound(new
-            {
-                message = "Payment not found."
-            });
+            return Unauthorized(AuthenticationProblems.AuthenticationRequired(HttpContext));
         }
 
-        return Ok(result);
+        bool isAdmin = User.IsInRole(SystemRoles.Admin);
+        bool isStaff = User.IsInRole(SystemRoles.HotelStaff);
+
+        try
+        {
+            var result = await _paymentService.GetPaymentAsync(
+                id,
+                userId.Value,
+                isAdmin,
+                isStaff);
+
+            if (result == null)
+            {
+                return NotFound(new { message = "Payment not found." });
+            }
+
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, AuthenticationProblems.Forbidden(HttpContext, ex.Message));
+        }
     }
 
     // GET: api/payments/my-history?page=1&pageSize=10

@@ -117,11 +117,10 @@ public class PaymentService : IPaymentService
     public async Task<PaymentResponse?> GetPaymentAsync(
         long paymentId,
         long actorId,
-        bool canManageAll)
+        bool isAdmin,
+        bool isStaff)
     {
-        var payment =
-            await _paymentRepository.GetByIdAsync(paymentId);
-
+        var payment = await _paymentRepository.GetByIdAsync(paymentId);
         if (payment == null)
         {
             return null;
@@ -129,7 +128,22 @@ public class PaymentService : IPaymentService
 
         var booking = await _paymentRepository.GetBookingCustomerAccessInfoAsync(payment.BookingId)
             ?? throw new KeyNotFoundException("Booking not found.");
-        EnsureCustomerAccess(booking, actorId, canManageAll);
+
+        if (!isAdmin)
+        {
+            if (isStaff)
+            {
+                var hasAccess = await _paymentRepository.HasStaffAreaAccessAsync(actorId, payment.BookingId);
+                if (!hasAccess)
+                {
+                    throw new UnauthorizedAccessException("Bạn không có quyền truy cập giao dịch thuộc khu vực/tòa nhà này.");
+                }
+            }
+            else if (booking.CustomerId != actorId)
+            {
+                throw new UnauthorizedAccessException("Bạn không có quyền xem thông tin thanh toán của khách hàng khác.");
+            }
+        }
 
         return MapToResponse(payment);
     }
