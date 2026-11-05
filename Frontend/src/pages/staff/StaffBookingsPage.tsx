@@ -83,6 +83,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
   const mapBackendPayment = (pmt: string, dep: number, _tot: number): { status: StaffDepositStatus; label: string } => {
     if (pmt === 'Paid') return { status: 'paid_100', label: 'Đã trả 100%' };
+    if (pmt === 'RefundPending') return { status: 'refund_pending', label: 'Chờ hoàn cọc' };
     if (pmt === 'Refunded') return { status: 'refunded', label: 'Đã hoàn cọc' };
     if (dep > 0) return { status: 'deposited_50', label: `Đã cọc ${dep.toLocaleString('vi-VN')}₫` };
     return { status: 'unpaid', label: 'Chưa thanh toán' };
@@ -359,6 +360,14 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   // Update notes
+  const handleRefundBooking = (updated: StaffBooking, message: string) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === updated.id ? updated : b))
+    );
+    setSelectedBooking(updated);
+    showToast(`${message} cho đơn ${updated.bookingCode}`);
+  };
+
   const handleUpdateNotes = (
     bookingId: string,
     notes: string,
@@ -637,6 +646,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         onCheckIn={handleCheckIn}
         onCancelBooking={handleCancelBooking}
         onUpdateNotes={handleUpdateNotes}
+        onRefundBooking={handleRefundBooking}
       />
     </div>
   );

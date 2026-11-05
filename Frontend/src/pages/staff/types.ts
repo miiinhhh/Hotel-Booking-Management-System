@@ -9,7 +9,8 @@ export type StaffDepositStatus =
   | 'deposited_50'
   | 'paid_100'
   | 'unpaid'
-  | 'refunded';
+  | 'refunded'
+  | 'refund_pending';
 
 export interface StaffBooking {
   id: string;

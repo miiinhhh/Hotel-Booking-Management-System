@@ -110,9 +110,15 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                 </span>
               )}
               {isCancelled && (
-                <span className="px-3 py-1 rounded-full bg-error-container/40 text-error font-label-sm text-label-sm font-semibold tracking-wide inline-flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[14px]">close</span>
-                  {booking.statusLabel}
+                <span className={`px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold tracking-wide inline-flex items-center gap-1.5 ${
+                  booking.paymentStatus === 'RefundPending'
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : 'bg-error-container/40 text-error'
+                }`}>
+                  <span className="material-symbols-outlined text-[14px]">
+                    {booking.paymentStatus === 'RefundPending' ? 'pending_actions' : 'close'}
+                  </span>
+                  {booking.paymentStatus === 'RefundPending' ? 'ĐÃ HỦY • CHỜ HOÀN CỌC' : booking.statusLabel}
                 </span>
               )}
             </div>
@@ -231,8 +237,19 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
           {isCancelled && (
             <div className="pt-3 border-t border-dashed border-outline-variant/40 flex items-center justify-between">
               <span className="font-body-md text-[13px] text-on-surface-variant flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-error">info</span>
-                Tiền cọc đã được xử lý hoàn tiền về tài khoản ngân hàng gốc.
+                {booking.paymentStatus === 'RefundPending' ? (
+                  <>
+                    <span className="material-symbols-outlined text-[16px] text-amber-600 animate-pulse">pending</span>
+                    <span className="text-amber-800 font-medium">
+                      Đã ghi nhận yêu cầu hủy. Tiền hoàn cọc đang chờ Nhân viên / Kế toán xác nhận hoàn lại.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px] text-primary">check_circle</span>
+                    <span>Tiền cọc đã được xử lý hoàn tiền về tài khoản ngân hàng gốc.</span>
+                  </>
+                )}
               </span>
             </div>
           )}

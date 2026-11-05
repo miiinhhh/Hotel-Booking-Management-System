@@ -123,6 +123,13 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
           )}
         </div>
 
+        <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+          <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">info</span>
+          <span>
+            Sau khi xác nhận hủy, đơn sẽ chuyển sang trạng thái <strong>Chờ hoàn</strong> để Nhân viên khách sạn xác nhận và chuyển tiền hoàn lại qua cổng thanh toán theo đúng chính sách lưu trú.
+          </span>
+        </div>
+
         <div className="mb-space-lg">
           <label className="block font-label-md text-label-md text-on-surface mb-2 font-medium">
             Lý do hủy đặt phòng:

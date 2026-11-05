@@ -88,3 +88,21 @@ export async function getBookingPayments(
 ): Promise<ApiResponse<PagedResult<PaymentHistoryDto>>> {
   return apiClient<PagedResult<PaymentHistoryDto>>(`/api/bookings/${bookingId}/payments?page=${page}&pageSize=${pageSize}`);
 }
+
+/**
+ * Nhân viên / Quản trị viên kích hoạt hoàn cọc qua cổng VNPay
+ */
+export async function refundVnPayPayment(bookingId: number): Promise<ApiResponse<any>> {
+  return apiClient<any>(`/api/payments/vnpay/refund/${bookingId}`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Nhân viên / Quản trị viên xác nhận hoàn cọc thủ công (tiền mặt / banking)
+ */
+export async function confirmManualRefund(bookingId: number): Promise<ApiResponse<any>> {
+  return apiClient<any>(`/api/payments/refund/confirm/${bookingId}`, {
+    method: 'POST',
+  });
+}

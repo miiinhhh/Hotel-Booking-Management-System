@@ -1,4 +1,4 @@
-﻿namespace HotelBooking.Application.Services;
+namespace HotelBooking.Application.Services;
 
 using HotelBooking.Application.Common;
 using HotelBooking.Application.DTOs.Booking;
@@ -410,13 +410,9 @@ public class BookingServices : IBookingService
 
         if (totalPaid > 0m)
         {
-            if (calculation.RefundAmount >= totalPaid)
+            if (calculation.RefundAmount > 0m)
             {
-                booking.PaymentStatus = "Refunded";
-            }
-            else if (calculation.RefundAmount > 0m)
-            {
-                booking.PaymentStatus = "PartiallyPaid";
+                booking.PaymentStatus = "RefundPending";
             }
         }
 

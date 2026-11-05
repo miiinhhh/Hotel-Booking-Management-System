@@ -230,7 +230,16 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
 
                     {/* Thanh toán */}
                     <td className="py-4 px-3 text-center align-middle">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-container text-secondary font-label-sm text-[11px] font-medium border border-[#eae8e5]">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full font-label-sm text-[11px] font-medium border ${
+                        booking.depositStatus === 'refund_pending'
+                          ? 'bg-amber-50 text-amber-900 border-amber-300 font-semibold'
+                          : booking.depositStatus === 'refunded'
+                          ? 'bg-purple-50 text-purple-800 border-purple-200'
+                          : 'bg-surface-container text-secondary border-[#eae8e5]'
+                      }`}>
+                        {booking.depositStatus === 'refund_pending' && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse" />
+                        )}
                         {booking.depositStatusLabel}
                       </span>
                     </td>

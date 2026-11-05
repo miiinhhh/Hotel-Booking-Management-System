@@ -47,6 +47,7 @@ export function useBookingsQuery() {
         'pending'
       ),
       statusLabel: b.bookingStatus.toUpperCase(),
+      paymentStatus: b.paymentStatus,
       depositBadge: (
         b.paymentStatus === 'Paid' ? 'ĐÃ THANH TOÁN 100%' :
         b.paymentStatus === 'PartiallyPaid' ? 'ĐÃ ĐẶT CỌC' :

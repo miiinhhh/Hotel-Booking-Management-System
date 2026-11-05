@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StaffBooking } from '../types';
+import { refundVnPayPayment, confirmManualRefund } from '../../../services/paymentApi';
 
 interface BookingDetailDrawerProps {
   booking: StaffBooking | null;
@@ -8,6 +9,7 @@ interface BookingDetailDrawerProps {
   onCheckIn: (booking: StaffBooking) => void;
   onCancelBooking: (booking: StaffBooking) => void;
   onUpdateNotes?: (bookingId: string, notes: string, approval: 'accepted' | 'rejected') => void;
+  onRefundBooking?: (booking: StaffBooking, message: string) => void;
 }
 
 export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
@@ -17,7 +19,9 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   onCheckIn,
   onCancelBooking,
   onUpdateNotes,
+  onRefundBooking,
 }) => {
+  const [isRefunding, setIsRefunding] = useState(false);
   const [copied, setCopied] = useState(false);
   const [printDepositClicked, setPrintDepositClicked] = useState(false);
   const [approvalState, setApprovalState] = useState<'accepted' | 'rejected'>(
@@ -41,6 +45,68 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   }, [booking]);
 
   if (!isOpen || !booking) return null;
+
+  const handleRefundVnPay = async () => {
+    const bookingIdNum = Number(booking.id);
+    if (!bookingIdNum || isNaN(bookingIdNum)) {
+      alert('Mã đơn không hợp lệ');
+      return;
+    }
+    const confirm = window.confirm(`Xác nhận gửi lệnh hoàn cọc qua cổng VNPay cho đơn ${booking.bookingCode}?`);
+    if (!confirm) return;
+
+    setIsRefunding(true);
+    try {
+      const res = await refundVnPayPayment(bookingIdNum);
+      if (res.success) {
+        alert(`Đã gửi lệnh hoàn cọc thành công qua cổng VNPay cho đơn ${booking.bookingCode}!`);
+        onRefundBooking?.({
+          ...booking,
+          depositStatus: 'refunded',
+          depositStatusLabel: 'Đã hoàn cọc',
+          status: 'cancelled',
+          statusLabel: 'ĐÃ HỦY',
+        }, 'Hoàn cọc VNPay thành công');
+      } else {
+        alert(`Lỗi hoàn cọc VNPay: ${res.message || 'Cổng VNPay từ chối giao dịch'}`);
+      }
+    } catch (err) {
+      alert(`Lỗi kết nối cổng hoàn tiền VNPay: ${err instanceof Error ? err.message : 'Lỗi hệ thống'}`);
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
+  const handleManualRefund = async () => {
+    const bookingIdNum = Number(booking.id);
+    if (!bookingIdNum || isNaN(bookingIdNum)) {
+      alert('Mã đơn không hợp lệ');
+      return;
+    }
+    const confirm = window.confirm(`Xác nhận đã hoàn tiền thủ công (tiền mặt / chuyển khoản ngoài) cho đơn ${booking.bookingCode}?`);
+    if (!confirm) return;
+
+    setIsRefunding(true);
+    try {
+      const res = await confirmManualRefund(bookingIdNum);
+      if (res.success) {
+        alert(`Đã xác nhận hoàn tiền thành công cho đơn ${booking.bookingCode}!`);
+        onRefundBooking?.({
+          ...booking,
+          depositStatus: 'refunded',
+          depositStatusLabel: 'Đã hoàn cọc',
+          status: 'cancelled',
+          statusLabel: 'ĐÃ HỦY',
+        }, 'Đã xác nhận hoàn cọc thủ công');
+      } else {
+        alert(`Lỗi: ${res.message || 'Không thể xác nhận hoàn tiền'}`);
+      }
+    } catch (err) {
+      alert(`Lỗi hệ thống: ${err instanceof Error ? err.message : 'Lỗi hệ thống'}`);
+    } finally {
+      setIsRefunding(false);
+    }
+  };
 
   const handleCopy = () => {
     if (navigator?.clipboard?.writeText) {
@@ -333,6 +399,18 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                 </span>
               </div>
 
+              {booking.depositStatus === 'refund_pending' && (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
+                    <span className="material-symbols-outlined text-[20px] text-amber-600 animate-pulse">pending_actions</span>
+                    <span>YÊU CẦU HOÀN TIỀN CHỜ DUYỆT</span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Khách hàng đã hủy đặt phòng này. Số tiền hoàn cọc dự kiến là <strong>{booking.paidAmount.toLocaleString('vi-VN')}₫</strong> đang chờ Nhân viên / Kế toán xác nhận hoàn cọc qua cổng VNPay hoặc chi tiền mặt cho khách.
+                  </p>
+                </div>
+              )}
+
               {booking.paidAmount > 0 && (
                 <div className="p-4 rounded-DEFAULT bg-[#1b4332]/5 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
@@ -507,7 +585,44 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
           </div>
 
           {/* Primary Action Button */}
-          {checkInDone ? (
+          {booking.depositStatus === 'refund_pending' ? (
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleManualRefund}
+                disabled={isRefunding}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-full border border-outline/30 bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-label-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Xác nhận hoàn tiền bằng tiền mặt hoặc chuyển khoản ngoài"
+              >
+                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                <span>Hoàn tiền mặt / Chuyển khoản</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRefundVnPay}
+                disabled={isRefunding}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-primary hover:bg-tertiary-container text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                title="Gọi API Merchant VNPay để hoàn cọc tự động về thẻ/tài khoản khách"
+              >
+                {isRefunding ? (
+                  <>
+                    <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                    <span>Đang kết nối VNPay...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">payments</span>
+                    <span>Xác nhận hoàn cọc VNPay</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : booking.depositStatus === 'refunded' ? (
+            <div className="px-5 py-2.5 rounded-full bg-purple-50 text-purple-900 border border-purple-200 font-label-md text-label-md flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-purple-700">check_circle</span>
+              <span>Đã hoàn tiền cho khách</span>
+            </div>
+          ) : checkInDone ? (
             <div className="w-full sm:w-auto px-7 py-3 rounded-full bg-[#1b4332] text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-2.5 shadow-md">
               <span className="material-symbols-outlined text-[20px]">check_circle</span>
               <span>Đã hoàn tất Check-in ({booking.roomNumber})</span>

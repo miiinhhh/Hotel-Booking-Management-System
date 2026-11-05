@@ -1,3 +1,4 @@
+using HotelBooking.Domain.Enums;
 using System.Security.Claims;
 using HotelBooking.Application.DTOs.Common;
 using HotelBooking.Application.DTOs.Payment;
@@ -359,6 +360,36 @@ public class PaymentsController : BaseAPIController
         }
 
         return Ok(new { success = true, data = result });
+    }
+
+    /// <summary>
+    /// Xac nhan hoan tien thu cong (tien mat / chuyen khoan ngoai) cho don dat phong (Admin / Staff)
+    /// </summary>
+    [HttpPost("refund/confirm/{bookingId:long}")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    public async Task<IActionResult> ConfirmRefund(
+        long bookingId,
+        [FromServices] IBookingRepository bookingRepo,
+        [FromServices] IPaymentRepository paymentRepo)
+    {
+        var booking = await bookingRepo.GetByIdAsync(bookingId);
+        if (booking == null) return NotFound(new { success = false, message = "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n Ä‘áº·t phÃ²ng." });
+
+        var payments = (await paymentRepo.GetByBookingIdAsync(bookingId))?.ToList() ?? new List<Payment>();
+        var refundPayment = payments.FirstOrDefault(p => p.PaymentType == PaymentType.Refund && p.Status == PaymentStatus.RefundPending)
+            ?? payments.FirstOrDefault(p => p.PaymentType == PaymentType.Refund);
+
+        var refundedAt = DateTime.UtcNow;
+        if (refundPayment != null)
+        {
+            await paymentRepo.UpdateStatusAsync(refundPayment.PaymentId, PaymentStatus.Refunded.ToString(), refundedAt);
+        }
+
+        booking.PaymentStatus = "Refunded";
+        booking.UpdatedAt = refundedAt;
+        await bookingRepo.UpdateAsync(booking);
+
+        return Ok(new { success = true, message = "XÃ¡c nháº­n hoÃ n cá»c thÃ nh cÃ´ng.", bookingId, refundedAt });
     }
 
     private long? GetCurrentUserId()

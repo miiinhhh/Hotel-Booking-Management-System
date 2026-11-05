@@ -134,7 +134,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
 
     setCancelModalBooking(null);
     showToast(
-      `Đã hủy đơn thành công. Trạng thái đã được đồng bộ tự động theo chính sách lưu trú.`
+      'Yêu cầu hủy phòng đã được tiếp nhận. Đơn chuyển sang trạng thái "Chờ hoàn cọc" và đang đợi Nhân viên/Kế toán xác nhận hoàn tiền.'
     );
   };
 

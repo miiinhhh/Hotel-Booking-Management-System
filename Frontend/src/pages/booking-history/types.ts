@@ -29,6 +29,7 @@ export interface BookingItem {
   statusLabel: string;
   statusCountdown?: string;
   depositBadge?: string;
+  paymentStatus?: string;
   paidAmount?: number;
   remainingAmount?: number;
   totalAmount: number;

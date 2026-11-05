@@ -528,6 +528,14 @@ public class VnPayService : IVnPayService
                 var refundedAt = DateTime.UtcNow;
                 await _paymentRepository.UpdateStatusAsync(refundPayment.PaymentId, PaymentStatus.Refunded.ToString(), refundedAt);
 
+                var booking = await _bookingRepository.GetByIdAsync(bookingId);
+                if (booking != null)
+                {
+                    booking.PaymentStatus = "Refunded";
+                    booking.UpdatedAt = refundedAt;
+                    await _bookingRepository.UpdateAsync(booking);
+                }
+
                 return new VnPayRefundResultDto
                 {
                     Success = true,
