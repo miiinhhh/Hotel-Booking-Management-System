@@ -14,9 +14,12 @@ public sealed class UserRepository(HotelBookingDbContext dbContext) : IUserRepos
         dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
 
-    public Task<User?> FindByPhoneAsync(string phone, CancellationToken cancellationToken) =>
-        dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
-            .SingleOrDefaultAsync(x => x.Phone == phone, cancellationToken);
+    public Task<User?> FindByPhoneAsync(string phone, CancellationToken cancellationToken)
+    {
+        var candidates = PhoneNumberNormalizer.LookupCandidates(phone);
+        return dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
+            .SingleOrDefaultAsync(x => x.Phone != null && candidates.Contains(x.Phone), cancellationToken);
+    }
 
     public Task<User?> FindByExternalLoginAsync(string provider, string subject, CancellationToken cancellationToken) =>
         dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
@@ -26,8 +29,13 @@ public sealed class UserRepository(HotelBookingDbContext dbContext) : IUserRepos
     public Task<bool> EmailExistsAsync(string email, long excludingUserId, CancellationToken cancellationToken) =>
         dbContext.Users.AnyAsync(x => x.UserId != excludingUserId && x.Email == email, cancellationToken);
 
-    public Task<bool> PhoneExistsAsync(string phone, long excludingUserId, CancellationToken cancellationToken) =>
-        dbContext.Users.AnyAsync(x => x.UserId != excludingUserId && x.Phone == phone, cancellationToken);
+    public Task<bool> PhoneExistsAsync(string phone, long excludingUserId, CancellationToken cancellationToken)
+    {
+        var candidates = PhoneNumberNormalizer.LookupCandidates(phone);
+        return dbContext.Users.AnyAsync(
+            x => x.UserId != excludingUserId && x.Phone != null && candidates.Contains(x.Phone),
+            cancellationToken);
+    }
 
     public Task<RefreshToken?> FindRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken) =>
         dbContext.RefreshTokens.Include(x => x.User).ThenInclude(x => x.UserRoles).ThenInclude(x => x.Role)

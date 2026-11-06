@@ -20,7 +20,7 @@ public sealed class AuthService(
     public async Task<AccountAvailabilityResponse> CheckRegistrationAvailabilityAsync(string? email, string? phone, CancellationToken ct)
     {
         var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : NormalizeEmail(email);
-        var normalizedPhone = NormalizeOptional(phone);
+        var normalizedPhone = PhoneNumberNormalizer.Normalize(phone);
         var emailAvailable = normalizedEmail is null || await users.FindByEmailAsync(normalizedEmail, ct) is null;
         var phoneAvailable = normalizedPhone is null || !await users.PhoneExistsAsync(normalizedPhone, 0, ct);
         return new(emailAvailable, phoneAvailable);
@@ -31,7 +31,7 @@ public sealed class AuthService(
         var email = NormalizeEmail(request.Email);
         if (await users.FindByEmailAsync(email, ct) is not null)
             throw new DuplicateEmailException(email);
-        var phone = NormalizeOptional(request.Phone);
+        var phone = PhoneNumberNormalizer.Normalize(request.Phone);
         if (phone is not null && await users.PhoneExistsAsync(phone, 0, ct))
             throw new DuplicatePhoneException(phone);
         var customerRole = await CustomerRole(ct);
@@ -115,7 +115,9 @@ public sealed class AuthService(
 
     public async Task<OtpChallengeResponse> RequestOtpAsync(OtpRequest request, CancellationToken ct)
     {
-        var destination = request.Channel == OtpChannel.Email ? NormalizeEmail(request.Destination) : request.Destination.Trim();
+        var destination = request.Channel == OtpChannel.Email
+            ? NormalizeEmail(request.Destination)
+            : PhoneNumberNormalizer.Normalize(request.Destination) ?? request.Destination.Trim();
         var purpose = request.Purpose.ToString();
         var recent = await users.FindRecentOtpChallengeAsync(destination, purpose, UtcNow.AddSeconds(-settings.OtpResendSeconds), ct);
         if (recent is not null)
@@ -140,11 +142,11 @@ public sealed class AuthService(
             {
                 await otpSender.SendAsync(request.Channel, destination, code, request.Purpose, ct);
             }
-            catch
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 challenge.ConsumedAt = UtcNow;
                 await users.SaveChangesAsync(ct);
-                throw;
+                throw new OtpDeliveryException(exception);
             }
         }
         return new(challenge.ChallengeId, new DateTimeOffset(challenge.ExpiresAt, TimeSpan.Zero), settings.OtpResendSeconds);

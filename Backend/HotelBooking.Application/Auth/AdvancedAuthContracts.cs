@@ -72,6 +72,9 @@ public interface IOtpSender
     Task SendAsync(OtpChannel channel, string destination, string code, OtpPurpose purpose, CancellationToken cancellationToken);
 }
 
+public sealed class OtpDeliveryException(Exception innerException)
+    : Exception("The verification code could not be delivered.", innerException);
+
 public interface IGoogleTokenValidator
 {
     Task<GoogleIdentity?> ValidateAsync(string idToken, CancellationToken cancellationToken);

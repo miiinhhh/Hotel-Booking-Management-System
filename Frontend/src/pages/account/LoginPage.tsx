@@ -114,7 +114,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
         <div className="grid grid-cols-2 gap-2 rounded-full bg-surface-container p-1">
           {(['Email', 'Phone'] as OtpChannel[]).map((item) => <button key={item} type="button" onClick={() => setChannel(item)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${channel === item ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant'}`}>{item === 'Email' ? 'Email' : 'Điện thoại'}</button>)}
         </div>
-        <Field label={channel === 'Email' ? 'Email đã đăng ký' : 'Số điện thoại đã đăng ký'} icon={channel === 'Email' ? 'mail' : 'call'} type={channel === 'Email' ? 'email' : 'tel'} value={destination} onChange={(event) => setDestination(event.target.value)} required autoComplete={channel === 'Email' ? 'email' : 'tel'} />
+        <Field label={channel === 'Email' ? 'Email đã đăng ký' : 'Số điện thoại đã đăng ký'} icon={channel === 'Email' ? 'mail' : 'call'} type={channel === 'Email' ? 'email' : 'tel'} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder={channel === 'Email' ? 'tenban@email.com' : '0901234567 hoặc +84901234567'} required autoComplete={channel === 'Email' ? 'email' : 'tel'} />
         <PrimaryButton loading={submitting} icon="send">Gửi mã xác thực</PrimaryButton>
       </> : <>
         <Field label="Mã xác thực" icon="pin" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoComplete="one-time-code" />
