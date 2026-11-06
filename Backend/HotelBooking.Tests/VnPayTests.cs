@@ -191,6 +191,7 @@ public class VnPayTests
         public Payment? LastCreatedPayment { get; private set; }
         public Dictionary<string, Payment> StoredPayments { get; } = new();
 
+        public Task<bool> HasStaffAreaAccessAsync(long staffUserId, long bookingId) => Task.FromResult(true);
         public Task<Payment?> GetByIdAsync(long paymentId) => Task.FromResult(LastCreatedPayment);
                 public Task<IEnumerable<Payment>> GetByBookingIdAsync(long bookingId)
         {

@@ -71,8 +71,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 5),
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
             RoomIds = new List<long> { 1 }
         };
 
@@ -90,8 +90,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7),
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm
             RoomIds = new List<long>()
         };
 
@@ -110,8 +110,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7), // 2 đêm
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm
             RoomIds = new List<long> { roomId },
             PaymentMethod = "Deposit"
         };
@@ -165,8 +165,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7), // 2 đêm: 2.000.000đ
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm: 2.000.000đ
             RoomIds = new List<long> { roomId },
             VoucherCode = "luxe10", // Test case-insensitive
             PaymentMethod = "Deposit"
@@ -213,8 +213,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7), // 2 đêm: 2.000.000đ
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm
             RoomIds = new List<long> { roomId },
             VoucherCode = "MINUS500",
             PaymentMethod = "Deposit"
@@ -249,8 +249,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7),
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm
             RoomIds = new List<long> { roomId },
             VoucherCode = "EXPIRED"
         };
@@ -273,8 +273,8 @@ public sealed class BookingPricingTests
 
         var request = new CalculatePriceRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7),
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm
             RoomIds = new List<long> { roomId },
             PaymentMethod = "Cash"
         };
@@ -322,8 +322,8 @@ public sealed class BookingPricingTests
 
         var request = new CreateBookingRequest
         {
-            CheckInDate = new DateOnly(2026, 11, 5),
-            CheckOutDate = new DateOnly(2026, 11, 7), // 2 đêm
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)), // 2 đêm
             NumberOfGuests = 2,
             PaymentMethod = "Deposit",
             VoucherCode = "WELCOME10",
@@ -339,7 +339,7 @@ public sealed class BookingPricingTests
 
         var response = await bookingService.CreateBookingAsync(customerId: 99, request);
 
-        Assert.True(response.Success);
+        Assert.True(response.Success, response.Message);
         var booking = response.Data!;
 
         // Đảm bảo UnitPrice được lấy chuẩn từ DB (1.000.000đ) chứ KHÔNG PHẢI 1.000đ từ client
@@ -355,5 +355,80 @@ public sealed class BookingPricingTests
         var updatedVoucher = await bookingDb.Vouchers.FindAsync(voucher.VoucherId);
         Assert.NotNull(updatedVoucher);
         Assert.Equal(1, updatedVoucher.UsedCount);
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_CustomerCannotReuseVoucher_When_UsageLimitPerCustomer_Is_Exceeded()
+    {
+        var (roomDb, bookingDb) = CreateDatabases();
+        var (roomId, pricePerNight) = SeedRoom(roomDb, 1_000_000m);
+
+        var voucher = new Voucher
+        {
+            Code = "ONCEONLY",
+            VoucherType = VoucherType.FixedAmount,
+            DiscountValue = 200_000m,
+            MinimumOrderAmount = 500_000m,
+            UsageLimitPerCustomer = 1, // Chỉ được dùng 1 lần duy nhất
+            UsageLimit = 100,
+            UsedCount = 0,
+            IsActive = true,
+            StartAt = DateTime.UtcNow.AddDays(-1),
+            EndAt = DateTime.UtcNow.AddDays(10)
+        };
+        bookingDb.Vouchers.Add(voucher);
+
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryHotel { HotelId = 1, IsActive = true });
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryArea { AreaId = 1, HotelId = 1, IsActive = true });
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryType { RoomTypeId = 1, HotelId = 1, AreaId = 1, IsActive = true, Capacity = 2, BasePrice = pricePerNight, RoomTypeName = "Deluxe" });
+        bookingDb.Add(new HotelBooking.Infrastructure.Data.InventoryRoom { RoomId = roomId, RoomTypeId = 1, AreaId = 1, RoomNumber = "101", Status = "Available", IsActive = true });
+        await bookingDb.SaveChangesAsync();
+
+        var voucherRepo = new VoucherRepository(bookingDb);
+        var bookingRepo = new BookingRepository(bookingDb);
+        var voucherService = new VoucherService(voucherRepo);
+        var pricingService = new BookingPricingService(new RoomRepository(roomDb), voucherRepo, null, voucherService);
+        var bookingService = new BookingServices(bookingRepo, pricingService, voucherRepo);
+
+        var request1 = new CreateBookingRequest
+        {
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)),
+            NumberOfGuests = 2,
+            PaymentMethod = "Deposit",
+            VoucherCode = "ONCEONLY",
+            Rooms = new List<BookingRoomItemRequest>
+            {
+                new BookingRoomItemRequest { RoomId = roomId, UnitPrice = pricePerNight }
+            }
+        };
+
+        // Lần 1: Khách hàng 99 đặt phòng với mã ONCEONLY -> THÀNH CÔNG
+        var response1 = await bookingService.CreateBookingAsync(customerId: 99, request1);
+        Assert.True(response1.Success, response1.Message);
+        Assert.Equal(200_000m, response1.Data!.DiscountAmount);
+
+        // Lần 2: Cùng Khách hàng 99 cố tình áp dụng lại mã ONCEONLY -> PHẢI BỊ TỪ CHỐI
+        var request2 = new CreateBookingRequest
+        {
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
+            NumberOfGuests = 2,
+            PaymentMethod = "Deposit",
+            VoucherCode = "ONCEONLY",
+            Rooms = new List<BookingRoomItemRequest>
+            {
+                new BookingRoomItemRequest { RoomId = roomId, UnitPrice = pricePerNight }
+            }
+        };
+
+        var response2 = await bookingService.CreateBookingAsync(customerId: 99, request2);
+        Assert.False(response2.Success);
+        Assert.Contains("không tồn tại hoặc bạn đã sử dụng hết lượt cho phép", response2.Message);
+
+        // Khách hàng khác (CustomerId: 100) dùng mã này lần đầu -> THÀNH CÔNG
+        var response3 = await bookingService.CreateBookingAsync(customerId: 100, request2);
+        Assert.True(response3.Success, response3.Message);
+        Assert.Equal(200_000m, response3.Data!.DiscountAmount);
     }
 }

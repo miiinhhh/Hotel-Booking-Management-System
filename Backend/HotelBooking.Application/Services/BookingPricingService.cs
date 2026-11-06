@@ -36,8 +36,16 @@ public class BookingPricingService : IBookingPricingService
         _voucherService = voucherService;
     }
 
+    public Task<ApiResponse<PriceCalculationResultDto>> CalculatePriceAsync(
+        CalculatePriceRequest request,
+        CancellationToken ct = default)
+    {
+        return CalculatePriceAsync(request, request.CustomerId, ct);
+    }
+
     public async Task<ApiResponse<PriceCalculationResultDto>> CalculatePriceAsync(
         CalculatePriceRequest request,
+        long? customerId,
         CancellationToken ct = default)
     {
         if (request.CheckOutDate <= request.CheckInDate)
@@ -52,6 +60,8 @@ public class BookingPricingService : IBookingPricingService
                 "Vui lòng chọn ít nhất 1 phòng để tính giá.");
         }
 
+        var effectiveCustomerId = customerId ?? request.CustomerId;
+
         try
         {
             var result = await CalculateAuthoritativePriceAsync(
@@ -60,6 +70,7 @@ public class BookingPricingService : IBookingPricingService
                 request.RoomIds,
                 request.VoucherCode,
                 request.PaymentMethod,
+                effectiveCustomerId,
                 ct);
 
             return ApiResponse<PriceCalculationResultDto>.SuccessResult(
@@ -72,12 +83,24 @@ public class BookingPricingService : IBookingPricingService
         }
     }
 
+    public Task<PriceCalculationResultDto> CalculateAuthoritativePriceAsync(
+        DateOnly checkIn,
+        DateOnly checkOut,
+        IReadOnlyList<long> roomIds,
+        string? voucherCode,
+        string paymentMethod,
+        CancellationToken ct = default)
+    {
+        return CalculateAuthoritativePriceAsync(checkIn, checkOut, roomIds, voucherCode, paymentMethod, null, ct);
+    }
+
     public async Task<PriceCalculationResultDto> CalculateAuthoritativePriceAsync(
         DateOnly checkIn,
         DateOnly checkOut,
         IReadOnlyList<long> roomIds,
         string? voucherCode,
         string paymentMethod,
+        long? customerId,
         CancellationToken ct = default)
     {
         if (checkOut <= checkIn)
@@ -118,18 +141,22 @@ public class BookingPricingService : IBookingPricingService
             subTotal = dynamicPricingResult.SubTotal;
             foreach (var roomId in roomIds)
             {
+                var summary = dynamicPricingResult.RoomSummaries.FirstOrDefault(rs => rs.RoomId == roomId);
                 var room = await _roomRepository.FindRoomAsync(roomId, ct);
-                var summary = dynamicPricingResult.RoomSummaries.FirstOrDefault(s => s.RoomId == roomId);
+                var roomTypeName = room?.RoomType?.RoomTypeName ?? "Phòng tiêu chuẩn";
+                var roomNumber = room?.RoomNumber ?? $"#{roomId}";
+                var roomTypeId = room?.RoomTypeId ?? 0;
+
                 decimal roomSubTotal = summary?.SubTotal ?? 0m;
-                decimal unitPrice = summary?.AverageUnitPrice ?? (numberOfNights > 0 ? Math.Round(roomSubTotal / numberOfNights, 2) : 0m);
+                decimal unitPricePerNight = numberOfNights > 0 ? Math.Round(roomSubTotal / numberOfNights, 2) : roomSubTotal;
 
                 roomBreakdowns.Add(new RoomPriceBreakdownDto
                 {
                     RoomId = roomId,
-                    RoomNumber = room?.RoomNumber ?? string.Empty,
-                    RoomTypeId = room?.RoomTypeId ?? summary?.RoomTypeId ?? 0,
-                    RoomTypeName = room?.RoomType?.RoomTypeName ?? summary?.RoomTypeName ?? string.Empty,
-                    UnitPricePerNight = unitPrice,
+                    RoomNumber = roomNumber,
+                    RoomTypeId = roomTypeId,
+                    RoomTypeName = roomTypeName,
+                    UnitPricePerNight = unitPricePerNight,
                     NumberOfNights = numberOfNights,
                     SubTotal = roomSubTotal
                 });
@@ -137,21 +164,17 @@ public class BookingPricingService : IBookingPricingService
         }
         else
         {
+            // Fallback khi không có dynamic pricing service: lấy BasePrice từ RoomType
             foreach (var roomId in roomIds)
             {
                 var room = await _roomRepository.FindRoomAsync(roomId, ct);
                 if (room == null)
                 {
-                    throw new InvalidOperationException($"Không tìm thấy thông tin phòng (ID: {roomId}).");
+                    throw new InvalidOperationException($"Không tìm thấy thông tin phòng ID: {roomId}");
                 }
 
-                if (room.RoomType == null)
-                {
-                    throw new InvalidOperationException($"Phòng (ID: {roomId}) chưa được liên kết với loại phòng.");
-                }
-
-                decimal unitPrice = room.RoomType.BasePrice;
-                decimal roomSubTotal = unitPrice * numberOfNights;
+                decimal pricePerNight = room.RoomType?.BasePrice ?? 0m;
+                decimal roomSubTotal = pricePerNight * numberOfNights;
                 subTotal += roomSubTotal;
 
                 roomBreakdowns.Add(new RoomPriceBreakdownDto
@@ -159,15 +182,15 @@ public class BookingPricingService : IBookingPricingService
                     RoomId = room.RoomId,
                     RoomNumber = room.RoomNumber,
                     RoomTypeId = room.RoomTypeId,
-                    RoomTypeName = room.RoomType.RoomTypeName,
-                    UnitPricePerNight = unitPrice,
+                    RoomTypeName = room.RoomType?.RoomTypeName ?? "Phòng tiêu chuẩn",
+                    UnitPricePerNight = pricePerNight,
                     NumberOfNights = numberOfNights,
                     SubTotal = roomSubTotal
                 });
             }
         }
 
-        // Xử lý Voucher / Mã giảm giá
+        // Xử lý Voucher / Mã giảm giá (có kiểm tra giới hạn lượt dùng theo từng khách hàng)
         decimal discountAmount = 0m;
         string? voucherMessage = null;
         long? voucherId = null;
@@ -181,7 +204,7 @@ public class BookingPricingService : IBookingPricingService
                 {
                     Code = voucherCode,
                     SubTotal = subTotal
-                }, ct: ct);
+                }, customerId: customerId, ct: ct);
 
                 if (!validation.IsValid)
                 {
@@ -201,6 +224,10 @@ public class BookingPricingService : IBookingPricingService
                 if (voucher == null)
                 {
                     voucherMessage = $"Mã ưu đãi '{voucherCode.Trim().ToUpperInvariant()}' không tồn tại.";
+                }
+                else if (customerId.HasValue && await _voucherRepository.GetCustomerUsageCountAsync(voucher.VoucherId, customerId.Value, ct) >= voucher.UsageLimitPerCustomer)
+                {
+                    voucherMessage = $"Mã ưu đãi '{voucher.Code}' không tồn tại hoặc bạn đã sử dụng hết lượt cho phép ({voucher.UsageLimitPerCustomer} lần) đối với tài khoản này.";
                 }
                 else if (!voucher.IsValidNow(subTotal, out var reason))
                 {

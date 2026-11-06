@@ -86,8 +86,7 @@ public class VoucherService : IVoucherService
                 return new ValidateVoucherResponse
                 {
                     IsValid = false,
-                    Message = $"Bạn đã sử dụng hết lượt cho phép ({voucher.UsageLimitPerCustomer} lần) đối với mã giảm giá này."
-                };
+                    Message = $"Mã ưu đãi '{voucher.Code}' không hợp lệ hoặc đã hết lượt sử dụng."};
             }
         }
 

@@ -31,7 +31,9 @@ public class BookingController : BaseAPIController
     [AllowAnonymous]
     public async Task<IActionResult> CalculatePrice([FromBody] CalculatePriceRequest request, CancellationToken ct)
     {
-        var result = await _pricingService.CalculatePriceAsync(request, ct);
+        var (currentUserId, _, _) = GetUserContext();
+        var effectiveCustomerId = request.CustomerId ?? (User.Identity?.IsAuthenticated == true ? currentUserId : (long?)null);
+        var result = await _pricingService.CalculatePriceAsync(request, effectiveCustomerId, ct);
         if (!result.Success)
         {
             return BadRequest(result);

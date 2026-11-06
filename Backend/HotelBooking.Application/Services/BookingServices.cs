@@ -81,11 +81,19 @@ public class BookingServices : IBookingService
                 request.CheckOutDate,
                 roomIds,
                 request.VoucherCode,
-                request.PaymentMethod);
+                request.PaymentMethod,
+                customerId: customerId);
         }
         catch (InvalidOperationException ex)
         {
             return ApiResponse<BookingResponseDto>.FailureResult(ex.Message);
+        }
+
+        // Chống lạm dụng voucher: Nếu khách hàng nhập mã voucher nhưng mã không được áp dụng (hết lượt dùng/đã dùng 1 lần/không tồn tại)
+        if (!string.IsNullOrWhiteSpace(request.VoucherCode) && !pricing.VoucherId.HasValue)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult(
+                pricing.VoucherMessage ?? $"Mã ưu đãi '{request.VoucherCode.Trim().ToUpperInvariant()}' không tồn tại hoặc bạn đã sử dụng hết lượt cho phép.");
         }
 
         var bookingDetails = pricing.RoomBreakdowns.Select(rb => new BookingDetail

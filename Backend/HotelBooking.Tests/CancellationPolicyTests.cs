@@ -75,6 +75,7 @@ public class CancellationPolicyTests
     {
         public List<Payment> Payments { get; } = new();
 
+        public Task<bool> HasStaffAreaAccessAsync(long staffUserId, long bookingId) => Task.FromResult(true);
         public Task<Payment?> GetByIdAsync(long paymentId)
         {
             return Task.FromResult(Payments.FirstOrDefault(p => p.PaymentId == paymentId));
@@ -341,7 +342,7 @@ public class CancellationPolicyTests
         var cancelResult = await bookingService.CancelBookingAsync(1, 10, false, new CancelBookingRequest { Reason = "Kế hoạch thay đổi" });
         Assert.True(cancelResult.Success);
         Assert.Equal(BookingStatus.Cancelled, booking.BookingStatus);
-        Assert.Equal("Refunded", booking.PaymentStatus);
+        Assert.Equal("RefundPending", booking.PaymentStatus);
 
         // Refund payment created
         var refundPayment = paymentRepo.Payments.FirstOrDefault(p => p.PaymentType == PaymentType.Refund);

@@ -19,4 +19,6 @@ public class CalculatePriceRequest
     public string PaymentMethod { get; set; } = "Deposit"; // "Deposit" hoặc "Cash" / "PayAtHotel"
 
     public int? NumberOfGuests { get; set; }
+
+    public long? CustomerId { get; set; }
 }
