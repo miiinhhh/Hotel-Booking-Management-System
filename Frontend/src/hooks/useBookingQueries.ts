@@ -58,6 +58,8 @@ export function useBookingsQuery() {
       totalAmount: b.totalAmount,
       paidAmount: b.depositAmount,
       remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
+      refundAmount: b.refundAmount,
+      refundedAt: b.refundedAt,
       qrType: b.paymentStatus === 'Paid' ? 'checkin' : 'vietqr',
       qrCaption: b.paymentStatus === 'Paid' ? 'Mã nhận phòng nhanh' : 'Quét mã thanh toán',
       amenities: [

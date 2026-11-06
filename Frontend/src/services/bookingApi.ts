@@ -58,6 +58,8 @@ export interface BookingListDto {
   hotelName?: string;
   roomTypeName?: string;
   imageUrl?: string;
+  refundAmount?: number;
+  refundedAt?: string;
 }
 
 export interface BookingFilterRequest {

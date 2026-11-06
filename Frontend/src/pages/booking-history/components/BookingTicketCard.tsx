@@ -1,12 +1,14 @@
 import React from 'react';
 import { BookingItem } from '../types';
+import { StatusBadge } from '../../../components/common/StatusBadge';
+import { formatVnd, formatDateVi } from '../../../utils/formatters';
 
 interface BookingTicketCardProps {
   booking: BookingItem;
   onCopyCode: (code: string) => void;
   onOpenCancelModal: (booking: BookingItem) => void;
   onOpenReviewModal: (booking: BookingItem) => void;
-  onPayNow?: (booking: BookingItem) => void;
+  onPayNow?: (booking: BookingItem, paymentTarget?: 'Deposit' | 'Full') => void;
   onRebook?: (booking: BookingItem) => void;
 }
 
@@ -73,7 +75,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
         {/* Stay Details & Schedule */}
         <div className="flex-1 flex flex-col justify-between gap-4">
           <div>
-            {/* Top Row: Hotel Name & Status Badge */}
+            {/* Top Row: Hotel Name & Dual Status Badges */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <span className="font-label-sm text-[10px] uppercase tracking-widest text-primary-container font-semibold">
@@ -88,39 +90,11 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                 </span>
               </div>
 
-              {/* Status Badge */}
-              {isConfirmed && (
-                <span className="px-3.5 py-1 rounded-full bg-primary/10 text-primary font-label-sm text-label-sm font-bold tracking-wide inline-flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                  {booking.statusLabel}
-                </span>
-              )}
-              {isPending && (
-                <span className="px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold tracking-wide inline-flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] animate-spin">
-                    timelapse
-                  </span>
-                  {booking.statusLabel}
-                </span>
-              )}
-              {isCompleted && (
-                <span className="px-3 py-1 rounded-full bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm font-semibold tracking-wide inline-flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[14px]">check</span>
-                  {booking.statusLabel}
-                </span>
-              )}
-              {isCancelled && (
-                <span className={`px-3 py-1 rounded-full font-label-sm text-label-sm font-semibold tracking-wide inline-flex items-center gap-1.5 ${
-                  booking.paymentStatus === 'RefundPending'
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                    : 'bg-error-container/40 text-error'
-                }`}>
-                  <span className="material-symbols-outlined text-[14px]">
-                    {booking.paymentStatus === 'RefundPending' ? 'pending_actions' : 'close'}
-                  </span>
-                  {booking.paymentStatus === 'RefundPending' ? 'ĐÃ HỦY • CHỜ HOÀN CỌC' : booking.statusLabel}
-                </span>
-              )}
+              {/* Dual Status Badges (BookingStatus & PaymentStatus) */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <StatusBadge status={booking.status} type="booking" />
+                <StatusBadge status={booking.paymentStatus || 'Unpaid'} type="payment" />
+              </div>
             </div>
 
             {/* Accommodation Title */}
@@ -192,11 +166,11 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                 <span className="font-body-md text-[13px] text-on-surface-variant">
                   Đã trả:{' '}
                   <strong className="text-on-surface">
-                    {booking.paidAmount?.toLocaleString('vi-VN')}đ
+                    {formatVnd(booking.paidAmount)}
                   </strong>{' '}
                   · Còn lại tại quầy:{' '}
                   <strong className="text-on-surface">
-                    {booking.remainingAmount?.toLocaleString('vi-VN')}đ
+                    {formatVnd(booking.remainingAmount)}
                   </strong>
                 </span>
               </div>
@@ -214,7 +188,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                   {booking.depositBadge}
                 </span>
                 <span className="font-headline-sm text-[15px] text-error font-semibold">
-                  Tổng cần thanh toán: {booking.totalAmount.toLocaleString('vi-VN')}đ
+                  Tổng cần thanh toán: {formatVnd(booking.totalAmount)}
                 </span>
               </div>
               <p className="font-body-md text-[12px] text-on-surface-variant italic">
@@ -244,10 +218,15 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                       Đã ghi nhận yêu cầu hủy. Tiền hoàn cọc đang chờ Nhân viên / Kế toán xác nhận hoàn lại.
                     </span>
                   </>
-                ) : (
+                ) : booking.paymentStatus === 'Refunded' ? (
                   <>
                     <span className="material-symbols-outlined text-[16px] text-primary">check_circle</span>
                     <span>Tiền cọc đã được xử lý hoàn tiền về tài khoản ngân hàng gốc.</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">info</span>
+                    <span>Đơn đặt phòng đã hủy theo quy định chính sách.</span>
                   </>
                 )}
               </span>
@@ -374,8 +353,12 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
               <h4 className="font-headline-sm text-[18px] text-on-surface mb-1">
                 Đơn đã hủy
               </h4>
-              <p className="font-body-md text-[12px] text-on-surface-variant">
-                Đã xử lý hoàn tiền vào ngày 05/01/2025.
+              <p className="font-body-md text-[12px] text-on-surface-variant text-center max-w-[220px]">
+                {booking.paymentStatus === 'Refunded'
+                  ? `Đã hoàn tiền ${booking.refundAmount ? formatVnd(booking.refundAmount) : ''}${booking.refundedAt ? ` ngày ${formatDateVi(booking.refundedAt)}` : ''}`
+                  : booking.paymentStatus === 'RefundPending'
+                  ? 'Đang chờ ngân hàng xử lý hoàn cọc'
+                  : 'Hủy phòng không hoàn cọc theo chính sách'}
               </p>
             </div>
           )}
@@ -390,6 +373,16 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
           {/* Confirmed actions */}
           {isConfirmed && (
             <>
+              {booking.paymentStatus === 'PartiallyPaid' && (booking.remainingAmount ?? 0) > 0 && (
+                <button
+                  onClick={() => onPayNow?.(booking, 'Full')}
+                  className="w-full py-2.5 px-4 rounded-full bg-secondary text-on-secondary font-label-md text-label-md shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mb-1"
+                >
+                  <span className="material-symbols-outlined text-[18px]">payments</span>
+                  <span>Thanh toán phần còn lại ({formatVnd(booking.remainingAmount)})</span>
+                </button>
+              )}
+
               <button
                 onClick={() => alert(`Xem chi tiết vé điện tử đơn ${booking.bookingCode}`)}
                 className="w-full py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
@@ -444,11 +437,11 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
           {isPending && (
             <>
               <button
-                onClick={() => onPayNow?.(booking)}
+                onClick={() => onPayNow?.(booking, 'Deposit')}
                 className="w-full py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">payment</span>
-                <span>Thanh toán ngay ({booking.totalAmount.toLocaleString('vi-VN')}đ)</span>
+                <span>Thanh toán ngay ({formatVnd(booking.totalAmount)})</span>
               </button>
 
               <button

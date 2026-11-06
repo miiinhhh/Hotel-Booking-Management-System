@@ -34,6 +34,8 @@ export interface BookingItem {
   remainingAmount?: number;
   totalAmount: number;
   totalAmountText?: string;
+  refundAmount?: number;
+  refundedAt?: string;
   qrType: 'checkin' | 'vietqr';
   qrCaption: string;
   cancellationPolicyNotice?: string;

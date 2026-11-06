@@ -102,11 +102,11 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
     }
   };
 
-  const handlePayNow = async (booking: BookingItem) => {
+  const handlePayNow = async (booking: BookingItem, paymentTarget: 'Deposit' | 'Full' = 'Deposit') => {
     const bookingIdNum = Number(booking.id);
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
       try {
-        const res = await createVnPayPayment(bookingIdNum, 'Deposit');
+        const res = await createVnPayPayment(bookingIdNum, paymentTarget);
         if (res.success && res.data?.paymentUrl) {
           window.location.href = res.data.paymentUrl;
           return;
