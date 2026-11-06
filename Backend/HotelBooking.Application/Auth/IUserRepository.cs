@@ -6,7 +6,6 @@ public interface IUserRepository
 {
     Task<User?> FindByIdAsync(long userId, CancellationToken cancellationToken);
     Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken);
-    Task<User?> FindByPhoneAsync(string phone, CancellationToken cancellationToken);
     Task<User?> FindByExternalLoginAsync(string provider, string subject, CancellationToken cancellationToken);
     Task<bool> EmailExistsAsync(string email, long excludingUserId, CancellationToken cancellationToken);
     Task<bool> PhoneExistsAsync(string phone, long excludingUserId, CancellationToken cancellationToken);

@@ -28,7 +28,7 @@ export interface AccountProfile {
 
 export interface AccountAvailability { emailAvailable: boolean; phoneAvailable: boolean; }
 export interface OtpChallenge { challengeId: string; expiresAt: string; resendAfterSeconds: number; }
-export type OtpChannel = 'Email' | 'Phone';
+export type OtpChannel = 'Email';
 export type OtpPurpose = 'Login' | 'PasswordReset';
 
 export interface StaffAccount {

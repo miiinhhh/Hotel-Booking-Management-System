@@ -20,7 +20,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
   const [mode, setMode] = useState<Mode>('password');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [channel, setChannel] = useState<OtpChannel>('Email');
+  const channel: OtpChannel = 'Email';
   const [destination, setDestination] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const [code, setCode] = useState('');
@@ -111,10 +111,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
     </form> : <form onSubmit={challengeId ? verifyCode : requestCode} className="space-y-5">
       {notice}
       {!challengeId ? <>
-        <div className="grid grid-cols-2 gap-2 rounded-full bg-surface-container p-1">
-          {(['Email', 'Phone'] as OtpChannel[]).map((item) => <button key={item} type="button" onClick={() => setChannel(item)} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${channel === item ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant'}`}>{item === 'Email' ? 'Email' : 'Điện thoại'}</button>)}
-        </div>
-        <Field label={channel === 'Email' ? 'Email đã đăng ký' : 'Số điện thoại đã đăng ký'} icon={channel === 'Email' ? 'mail' : 'call'} type={channel === 'Email' ? 'email' : 'tel'} value={destination} onChange={(event) => setDestination(event.target.value)} placeholder={channel === 'Email' ? 'tenban@email.com' : '0901234567 hoặc +84901234567'} required autoComplete={channel === 'Email' ? 'email' : 'tel'} />
+        <div className="flex items-center gap-3 rounded-lg bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant"><span className="material-symbols-outlined text-primary">mail</span>Mã OTP sẽ được gửi đến email đã đăng ký.</div>
+        <Field label="Email đã đăng ký" icon="mail" type="email" value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="tenban@email.com" required autoComplete="email" />
         <PrimaryButton loading={submitting} icon="send">Gửi mã xác thực</PrimaryButton>
       </> : <>
         <Field label="Mã xác thực" icon="pin" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoComplete="one-time-code" />

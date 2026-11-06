@@ -115,17 +115,13 @@ public sealed class AuthService(
 
     public async Task<OtpChallengeResponse> RequestOtpAsync(OtpRequest request, CancellationToken ct)
     {
-        var destination = request.Channel == OtpChannel.Email
-            ? NormalizeEmail(request.Destination)
-            : PhoneNumberNormalizer.Normalize(request.Destination) ?? request.Destination.Trim();
+        var destination = NormalizeEmail(request.Destination);
         var purpose = request.Purpose.ToString();
         var recent = await users.FindRecentOtpChallengeAsync(destination, purpose, UtcNow.AddSeconds(-settings.OtpResendSeconds), ct);
         if (recent is not null)
             return new(recent.ChallengeId, new DateTimeOffset(recent.ExpiresAt, TimeSpan.Zero), settings.OtpResendSeconds);
 
-        var user = request.Channel == OtpChannel.Email
-            ? await users.FindByEmailAsync(destination, ct)
-            : await users.FindByPhoneAsync(destination, ct);
+        var user = await users.FindByEmailAsync(destination, ct);
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
         var challenge = new AuthOtpChallenge
         {

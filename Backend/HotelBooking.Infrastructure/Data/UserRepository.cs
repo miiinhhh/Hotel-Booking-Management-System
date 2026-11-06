@@ -14,13 +14,6 @@ public sealed class UserRepository(HotelBookingDbContext dbContext) : IUserRepos
         dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
 
-    public Task<User?> FindByPhoneAsync(string phone, CancellationToken cancellationToken)
-    {
-        var candidates = PhoneNumberNormalizer.LookupCandidates(phone);
-        return dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
-            .SingleOrDefaultAsync(x => x.Phone != null && candidates.Contains(x.Phone), cancellationToken);
-    }
-
     public Task<User?> FindByExternalLoginAsync(string provider, string subject, CancellationToken cancellationToken) =>
         dbContext.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .SingleOrDefaultAsync(x => x.ExternalLogins.Any(login =>

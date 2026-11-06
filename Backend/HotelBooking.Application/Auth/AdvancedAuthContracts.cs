@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace HotelBooking.Application.Auth;
 
-public enum OtpChannel { Email, Phone }
+public enum OtpChannel { Email }
 public enum OtpPurpose { Login, PasswordReset }
 public enum AuthFailure { None, InvalidCredentials, LockedOut, InvalidToken, InvalidOtp, OtpExpired, ProviderRejected, DeliveryUnavailable }
 

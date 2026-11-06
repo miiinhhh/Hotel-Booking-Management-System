@@ -75,37 +75,6 @@ public sealed class AdvancedAuthenticationTests
     }
 
     [Fact]
-    public async Task Phone_otp_accepts_local_vietnamese_format_and_signs_in()
-    {
-        using var baseFactory = new StaffFactory();
-        var sender = new CapturingOtpSender();
-        using var factory = baseFactory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
-        {
-            services.RemoveAll<IOtpSender>();
-            services.AddSingleton<IOtpSender>(sender);
-        }));
-        using var client = factory.CreateClient();
-        await SeedCustomer(factory);
-
-        var challengeResponse = await client.PostAsJsonAsync("/api/auth/otp/request", new
-        {
-            destination = "0900000001", channel = "Phone", purpose = "Login"
-        });
-        Assert.Equal(HttpStatusCode.Accepted, challengeResponse.StatusCode);
-        Assert.Equal(OtpChannel.Phone, sender.LastChannel);
-        Assert.Equal("+84900000001", sender.LastDestination);
-        using var document = JsonDocument.Parse(await challengeResponse.Content.ReadAsStringAsync());
-
-        var login = await client.PostAsJsonAsync("/api/auth/otp/verify", new
-        {
-            challengeId = document.RootElement.GetProperty("challengeId").GetGuid(),
-            code = sender.LastCode,
-            rememberMe = false
-        });
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-    }
-
-    [Fact]
     public async Task Google_verified_identity_creates_and_reuses_customer_account()
     {
         using var baseFactory = new StaffFactory();
@@ -267,12 +236,8 @@ public sealed class AdvancedAuthenticationTests
     private sealed class CapturingOtpSender : IOtpSender
     {
         public string LastCode { get; private set; } = string.Empty;
-        public OtpChannel LastChannel { get; private set; }
-        public string LastDestination { get; private set; } = string.Empty;
         public Task SendAsync(OtpChannel channel, string destination, string code, OtpPurpose purpose, CancellationToken cancellationToken)
         {
-            LastChannel = channel;
-            LastDestination = destination;
             LastCode = code;
             return Task.CompletedTask;
         }
