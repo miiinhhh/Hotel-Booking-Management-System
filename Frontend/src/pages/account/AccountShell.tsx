@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId, useState } from 'react';
 
 interface AccountShellProps {
   eyebrow: string;
@@ -46,3 +46,19 @@ export const Field: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
     </span>
   </label>
 );
+
+export const PasswordField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon?: string }> = ({ label, icon = 'lock', className = '', id, ...props }) => {
+  const [visible, setVisible] = useState(false);
+  const generatedId = useId();
+  const inputId = id || generatedId;
+  return <div className="block text-sm font-semibold text-on-surface">
+    <label htmlFor={inputId}>{label}</label>
+    <div className="relative mt-2">
+      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-xl text-outline">{icon}</span>
+      <input {...props} id={inputId} type={visible ? 'text' : 'password'} className={`h-12 w-full rounded-lg border border-outline-variant/60 bg-surface-container-lowest pl-12 pr-12 font-normal outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 ${className}`} />
+      <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-outline transition hover:bg-surface-container hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20" aria-label={visible ? `Ẩn ${label.toLowerCase()}` : `Hiện ${label.toLowerCase()}`} aria-pressed={visible}>
+        <span className="material-symbols-outlined text-xl">{visible ? 'visibility_off' : 'visibility'}</span>
+      </button>
+    </div>
+  </div>;
+};

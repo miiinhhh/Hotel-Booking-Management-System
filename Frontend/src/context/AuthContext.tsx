@@ -146,7 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     logoutAll: async () => {
       const current = requireSession();
-      try { await authApi.logoutAll(current.accessToken); } finally { clearSession(); }
+      await authApi.logoutAll(current.accessToken);
+      clearSession();
     },
     refreshProfile: async () => {
       const result = await authApi.getProfile(requireSession().accessToken);

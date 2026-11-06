@@ -35,6 +35,7 @@ Thumbs.db
 !Database&Docs/RoomEmergencyLocks.sql
 !Database&Docs/Reviews.sql
 *.json
+!Backend/HotelBooking.API/appsettings.Local.example.json
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscovery.sql
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscoveryDemo.sql

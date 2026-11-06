@@ -1,7 +1,7 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { authApi, OtpChannel } from '../../services/authApi';
-import { AccountShell, Field } from './AccountShell';
+import { AccountShell, Field, PasswordField } from './AccountShell';
 
 interface LoginPageProps { onRegister: () => void; onSuccess: () => void; }
 type Mode = 'password' | 'otp' | 'reset';
@@ -18,7 +18,6 @@ declare global {
 export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) => {
   const { login, loginWithOtp, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('password');
-  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const channel: OtpChannel = 'Email';
   const [destination, setDestination] = useState('');
@@ -96,10 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
     {mode === 'password' ? <form onSubmit={submitPassword} className="space-y-5">
       {notice}
       <Field name="email" label="Email" icon="mail" type="email" autoComplete="email" required placeholder="tenban@email.com" />
-      <div>
-        <Field name="password" label="Mật khẩu" icon="lock" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required className="pr-12" />
-        <button type="button" onClick={() => setShowPassword((value) => !value)} className="float-right -mt-10 mr-3 flex h-8 w-8 items-center justify-center rounded-full text-outline hover:bg-surface-container" aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}><span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span></button>
-      </div>
+      <PasswordField name="password" label="Mật khẩu" icon="lock" autoComplete="current-password" required />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Remember checked={remember} onChange={setRemember} />
         <button type="button" onClick={() => startMode('reset')} className="text-sm font-semibold text-primary hover:underline">Quên mật khẩu?</button>
@@ -116,7 +112,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
         <PrimaryButton loading={submitting} icon="send">Gửi mã xác thực</PrimaryButton>
       </> : <>
         <Field label="Mã xác thực" icon="pin" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoComplete="one-time-code" />
-        {mode === 'reset' && <Field label="Mật khẩu mới" icon="lock_reset" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={100} required autoComplete="new-password" />}
+        {mode === 'reset' && <PasswordField label="Mật khẩu mới" icon="lock_reset" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={100} required autoComplete="new-password" />}
         {mode === 'otp' && <Remember checked={remember} onChange={setRemember} />}
         <PrimaryButton loading={submitting} icon={mode === 'otp' ? 'login' : 'lock_reset'}>{mode === 'otp' ? 'Xác thực và đăng nhập' : 'Đặt lại mật khẩu'}</PrimaryButton>
         <button type="button" onClick={() => setChallengeId('')} className="w-full text-sm font-semibold text-primary hover:underline">Gửi lại hoặc đổi thông tin nhận mã</button>
