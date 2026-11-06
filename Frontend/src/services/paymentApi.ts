@@ -106,3 +106,13 @@ export async function confirmManualRefund(bookingId: number): Promise<ApiRespons
     method: 'POST',
   });
 }
+
+
+/**
+ * Nhân viên Lễ tân xác nhận đã thu đủ tiền mặt / POS tại quầy
+ */
+export async function confirmCashPayment(bookingId: number): Promise<ApiResponse<any>> {
+  return apiClient<any>(`/api/payments/cash-collect/${bookingId}`, {
+    method: 'POST',
+  });
+}

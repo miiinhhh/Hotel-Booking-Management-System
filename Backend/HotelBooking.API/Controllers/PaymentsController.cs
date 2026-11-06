@@ -408,6 +408,56 @@ public class PaymentsController : BaseAPIController
         return Ok(new { success = true, message = "XÃ¡c nháº­n hoÃ n cá»c thÃ nh cÃ´ng.", bookingId, refundedAt });
     }
 
+        /// <summary>
+    /// Nhân viên Lễ tân xác nhận đã thu đủ tiền mặt / POS tại quầy
+    /// </summary>
+    [HttpPost("cash-collect/{bookingId:long}")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    public async Task<IActionResult> CollectCashPayment(
+        long bookingId,
+        [FromServices] IBookingRepository bookingRepo,
+        [FromServices] IPaymentRepository paymentRepo)
+    {
+        var booking = await bookingRepo.GetByIdAsync(bookingId);
+        if (booking == null) return NotFound(new { success = false, message = "Không tìm thấy đơn đặt phòng." });
+
+        if (booking.BookingStatus == BookingStatus.Cancelled)
+            return BadRequest(new { success = false, message = "Đơn phòng đã hủy, không thể thu tiền." });
+
+        var remaining = Math.Max(0, booking.TotalAmount - booking.DepositAmount);
+        var now = DateTime.UtcNow;
+
+        var payment = new Payment
+        {
+            BookingId = bookingId,
+            Amount = remaining > 0 ? remaining : booking.TotalAmount,
+            PaymentMethod = PaymentMethod.Cash,
+            PaymentType = PaymentType.Payment,
+            Status = PaymentStatus.Paid,
+            TransactionCode = $"CASH-{booking.BookingCode}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+            CreatedAt = now,
+            PaidAt = now
+        };
+
+        var paymentId = await paymentRepo.CreateAsync(payment);
+
+        booking.PaymentStatus = "Paid";
+        booking.DepositAmount = booking.TotalAmount;
+        booking.RemainingAmount = 0;
+        booking.UpdatedAt = now;
+        await bookingRepo.UpdateAsync(booking);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Đã xác nhận thu tiền mặt / POS thành công.",
+            paymentId,
+            bookingId,
+            totalPaid = booking.TotalAmount,
+            remainingAmount = 0
+        });
+    }
+
     private long? GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id");

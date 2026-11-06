@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StaffBooking } from '../types';
-import { refundVnPayPayment, confirmManualRefund } from '../../../services/paymentApi';
+import { refundVnPayPayment, confirmManualRefund, confirmCashPayment } from '../../../services/paymentApi';
+import { formatVnd } from '../../../utils/formatters';
 
 interface BookingDetailDrawerProps {
   booking: StaffBooking | null;
@@ -10,6 +11,7 @@ interface BookingDetailDrawerProps {
   onCancelBooking: (booking: StaffBooking) => void;
   onUpdateNotes?: (bookingId: string, notes: string, approval: 'accepted' | 'rejected') => void;
   onRefundBooking?: (booking: StaffBooking, message: string) => void;
+  onConfirmPayment?: (booking: StaffBooking) => void;
 }
 
 export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
@@ -20,8 +22,11 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   onCancelBooking,
   onUpdateNotes,
   onRefundBooking,
+  onConfirmPayment,
 }) => {
   const [isRefunding, setIsRefunding] = useState(false);
+  const [isCollectingCash, setIsCollectingCash] = useState(false);
+  const [showCashConfirmModal, setShowCashConfirmModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [printDepositClicked, setPrintDepositClicked] = useState(false);
   const [approvalState, setApprovalState] = useState<'accepted' | 'rejected'>(
@@ -41,10 +46,44 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
       setCheckInDone(booking.status === 'checked_in');
       setPrintDepositClicked(false);
       setCopied(false);
+      setShowCashConfirmModal(false);
     }
   }, [booking]);
 
   if (!isOpen || !booking) return null;
+
+  const handleCollectCashPayment = async () => {
+    const bookingIdNum = Number(booking.id);
+    if (!bookingIdNum || isNaN(bookingIdNum)) {
+      alert('Mã đơn không hợp lệ');
+      return;
+    }
+
+    setIsCollectingCash(true);
+    try {
+      const res = await confirmCashPayment(bookingIdNum);
+      if (res.success) {
+        alert(
+          `Đã xác nhận thu thành công ${formatVnd(booking.remainingAmount)} bằng Tiền mặt / POS cho đơn ${booking.bookingCode}!`
+        );
+        const updated: StaffBooking = {
+          ...booking,
+          paidAmount: booking.totalAmount,
+          remainingAmount: 0,
+          depositStatus: 'paid_100',
+          depositStatusLabel: 'Đã thanh toán 100%',
+        };
+        onConfirmPayment?.(updated);
+        setShowCashConfirmModal(false);
+      } else {
+        alert(`Lỗi ghi nhận thanh toán: ${res.message || 'Không thể xác nhận thu tiền.'}`);
+      }
+    } catch (err) {
+      alert(`Lỗi kết nối máy chủ: ${err instanceof Error ? err.message : 'Lỗi hệ thống'}`);
+    } finally {
+      setIsCollectingCash(false);
+    }
+  };
 
   const handleRefundVnPay = async () => {
     const bookingIdNum = Number(booking.id);
@@ -60,13 +99,16 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
       const res = await refundVnPayPayment(bookingIdNum);
       if (res.success) {
         alert(`Đã gửi lệnh hoàn cọc thành công qua cổng VNPay cho đơn ${booking.bookingCode}!`);
-        onRefundBooking?.({
-          ...booking,
-          depositStatus: 'refunded',
-          depositStatusLabel: 'Đã hoàn cọc',
-          status: 'cancelled',
-          statusLabel: 'ĐÃ HỦY',
-        }, 'Hoàn cọc VNPay thành công');
+        onRefundBooking?.(
+          {
+            ...booking,
+            depositStatus: 'refunded',
+            depositStatusLabel: 'Đã hoàn cọc',
+            status: 'cancelled',
+            statusLabel: 'ĐÃ HỦY',
+          },
+          'Hoàn cọc VNPay thành công'
+        );
       } else {
         alert(`Lỗi hoàn cọc VNPay: ${res.message || 'Cổng VNPay từ chối giao dịch'}`);
       }
@@ -83,7 +125,9 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
       alert('Mã đơn không hợp lệ');
       return;
     }
-    const confirm = window.confirm(`Xác nhận đã hoàn tiền thủ công (tiền mặt / chuyển khoản ngoài) cho đơn ${booking.bookingCode}?`);
+    const confirm = window.confirm(
+      `Xác nhận đã hoàn tiền thủ công (tiền mặt / chuyển khoản ngoài) cho đơn ${booking.bookingCode}?`
+    );
     if (!confirm) return;
 
     setIsRefunding(true);
@@ -91,13 +135,16 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
       const res = await confirmManualRefund(bookingIdNum);
       if (res.success) {
         alert(`Đã xác nhận hoàn tiền thành công cho đơn ${booking.bookingCode}!`);
-        onRefundBooking?.({
-          ...booking,
-          depositStatus: 'refunded',
-          depositStatusLabel: 'Đã hoàn cọc',
-          status: 'cancelled',
-          statusLabel: 'ĐÃ HỦY',
-        }, 'Đã xác nhận hoàn cọc thủ công');
+        onRefundBooking?.(
+          {
+            ...booking,
+            depositStatus: 'refunded',
+            depositStatusLabel: 'Đã hoàn cọc',
+            status: 'cancelled',
+            statusLabel: 'ĐÃ HỦY',
+          },
+          'Đã xác nhận hoàn cọc thủ công'
+        );
       } else {
         alert(`Lỗi: ${res.message || 'Không thể xác nhận hoàn tiền'}`);
       }
@@ -132,6 +179,17 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   };
 
   const handleExecuteCheckIn = () => {
+    if (booking.remainingAmount > 0) {
+      const confirmUnderpaid = window.confirm(
+        `⚠️ CẢNH BÁO TIỀN PHÒNG CHƯA THU ĐỦ:\n\nĐơn đặt phòng ${booking.bookingCode} vẫn còn thiếu ${formatVnd(
+          booking.remainingAmount
+        )} chưa thanh toán.\n\nBạn có chắc chắn muốn cho khách Check-in mà chưa thu đủ tiền không?`
+      );
+      if (!confirmUnderpaid) {
+        return;
+      }
+    }
+
     setIsCheckingIn(true);
     setTimeout(() => {
       setIsCheckingIn(false);
@@ -146,7 +204,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
 
   const handleCancelClick = () => {
     const confirmCancel = window.confirm(
-      `Quy định hủy: Đơn ${booking.bookingCode} (Đã cọc ${booking.paidAmount.toLocaleString('vi-VN')}₫). Bạn có chắc muốn xử lý hủy booking này không?`
+      `Quy định hủy: Đơn ${booking.bookingCode} (Đã thanh toán ${formatVnd(booking.paidAmount)}). Bạn có chắc muốn xử lý hủy booking này không?`
     );
     if (confirmCancel) {
       onCancelBooking(booking);
@@ -392,21 +450,23 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                 <span className="font-body-md text-body-md text-on-surface-variant">
                   Tổng giá trị đơn đặt phòng
                 </span>
-                <span className="font-headline-md text-headline-md text-on-surface">
-                  {booking.totalAmount > 0
-                    ? `${booking.totalAmount.toLocaleString('vi-VN')}₫`
-                    : '0₫'}
+                <span className="font-headline-md text-headline-md text-on-surface font-bold">
+                  {formatVnd(booking.totalAmount)}
                 </span>
               </div>
 
               {booking.depositStatus === 'refund_pending' && (
                 <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
-                    <span className="material-symbols-outlined text-[20px] text-amber-600 animate-pulse">pending_actions</span>
+                    <span className="material-symbols-outlined text-[20px] text-amber-600 animate-pulse">
+                      pending_actions
+                    </span>
                     <span>YÊU CẦU HOÀN TIỀN CHỜ DUYỆT</span>
                   </div>
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    Khách hàng đã hủy đặt phòng này. Số tiền hoàn cọc dự kiến là <strong>{booking.paidAmount.toLocaleString('vi-VN')}₫</strong> đang chờ Nhân viên / Kế toán xác nhận hoàn cọc qua cổng VNPay hoặc chi tiền mặt cho khách.
+                    Khách hàng đã hủy đặt phòng này. Số tiền hoàn cọc dự kiến là{' '}
+                    <strong>{formatVnd(booking.paidAmount)}</strong> đang chờ Nhân viên / Kế toán xác nhận hoàn cọc qua
+                    cổng VNPay hoặc chi tiền mặt cho khách.
                   </p>
                 </div>
               )}
@@ -416,10 +476,10 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-label-sm text-label-sm uppercase tracking-wider text-[#2d6a4f] font-semibold">
-                        Đã cọc trực tuyến ({Math.round((booking.paidAmount / booking.totalAmount) * 100)}%)
+                        Đã thanh toán ({Math.min(100, Math.round((booking.paidAmount / (booking.totalAmount || 1)) * 100))}%)
                       </span>
-                      <p className="font-headline-sm text-headline-sm text-[#1b4332] mt-0.5">
-                        {booking.paidAmount.toLocaleString('vi-VN')}₫
+                      <p className="font-headline-sm text-headline-sm text-[#1b4332] mt-0.5 font-bold">
+                        {formatVnd(booking.paidAmount)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -455,27 +515,35 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
               )}
 
               {/* Pending Balance at Check-in */}
-              <div className="p-4 rounded-DEFAULT bg-primary-fixed/30 flex items-center justify-between">
+              <div className="p-4 rounded-DEFAULT bg-primary-fixed/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="space-y-1">
                   <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-primary-fixed font-semibold">
                     Cần thu khi check-in
                   </span>
-                  <p className="font-headline-sm text-headline-sm text-primary">
-                    {booking.remainingAmount.toLocaleString('vi-VN')}₫
+                  <p className="font-headline-sm text-headline-sm text-primary font-bold">
+                    {formatVnd(booking.remainingAmount)}
                   </p>
                   <p className="font-label-sm text-label-sm text-on-surface-variant">
                     Tiền mặt hoặc quẹt thẻ POS khi bàn giao khóa phòng
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[20px]">point_of_sale</span>
-                </div>
+                {booking.remainingAmount > 0 && booking.status !== 'cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCashConfirmModal(true)}
+                    disabled={isCollectingCash}
+                    className="px-4 py-2 rounded-full bg-primary hover:bg-tertiary-container text-on-primary font-label-md text-label-md flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">payments</span>
+                    <span>Thu tiền mặt / POS</span>
+                  </button>
+                )}
               </div>
             </div>
           </article>
 
           {/* CARD 3: YÊU CẦU ĐẶC BIỆT CỦA KHÁCH */}
-          <article className="bg-surface-container-lowest p-6 md:p-7 rounded-lg shadow-[0_4px_20px_-2px_rgba(120,53,15,0.04)] space-y-4 border border-[#eae8e5]">
+          <article className="bg-surface-container-lowest p-6 md:p-7 rounded-lg shadow-[0_4px_20px_-2px_rgba(120,53,15,0.04)] border border-[#eae8e5] space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary">
@@ -584,73 +652,162 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
             </button>
           </div>
 
-          {/* Primary Action Button */}
-          {booking.depositStatus === 'refund_pending' ? (
-            <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+          {/* Primary Action Buttons */}
+          <div className="flex flex-wrap items-center justify-end gap-2.5 w-full sm:w-auto">
+            {booking.depositStatus === 'refund_pending' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleManualRefund}
+                  disabled={isRefunding}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-full border border-outline/30 bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-label-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Xác nhận hoàn tiền bằng tiền mặt hoặc chuyển khoản ngoài"
+                >
+                  <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                  <span>Hoàn tiền mặt / CK</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRefundVnPay}
+                  disabled={isRefunding}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-primary hover:bg-tertiary-container text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  title="Gọi API Merchant VNPay để hoàn cọc tự động về thẻ/tài khoản khách"
+                >
+                  {isRefunding ? (
+                    <>
+                      <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                      <span>Đang kết nối VNPay...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">payments</span>
+                      <span>Xác nhận hoàn cọc VNPay</span>
+                    </>
+                  )}
+                </button>
+              </>
+            ) : booking.depositStatus === 'refunded' ? (
+              <div className="px-5 py-2.5 rounded-full bg-purple-50 text-purple-900 border border-purple-200 font-label-md text-label-md flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-purple-700">check_circle</span>
+                <span>Đã hoàn tiền cho khách</span>
+              </div>
+            ) : (
+              <>
+                {/* Nút xác nhận đã thu đủ tiền mặt / POS nếu còn thiếu */}
+                {booking.remainingAmount > 0 && booking.status !== 'cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCashConfirmModal(true)}
+                    disabled={isCollectingCash}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all font-label-md text-label-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Xác nhận đã thu đủ số tiền phòng còn thiếu bằng tiền mặt hoặc quẹt thẻ POS"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">price_check</span>
+                    <span>Đã thu đủ ({formatVnd(booking.remainingAmount)})</span>
+                  </button>
+                )}
+
+                {checkInDone ? (
+                  <div className="w-full sm:w-auto px-7 py-3 rounded-full bg-[#1b4332] text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-2.5 shadow-md">
+                    <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                    <span>Đã Check-in ({booking.roomNumber})</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleExecuteCheckIn}
+                    disabled={isCheckingIn || booking.status === 'cancelled'}
+                    className="w-full sm:w-auto px-7 py-3 rounded-full bg-primary-container hover:bg-tertiary-container text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-2.5 shadow-[0_4px_16px_rgba(194,65,12,0.25)] transition-all transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCheckingIn ? (
+                      <>
+                        <span className="material-symbols-outlined text-[20px] animate-spin">
+                          progress_activity
+                        </span>
+                        <span>Đang tạo khóa {booking.roomNumber}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[20px]">key</span>
+                        <span>Check-in khách • {booking.roomNumber}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </footer>
+      </section>
+
+      {/* POPUP MODAL XÁC NHẬN THU TIỀN MẶT / POS */}
+      {showCashConfirmModal && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-2xl max-w-md w-full p-6 shadow-2xl border border-outline-variant/30 flex flex-col gap-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-primary">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[26px]">point_of_sale</span>
+              </div>
+              <div>
+                <h3 className="font-headline-sm text-[18px] font-bold text-on-surface">
+                  Xác nhận thu tiền tại quầy
+                </h3>
+                <p className="font-label-sm text-[12px] text-on-surface-variant">
+                  Mã: <strong className="text-on-surface">{booking.bookingCode}</strong> · Khách: {booking.customerName}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-surface-container-low p-4 rounded-xl flex flex-col gap-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant">Tổng giá trị đơn:</span>
+                <span className="font-semibold text-on-surface">{formatVnd(booking.totalAmount)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant">Đã thanh toán trước:</span>
+                <span className="font-semibold text-[#2d6a4f]">{formatVnd(booking.paidAmount)}</span>
+              </div>
+              <div className="border-t border-outline-variant/30 pt-2 flex justify-between items-center">
+                <span className="font-bold text-on-surface">Số tiền cần thu ngay:</span>
+                <span className="font-bold text-xl text-primary">{formatVnd(booking.remainingAmount)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-on-surface-variant italic">
+              *Thao tác này sẽ ghi nhận giao dịch Tiền mặt / Thẻ POS vào hệ thống và đóng trạng thái thanh toán của đơn thành ĐÃ THANH TOÁN 100%.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={handleManualRefund}
-                disabled={isRefunding}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-full border border-outline/30 bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-label-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                title="Xác nhận hoàn tiền bằng tiền mặt hoặc chuyển khoản ngoài"
+                onClick={() => setShowCashConfirmModal(false)}
+                disabled={isCollectingCash}
+                className="px-4 py-2 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-sm cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-                <span>Hoàn tiền mặt / Chuyển khoản</span>
+                Hủy bỏ
               </button>
               <button
                 type="button"
-                onClick={handleRefundVnPay}
-                disabled={isRefunding}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-primary hover:bg-tertiary-container text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
-                title="Gọi API Merchant VNPay để hoàn cọc tự động về thẻ/tài khoản khách"
+                onClick={handleCollectCashPayment}
+                disabled={isCollectingCash}
+                className="px-5 py-2 rounded-full bg-primary hover:bg-tertiary-container text-on-primary font-label-md text-sm font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
               >
-                {isRefunding ? (
+                {isCollectingCash ? (
                   <>
-                    <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                    <span>Đang kết nối VNPay...</span>
+                    <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                    <span>Đang ghi nhận...</span>
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-[18px]">payments</span>
-                    <span>Xác nhận hoàn cọc VNPay</span>
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                    <span>Xác nhận đã thu đủ</span>
                   </>
                 )}
               </button>
             </div>
-          ) : booking.depositStatus === 'refunded' ? (
-            <div className="px-5 py-2.5 rounded-full bg-purple-50 text-purple-900 border border-purple-200 font-label-md text-label-md flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-purple-700">check_circle</span>
-              <span>Đã hoàn tiền cho khách</span>
-            </div>
-          ) : checkInDone ? (
-            <div className="w-full sm:w-auto px-7 py-3 rounded-full bg-[#1b4332] text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-2.5 shadow-md">
-              <span className="material-symbols-outlined text-[20px]">check_circle</span>
-              <span>Đã hoàn tất Check-in ({booking.roomNumber})</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={handleExecuteCheckIn}
-              disabled={isCheckingIn || booking.status === 'cancelled'}
-              className="w-full sm:w-auto px-7 py-3 rounded-full bg-primary-container hover:bg-tertiary-container text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-2.5 shadow-[0_4px_16px_rgba(194,65,12,0.25)] transition-all transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isCheckingIn ? (
-                <>
-                  <span className="material-symbols-outlined text-[20px] animate-spin">
-                    progress_activity
-                  </span>
-                  <span>Đang tạo thẻ khóa {booking.roomNumber}...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[20px]">key</span>
-                  <span>Check-in khách • {booking.roomNumber}</span>
-                </>
-              )}
-            </button>
-          )}
-        </footer>
-      </section>
+          </div>
+        </div>
+      )}
     </>
   );
 };

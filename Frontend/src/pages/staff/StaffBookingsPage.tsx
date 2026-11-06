@@ -359,6 +359,14 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     showToast(`Đã hủy booking ${target.bookingCode} và chuyển sang trạng thái hoàn cọc.`);
   };
 
+  const handleConfirmPayment = (updated: StaffBooking) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === updated.id ? updated : b))
+    );
+    setSelectedBooking(updated);
+    showToast(`Đã xác nhận thu đủ tiền cho đơn ${updated.bookingCode}.`);
+  };
+
   // Update notes
   const handleRefundBooking = (updated: StaffBooking, message: string) => {
     setBookings((prev) =>
@@ -647,6 +655,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         onCancelBooking={handleCancelBooking}
         onUpdateNotes={handleUpdateNotes}
         onRefundBooking={handleRefundBooking}
+        onConfirmPayment={handleConfirmPayment}
       />
     </div>
   );
