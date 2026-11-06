@@ -1,4 +1,5 @@
 using HotelBooking.Domain.Enums;
+
 namespace HotelBooking.Domain.Entities;
 
 public class Voucher
@@ -41,13 +42,13 @@ public class Voucher
 
         if (UsageLimit.HasValue && UsedCount >= UsageLimit.Value)
         {
-            reason = "Mã ưu đãi đã vượt quá số lượt sử dụng tối đa.";
+            reason = "Mã ưu đãi đã đạt giới hạn số lượt sử dụng tối đa.";
             return false;
         }
 
         if (orderAmount < MinimumOrderAmount)
         {
-            reason = $"Đơn hàng tối thiểu {MinimumOrderAmount:N0}đ để áp dụng mã ưu đãi này.";
+            reason = $"Đơn đặt phòng tối thiểu {MinimumOrderAmount:N0} VNĐ để áp dụng mã ưu đãi này.";
             return false;
         }
 

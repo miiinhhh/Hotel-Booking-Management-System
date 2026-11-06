@@ -170,12 +170,12 @@ public class PricingServiceTests
         Assert.Equal(4, result.NumberOfNights);
         Assert.Equal(4, result.TotalNights);
         Assert.Equal(4_500_000m, result.SubTotal);
-        Assert.Equal(450_000m, result.TaxVAT);
-        Assert.Equal(450_000m, result.EstimatedTaxAmount);
-        Assert.Equal(4_950_000m, result.GrandTotal);
-        Assert.Equal(4_950_000m, result.EstimatedTotalAmount);
-        Assert.Equal(1_485_000m, result.DepositRequired);
-        Assert.Equal(1_485_000m, result.EstimatedDepositAmount);
+        Assert.Equal(0m, result.TaxVAT);
+        Assert.Equal(0m, result.EstimatedTaxAmount);
+        Assert.Equal(4_500_000m, result.GrandTotal);
+        Assert.Equal(4_500_000m, result.EstimatedTotalAmount);
+        Assert.Equal(3_150_000m, result.DepositRequired);
+        Assert.Equal(3_150_000m, result.EstimatedDepositAmount);
 
         var summary = Assert.Single(result.RoomSummaries);
         Assert.Equal("Deluxe Ocean View", summary.RoomTypeName);

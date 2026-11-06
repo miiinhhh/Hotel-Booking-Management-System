@@ -14,10 +14,15 @@ using System.Text.Json.Serialization;
 using HotelBooking.API.Errors;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Infrastructure;
+using HotelBooking.Infrastructure.Common;
 using HotelBooking.API.Authentication;
 using HotelBooking.Domain.Entities;
+using HotelBooking.Application.DTOs.Payment;
 
 var builder = WebApplication.CreateBuilder(args);
+DotEnvLoader.Load(builder.Environment.ContentRootPath);
+builder.Configuration.AddEnvironmentVariables();
+
 if (builder.Environment.IsEnvironment("Testing"))
     builder.Logging.ClearProviders().AddConsole();
 builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvents>();
@@ -25,7 +30,6 @@ builder.Services.AddScoped<HotelBooking.API.Authentication.ActiveAccountJwtEvent
 if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
-    builder.Configuration.AddEnvironmentVariables();
     builder.Configuration.AddCommandLine(args);
 }
 
@@ -81,6 +85,11 @@ var advancedAuth = builder.Configuration.GetSection(AdvancedAuthOptions.SectionN
     ?? throw new InvalidOperationException("AdvancedAuth configuration is missing.");
 if (Encoding.UTF8.GetByteCount(advancedAuth.OtpPepper) < 32)
     throw new InvalidOperationException("AdvancedAuth:OtpPepper must be at least 32 characters.");
+
+// Cấu hình tích hợp VNPay
+builder.Services.Configure<VnPaySettings>(builder.Configuration.GetSection(VnPaySettings.SectionName));
+var vnPaySettings = builder.Configuration.GetSection(VnPaySettings.SectionName).Get<VnPaySettings>() ?? new VnPaySettings();
+builder.Services.AddSingleton(vnPaySettings);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HotelBooking.API.Authentication;
 using HotelBooking.Application.DTOs.Booking;
+using HotelBooking.Application.DTOs.Cancellation;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -24,9 +25,10 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Tính toán và xem trước chi tiết chi phí đặt phòng (Báo giá & áp dụng Voucher thời gian thực)
+    /// Tính toán và xem trước giá đặt phòng
     /// </summary>
     [HttpPost("calculate-price")]
+    [AllowAnonymous]
     public async Task<IActionResult> CalculatePrice([FromBody] CalculatePriceRequest request, CancellationToken ct)
     {
         var result = await _pricingService.CalculatePriceAsync(request, ct);
@@ -77,13 +79,13 @@ public class BookingController : BaseAPIController
     /// <summary>
     /// Tra cứu đơn đặt phòng theo mã BookingCode (Chống IDOR & Phân quyền Staff/Admin)
     /// </summary>
-    [HttpGet("code/{bookingCode}")]
+    [HttpGet("code/{code}")]
     [Authorize]
-    public async Task<IActionResult> GetByCode(string bookingCode)
+    public async Task<IActionResult> GetByCode(string code)
     {
         var (currentUserId, isAdmin, isStaff) = GetUserContext();
 
-        var result = await _bookingService.GetBookingByCodeAsync(bookingCode, currentUserId, isAdmin, isStaff);
+        var result = await _bookingService.GetBookingByCodeAsync(code, currentUserId, isAdmin, isStaff);
         if (!result.Success)
         {
             return StatusCode(StatusCodes.Status403Forbidden, result);
@@ -106,7 +108,25 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
-    /// Hủy đơn đặt phòng (Khách hàng hủy đơn của mình hoặc Admin hủy)
+    /// Xem trước chi tiết hoàn hủy phòng (Khách hàng hoặc Quản trị viên)
+    /// </summary>
+    [HttpGet("{id:long}/preview-cancel")]
+    [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]
+    public async Task<IActionResult> PreviewCancelBooking(long id)
+    {
+        var (currentUserId, isAdmin, _) = GetUserContext();
+
+        var result = await _bookingService.PreviewCancelBookingAsync(id, currentUserId, isAdmin);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Hủy đơn đặt phòng (Khách hàng hoặc Quản trị viên)
     /// </summary>
     [HttpPost("{id:long}/cancel")]
     [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]

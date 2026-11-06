@@ -17,7 +17,6 @@ public class VoucherRepository : IVoucherRepository
     public async Task<Voucher?> GetByIdAsync(long voucherId, CancellationToken ct = default)
     {
         return await _context.Vouchers
-            .AsNoTracking()
             .FirstOrDefaultAsync(v => v.VoucherId == voucherId, ct);
     }
 
@@ -86,6 +85,20 @@ public class VoucherRepository : IVoucherRepository
 
     public async Task<bool> IncrementUsedCountAtomicAsync(long voucherId, CancellationToken ct = default)
     {
+        if (_context.Database.ProviderName?.EndsWith("InMemory", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var voucher = await _context.Vouchers.FindAsync([voucherId], ct);
+            if (voucher == null || !voucher.IsActive || (voucher.UsageLimit.HasValue && voucher.UsedCount >= voucher.UsageLimit.Value))
+            {
+                return false;
+            }
+
+            voucher.UsedCount++;
+            voucher.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(ct);
+            return true;
+        }
+
         var affectedRows = await _context.Vouchers
             .Where(v => v.VoucherId == voucherId
                 && v.IsActive

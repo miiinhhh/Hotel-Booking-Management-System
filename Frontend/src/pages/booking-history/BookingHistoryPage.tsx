@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BookingStatsRow } from './components/BookingStatsRow';
 import { AssuranceBanner } from './components/AssuranceBanner';
 import { BookingTabs } from './components/BookingTabs';
@@ -7,6 +7,8 @@ import { CancelBookingModal } from './components/CancelBookingModal';
 import { ReviewStayModal } from './components/ReviewStayModal';
 import { FloatingSupport } from './components/FloatingSupport';
 import { MOCK_BOOKINGS } from './data/mockBookings';
+import { getBookingsList, cancelBooking } from '../../services/bookingApi';
+import { createVnPayPayment } from '../../services/paymentApi';
 import { BookingItem, BookingTab, BookingStats } from './types';
 
 interface BookingHistoryPageProps {
@@ -97,9 +99,85 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
       showToast(`Mã đặt phòng: ${code}`);
     }
   };
+  useEffect(() => {
+    getBookingsList().then((res) => {
+      if (res.success && res.data && res.data.length > 0) {
+        const apiItems: BookingItem[] = res.data.map((b) => ({
+          id: String(b.bookingId),
+          bookingCode: b.bookingCode,
+          hotelName: 'StayLuxe Luxury Hotel',
+          hotelCategory: 'Khu nghỉ dưỡng di sản 5 sao',
+          location: 'Việt Nam',
+          roomType: 'Phòng nghỉ cao cấp',
+          image: '/room-placeholder.svg',
+          imageAlt: 'StayLuxe Room',
+          checkInDate: b.checkInDate,
+          checkInDetail: `Nhận phòng từ 14:00 · ${b.checkInDate}`,
+          checkOutDate: b.checkOutDate,
+          checkOutDetail: `Trả phòng trước 12:00 · ${b.checkOutDate}`,
+          nightsText: `${b.roomCount || 1} phòng`,
+          guest: {
+            name: 'Khách hàng',
+            countText: `${b.numberOfGuests} khách`,
+          },
+          status: (b.bookingStatus.toLowerCase() === 'confirmed' ? 'confirmed' :
+                  b.bookingStatus.toLowerCase() === 'checkedin' ? 'confirmed' :
+                  b.bookingStatus.toLowerCase() === 'cancelled' ? 'cancelled' :
+                  b.bookingStatus.toLowerCase() === 'completed' || b.bookingStatus.toLowerCase() === 'checkedout' ? 'completed' : 'pending'),
+          statusLabel: b.bookingStatus.toUpperCase(),
+          depositBadge: b.paymentStatus === 'Paid' ? 'ĐÃ THANH TOÁN 100%' : b.paymentStatus === 'PartiallyPaid' ? 'ĐÃ ĐẶT CỌC' : 'CHỜ THANH TOÁN CỌC',
+          totalAmount: b.totalAmount,
+          paidAmount: b.depositAmount,
+          remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
+          qrType: b.paymentStatus === 'Paid' ? 'checkin' : 'vietqr',
+          qrCaption: b.paymentStatus === 'Paid' ? 'Mã nhận phòng nhanh' : 'Quét mã thanh toán',
+          amenities: [
+            { icon: 'wifi', text: 'Wi-Fi tốc độ cao' },
+            { icon: 'pool', text: 'Hồ bơi vô cực' },
+            { icon: 'restaurant', text: 'Bữa sáng buffet' }
+          ],
+          isEligibleForReview: b.bookingStatus.toLowerCase() === 'completed',
+        }));
+        setBookings(apiItems);
+      }
+    });
+  }, []);
+
+  const handlePayNow = async (booking: BookingItem) => {
+    const bookingIdNum = Number(booking.id);
+    if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
+      try {
+        const res = await createVnPayPayment(bookingIdNum, 'Deposit');
+        if (res.success && res.data?.paymentUrl) {
+          window.location.href = res.data.paymentUrl;
+          return;
+        } else {
+          showToast(`Lỗi: ${res.message || 'Không thể tạo liên kết thanh toán VNPay.'}`);
+        }
+      } catch (err) {
+        showToast(`Lỗi: ${err instanceof Error ? err.message : 'Lỗi kết nối máy chủ'}`);
+      }
+    } else {
+      onNavigatePayment?.(booking);
+    }
+  };
 
   // Cancel booking confirm
-  const handleConfirmCancel = (bookingId: string, reason: string) => {
+  const handleConfirmCancel = async (bookingId: string, reason: string) => {
+    const bookingIdNum = Number(bookingId);
+    if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
+      try {
+        const res = await cancelBooking(bookingIdNum, reason);
+        if (!res.success) {
+          showToast(`Lỗi hủy đơn: ${res.message || 'Không thể hủy trên máy chủ'}`);
+          return;
+        }
+      } catch (err) {
+        showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ'}`);
+        return;
+      }
+    }
+
     setBookings((prev) =>
       prev.map((b) =>
         b.id === bookingId
@@ -107,7 +185,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
               ...b,
               status: 'cancelled',
               statusLabel: 'ĐÃ HỦY (CANCELLED)',
-              depositBadge: 'ĐÃ HOÀN TIỀN 100%',
+              depositBadge: 'ĐÃ HOÀN TIỀN',
               paidAmount: 0,
               remainingAmount: 0,
             }
@@ -116,7 +194,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
     );
     setCancelModalBooking(null);
     showToast(
-      `Đã ghi nhận yêu cầu hủy phòng do "${reason}". Số tiền hoàn sẽ được gửi về tài khoản trong vòng 24h.`
+      `Đã hủy đơn thành công. Tiền hoàn đã được ghi nhận tự động theo chính sách lưu trú.`
     );
   };
 
@@ -203,7 +281,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                     onCopyCode={handleCopyCode}
                     onOpenCancelModal={(b) => setCancelModalBooking(b)}
                     onOpenReviewModal={(b) => setReviewModalBooking(b)}
-                    onPayNow={(b) => onNavigatePayment?.(b)}
+                    onPayNow={handlePayNow}
                     onRebook={() => onNavigateSearch?.()}
                   />
                 ))

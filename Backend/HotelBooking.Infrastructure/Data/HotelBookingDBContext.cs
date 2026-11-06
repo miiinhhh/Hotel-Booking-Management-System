@@ -13,6 +13,7 @@ public sealed class HotelBookingDBContext(DbContextOptions<HotelBookingDBContext
     public DbSet<PriceSurgeRule> PriceSurgeRules => Set<PriceSurgeRule>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<VoucherUsage> VoucherUsages => Set<VoucherUsage>();
+    public DbSet<CancellationPolicy> CancellationPolicies => Set<CancellationPolicy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

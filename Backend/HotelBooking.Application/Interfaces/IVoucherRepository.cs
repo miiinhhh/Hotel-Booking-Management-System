@@ -11,8 +11,8 @@ public interface IVoucherRepository
     Task AddAsync(Voucher voucher, CancellationToken ct = default);
     Task UpdateAsync(Voucher voucher, CancellationToken ct = default);
     Task<bool> IncrementUsedCountAtomicAsync(long voucherId, CancellationToken ct = default);
+    Task IncrementUsedCountAsync(long voucherId, CancellationToken ct = default);
     Task AddUsageRecordAsync(VoucherUsage usage, CancellationToken ct = default);
     Task<bool> CodeExistsAsync(string code, long? excludeVoucherId = null, CancellationToken ct = default);
-    Task IncrementUsedCountAsync(long voucherId, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }

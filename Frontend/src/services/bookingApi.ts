@@ -74,6 +74,19 @@ export interface UpdateBookingStatusRequest {
   specialRequests?: string;
 }
 
+export interface CancellationPreviewDto {
+  bookingId: number;
+  totalAmount: number;
+  paidAmount: number;
+  refundPercentage: number;
+  penaltyPercentage: number;
+  refundAmount: number;
+  penaltyAmount: number;
+  policyDescription: string;
+  isEligibleForRefund: boolean;
+  daysUntilCheckIn: number;
+}
+
 export interface CancelBookingRequest {
   reason: string;
 }
@@ -127,6 +140,15 @@ export async function updateBookingStatus(
     method: 'PATCH',
     body: JSON.stringify(request),
   });
+}
+
+/**
+ * Xem trước số tiền hoàn / phạt khi hủy booking theo chính sách
+ */
+export async function previewCancelBooking(
+  bookingId: number
+): Promise<ApiResponse<CancellationPreviewDto>> {
+  return apiClient<CancellationPreviewDto>(`/api/bookings/${bookingId}/preview-cancel`);
 }
 
 /**

@@ -48,10 +48,12 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         services.AddScoped<IBookingRepository, BookingRepository>();
+        services.AddScoped<HotelBooking.Application.Reviews.IReviewRepository, ReviewRepository>();
         services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
         services.AddScoped<IRoomPriceHistoryRepository, RoomPriceHistoryRepository>();
         services.AddScoped<IPriceSurgeRuleRepository, PriceSurgeRuleRepository>();
         services.AddScoped<IVoucherRepository, VoucherRepository>();
+        services.AddScoped<ICancellationPolicyRepository, CancellationPolicyRepository>();
 
         // Module Payment
         services.AddScoped<System.Data.IDbConnection>(_ =>

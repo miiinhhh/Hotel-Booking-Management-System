@@ -33,6 +33,7 @@ Thumbs.db
 
 *.sql
 !Database&Docs/RoomEmergencyLocks.sql
+!Database&Docs/Reviews.sql
 *.json
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscovery.sql

@@ -333,9 +333,9 @@ public class VoucherService : IVoucherService
         };
     }
 
-    private static VoucherType ParseVoucherType(string value)
+    private static VoucherType ParseVoucherType(string? value)
     {
-        if (!Enum.TryParse<VoucherType>(value?.Trim(), true, out var type) || !Enum.IsDefined(type))
+        if (string.IsNullOrWhiteSpace(value) || !Enum.TryParse<VoucherType>(value.Trim(), true, out var type) || !Enum.IsDefined(type))
         {
             throw new ArgumentException("VoucherType phải là 'Percentage' hoặc 'FixedAmount'.");
         }

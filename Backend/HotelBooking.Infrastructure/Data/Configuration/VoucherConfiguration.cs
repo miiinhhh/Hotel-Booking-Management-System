@@ -40,6 +40,7 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
         builder.Property(v => v.UsageLimitPerCustomer)
             .HasDefaultValue(1)
             .IsRequired();
+
         builder.Property(v => v.StartAt)
             .IsRequired();
 
