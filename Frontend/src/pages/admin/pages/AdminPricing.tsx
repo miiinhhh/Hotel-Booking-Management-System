@@ -1,5 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { PageHeading, Toast } from '../components/AdminUi';
+import { formatVnd } from '../../../utils/formatters';
 import { PriceHistoryChart } from '../components/PriceHistoryChart';
 import {
   createRoomPriceHistory,
@@ -32,9 +33,7 @@ export const AdminPricing: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('vi-VN') + ' ₫';
-  };
+  const formatCurrency = (val: number) => formatVnd(val);
 
   const showToast = (msg: string) => {
     setToast(msg);

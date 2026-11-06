@@ -1,3 +1,4 @@
+import { formatVnd } from '../../../utils/formatters';
 import { AdminNavigationItem, RoomType, StaffMember, Voucher } from '../types';
 
 export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
@@ -41,4 +42,4 @@ export const VOUCHERS: Voucher[] = [
   { id: 6, code: 'FLASHVIP10', value: 'Giảm 10%', detail: 'Chương trình khách VIP giới hạn', scope: 'Toàn khu · Thành viên Elite', expires: 'Đã hết ngân sách', used: 50, limit: 50, active: false },
 ];
 
-export const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + ' ₫';
+export const formatCurrency = (value: number) => formatVnd(value);

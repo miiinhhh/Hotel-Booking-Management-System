@@ -1,5 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
+import { formatVnd } from '../../../utils/formatters';
 import {
   createVoucher,
   deleteVoucher,
@@ -39,9 +40,7 @@ export const AdminVouchers: React.FC = () => {
     window.setTimeout(() => setToast(null), 3000);
   };
 
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('vi-VN') + ' ₫';
-  };
+  const formatCurrency = (val: number) => formatVnd(val);
 
   // 1. Tải danh sách Voucher từ Backend API
   const fetchVouchers = async () => {

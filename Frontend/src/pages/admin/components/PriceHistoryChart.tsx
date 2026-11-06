@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { RoomPriceHistoryDto } from '../../../services/pricingAdminApi';
+import { formatVnd } from '../../../utils/formatters';
 
 interface PriceHistoryChartProps {
   histories: RoomPriceHistoryDto[];
@@ -54,8 +55,7 @@ export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({
     };
   }, [sortedData, currentBasePrice]);
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  const formatCurrency = (val: number) => formatVnd(val);
 
   // Kích thước khung vẽ SVG
   const width = 760;
