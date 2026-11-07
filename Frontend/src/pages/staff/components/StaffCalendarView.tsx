@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RoomCategorySchedule, EmergencyLockFormData } from '../types';
 import { MOCK_CALENDAR_DAYS, MOCK_ROOM_SCHEDULES } from '../data/mockStaffCalendar';
 import { EmergencyLockModal } from './EmergencyLockModal';
+import { getStaffCalendar } from '../../../services/staffPortalApi';
 
 interface StaffCalendarViewProps {
   onShowToast?: (message: string) => void;
 }
 
 export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToast }) => {
-  const [schedules] = useState<RoomCategorySchedule[]>(MOCK_ROOM_SCHEDULES);
+  const [schedules, setSchedules] = useState<RoomCategorySchedule[]>(MOCK_ROOM_SCHEDULES);
   const [selectedZone, setSelectedZone] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<'7days' | '14days' | 'month'>('7days');
   const [isLockModalOpen, setIsLockModalOpen] = useState(false);
+
+  useEffect(() => {
+    const daysCount = periodFilter === 'month' ? 30 : (periodFilter === '14days' ? 14 : 7);
+    getStaffCalendar(daysCount).then((data) => {
+      if (data && data.length > 0) {
+        setSchedules(data);
+      }
+    });
+  }, [periodFilter]);
   const [lockModalTarget, setLockModalTarget] = useState<{
     category: string;
     roomNumber: string;

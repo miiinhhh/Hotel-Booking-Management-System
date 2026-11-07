@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IContentAccess, ContentAccess>();
         services.AddSingleton<IImageStorage, LocalImageStorage>();
         services.AddHostedService<ImageCleanupWorker>();
+        services.AddHostedService<BookingHoldExpirationWorker>();
         services.AddScoped<IHotelAreaRepository, HotelAreaRepository>();
         services.AddScoped<IDiscoveryRepository, DiscoveryRepository>();
 

@@ -168,6 +168,47 @@ public class BookingController : BaseAPIController
         return Ok(result);
     }
 
+    /// <summary>
+    /// Đổi ngày lưu trú / đổi phòng (Khách hàng cho đơn của mình, hoặc Nhân viên / Admin)
+    /// </summary>
+    [HttpPost("{id:long}/reschedule")]
+    [Authorize]
+    public async Task<IActionResult> RescheduleBooking(long id, [FromBody] RescheduleBookingRequest request)
+    {
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
+
+        var result = await _bookingService.RescheduleBookingAsync(id, currentUserId, isAdmin, isStaff, request);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Đánh dấu khách vắng mặt (No-Show) - Lễ tân / Quản trị viên
+    /// </summary>
+    [HttpPost("{id:long}/no-show")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    public async Task<IActionResult> MarkNoShow(long id, [FromBody] NoShowRequest request)
+    {
+        var (staffUserId, isAdmin, isStaff) = GetUserContext();
+
+        if (!isAdmin && !isStaff)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = "Chỉ Nhân viên hoặc Quản trị viên mới có quyền đánh dấu No-Show." });
+        }
+
+        var result = await _bookingService.MarkNoShowAsync(id, staffUserId, isAdmin, request);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
+
     // Helper: Trích xuất danh tính và vai trò người dùng từ JWT Claims
     private (long UserId, bool IsAdmin, bool IsStaff) GetUserContext()
     {
