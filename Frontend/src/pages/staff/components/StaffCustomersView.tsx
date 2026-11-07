@@ -4,6 +4,7 @@ import { MOCK_STAFF_CUSTOMERS, MOCK_CUSTOMER_CRM_STATS } from '../data/mockStaff
 import { StaffCustomerMetrics } from './StaffCustomerMetrics';
 import { StaffCustomerDrawer } from './StaffCustomerDrawer';
 import { StaffAddCustomerModal } from './StaffAddCustomerModal';
+import { getStaffCustomers } from '../../../services/staffPortalApi';
 
 interface StaffCustomersViewProps {
   onShowToast?: (message: string) => void;
@@ -19,6 +20,15 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
   const [activeFilterTab, setActiveFilterTab] = useState<CustomerFilterTab>('all');
   const [sortOption, setSortOption] = useState<CustomerSortOption>('recent');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  useEffect(() => {
+    getStaffCustomers().then((data) => {
+      if (data && data.length > 0) {
+        setCustomers(data);
+        setSelectedCustomer(data[0]);
+      }
+    });
+  }, []);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

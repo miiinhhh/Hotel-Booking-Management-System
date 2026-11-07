@@ -16,6 +16,8 @@ using HotelBooking.Application.Rooms;
 using HotelBooking.Infrastructure;
 using HotelBooking.Infrastructure.Common;
 using HotelBooking.API.Authentication;
+using HotelBooking.API.Hubs;
+using HotelBooking.Application.Interfaces;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Application.DTOs.Payment;
 
@@ -142,6 +144,8 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddApplicationServices();
 builder.Services.AddScoped<RoomService>();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IBookingNotificationPublisher, SignalRBookingNotificationPublisher>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendClient", policy =>
@@ -176,6 +180,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
+app.MapHub<BookingHub>("/hubs/booking");
 
 app.Run();
 public partial class Program { }

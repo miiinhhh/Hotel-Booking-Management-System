@@ -19,12 +19,13 @@ public class BookingServices : IBookingService
     private readonly ICancellationPolicyService? _cancellationPolicyService;
     private readonly IPaymentRepository? _paymentRepository;
     private readonly IRoomRepository? _roomRepository;
+    private readonly IBookingNotificationPublisher? _notificationPublisher;
 
     public BookingServices(
         IBookingRepository bookingRepository,
         IBookingPricingService pricingService,
         IVoucherRepository voucherRepository)
-        : this(bookingRepository, pricingService, voucherRepository, null, null, null)
+        : this(bookingRepository, pricingService, voucherRepository, null, null, null, null)
     {
     }
 
@@ -35,7 +36,8 @@ public class BookingServices : IBookingService
         IVoucherRepository voucherRepository,
         ICancellationPolicyService? cancellationPolicyService,
         IPaymentRepository? paymentRepository,
-        IRoomRepository? roomRepository)
+        IRoomRepository? roomRepository,
+        IBookingNotificationPublisher? notificationPublisher = null)
     {
         _bookingRepository = bookingRepository;
         _pricingService = pricingService;
@@ -43,6 +45,7 @@ public class BookingServices : IBookingService
         _cancellationPolicyService = cancellationPolicyService;
         _paymentRepository = paymentRepository;
         _roomRepository = roomRepository;
+        _notificationPublisher = notificationPublisher;
     }
 
     public async Task<ApiResponse<BookingResponseDto>> CreateBookingAsync(long customerId, CreateBookingRequest request)
@@ -173,6 +176,10 @@ public class BookingServices : IBookingService
         }
 
         var responseDto = MapToResponseDto(booking);
+        if (_notificationPublisher != null)
+        {
+            _ = _notificationPublisher.PublishBookingCreatedAsync(booking.BookingId, booking.BookingCode, booking.TotalAmount);
+        }
         return ApiResponse<BookingResponseDto>.SuccessResult(responseDto, "Đặt phòng thành công. Vui lòng thanh toán cọc trong 15 phút để giữ phòng.");
     }
 
@@ -461,6 +468,11 @@ public class BookingServices : IBookingService
         await _bookingRepository.UpdateAsync(booking);
         await _bookingRepository.SaveChangesAsync();
 
+        if (_notificationPublisher != null)
+        {
+            _ = _notificationPublisher.PublishBookingStatusChangedAsync(booking.BookingId, booking.BookingCode, oldStatus, BookingStatus.Cancelled.ToString(), auditNote);
+        }
+
         return ApiResponse<bool>.SuccessResult(true, "Hủy đơn đặt phòng thành công.");
     }
 
@@ -517,7 +529,172 @@ public class BookingServices : IBookingService
             await _bookingRepository.SaveChangesAsync();
         }
 
+        if (_notificationPublisher != null)
+        {
+            _ = _notificationPublisher.PublishBookingStatusChangedAsync(booking.BookingId, booking.BookingCode, oldStatus, newStatus.ToString(), request.Note);
+        }
+
         return ApiResponse<bool>.SuccessResult(true, $"Cập nhật trạng thái đơn đặt phòng sang '{newStatus}' thành công.");
+    }
+
+    public async Task<ApiResponse<BookingResponseDto>> RescheduleBookingAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request)
+    {
+        var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
+        if (booking == null)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy đơn đặt phòng.");
+        }
+
+        // 1. Phân quyền
+        if (!isAdmin)
+        {
+            if (isStaff)
+            {
+                bool isAssigned = await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, currentUserId);
+                if (!isAssigned)
+                    return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền đổi lịch đơn đặt phòng ngoài phân khu được phân công.");
+            }
+            else if (booking.CustomerId != currentUserId)
+            {
+                return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền chỉnh sửa đơn đặt phòng của khách hàng khác.");
+            }
+        }
+
+        // 2. Trạng thái cho phép đổi lịch: Pending hoặc Confirmed
+        if (booking.BookingStatus is not (BookingStatus.Pending or BookingStatus.Confirmed))
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult($"Không thể đổi lịch cho đơn đặt phòng đang ở trạng thái: {booking.BookingStatus}.");
+        }
+
+        // 3. Kiểm tra ngày nhận và trả phòng mới
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (request.NewCheckInDate < today || request.NewCheckOutDate <= request.NewCheckInDate)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult("Ngày nhận phòng mới không thể trong quá khứ và ngày trả phòng phải sau ngày nhận phòng.");
+        }
+
+        var targetRoomIds = request.NewRoomIds != null && request.NewRoomIds.Count > 0
+            ? request.NewRoomIds.Distinct().ToList()
+            : booking.BookingDetails.Select(d => d.RoomId).Distinct().ToList();
+
+        // 4. Tính toán lại chi phí máy chủ
+        BookingPriceCalculationResultDto pricing;
+        try
+        {
+            pricing = await _pricingService.CalculateAuthoritativePriceAsync(
+                request.NewCheckInDate,
+                request.NewCheckOutDate,
+                targetRoomIds,
+                booking.Voucher?.Code,
+                booking.PaymentMethod);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ApiResponse<BookingResponseDto>.FailureResult(ex.Message);
+        }
+
+        var oldCheckIn = booking.CheckInDate;
+        var oldCheckOut = booking.CheckOutDate;
+        var oldTotal = booking.TotalAmount;
+
+        booking.CheckInDate = request.NewCheckInDate;
+        booking.CheckOutDate = request.NewCheckOutDate;
+        booking.SubTotal = pricing.SubTotal;
+        booking.TaxAmount = pricing.TaxAmount;
+        booking.FeeAmount = pricing.FeeAmount;
+        booking.DiscountAmount = pricing.DiscountAmount;
+        booking.TotalAmount = pricing.TotalAmount;
+        booking.DepositAmount = pricing.DepositAmount;
+        booking.RemainingAmount = Math.Max(0m, pricing.TotalAmount - booking.DepositAmount);
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        // Cập nhật booking details
+        booking.BookingDetails.Clear();
+        foreach (var rb in pricing.RoomBreakdowns)
+        {
+            booking.BookingDetails.Add(new BookingDetail
+            {
+                BookingId = booking.BookingId,
+                RoomId = rb.RoomId,
+                UnitPrice = rb.UnitPricePerNight,
+                NumberOfNights = rb.NumberOfNights,
+                SubTotal = rb.SubTotal
+            });
+        }
+
+        var note = $"Đổi lịch lưu trú từ [{oldCheckIn:dd/MM/yyyy} - {oldCheckOut:dd/MM/yyyy}] sang [{request.NewCheckInDate:dd/MM/yyyy} - {request.NewCheckOutDate:dd/MM/yyyy}]. Tổng tiền: {oldTotal:N0} -> {pricing.TotalAmount:N0} VNĐ. Lý do: {request.Reason ?? "Theo yêu cầu khách hàng"}.";
+        await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
+        {
+            BookingId = booking.BookingId,
+            OldStatus = booking.BookingStatus.ToString(),
+            NewStatus = booking.BookingStatus.ToString(),
+            ChangedByUserId = currentUserId,
+            ChangedAt = DateTime.UtcNow,
+            Note = note
+        });
+
+        if (!await _bookingRepository.TrySaveReservedAsync(booking))
+        {
+            throw new HotelBooking.Application.Rooms.ConflictException("Phòng không còn khả dụng trong khoảng thời gian mới.");
+        }
+
+        if (_notificationPublisher != null)
+        {
+            _ = _notificationPublisher.PublishBookingRescheduledAsync(booking.BookingId, booking.BookingCode, request.NewCheckInDate, request.NewCheckOutDate, booking.TotalAmount);
+        }
+
+        return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đổi lịch đặt phòng thành công.");
+    }
+
+    public async Task<ApiResponse<bool>> MarkNoShowAsync(long bookingId, long staffUserId, bool isAdmin, NoShowRequest request)
+    {
+        var booking = await _bookingRepository.GetByIdAsync(bookingId);
+        if (booking == null)
+        {
+            return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
+        }
+
+        if (!isAdmin)
+        {
+            bool isAssigned = await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, staffUserId);
+            if (!isAssigned)
+            {
+                return ApiResponse<bool>.FailureResult("Bạn không có quyền xử lý đơn đặt phòng ngoài phân khu được phân công.");
+            }
+        }
+
+        if (booking.BookingStatus is not (BookingStatus.Confirmed or BookingStatus.Pending))
+        {
+            return ApiResponse<bool>.FailureResult($"Chỉ có thể ghi nhận No-Show cho đơn đặt phòng ở trạng thái Confirmed hoặc Pending. Trạng thái hiện tại: {booking.BookingStatus}.");
+        }
+
+        var oldStatus = booking.BookingStatus.ToString();
+        // Hủy đơn theo đúng Check constraint SQL Server (CK_Bookings_BookingStatus)
+        booking.BookingStatus = BookingStatus.Cancelled;
+        booking.CancellationReason = "No-Show: Khách không đến nhận phòng theo lịch hẹn." + (string.IsNullOrWhiteSpace(request.Note) ? "" : $" Ghi chú: {request.Note}");
+        booking.CancelledAt = DateTime.UtcNow;
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        var note = $"Lễ tân đánh dấu No-Show (Khách không đến nhận phòng). Đơn được hủy tự động và giải phóng phòng. {request.Note}".Trim();
+        await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
+        {
+            BookingId = booking.BookingId,
+            OldStatus = oldStatus,
+            NewStatus = BookingStatus.Cancelled.ToString(),
+            ChangedByUserId = staffUserId,
+            ChangedAt = DateTime.UtcNow,
+            Note = note
+        });
+
+        await _bookingRepository.UpdateAsync(booking);
+        await _bookingRepository.SaveChangesAsync();
+
+        if (_notificationPublisher != null)
+        {
+            _ = _notificationPublisher.PublishBookingStatusChangedAsync(booking.BookingId, booking.BookingCode, oldStatus, BookingStatus.Cancelled.ToString(), note);
+        }
+
+        return ApiResponse<bool>.SuccessResult(true, "Đã ghi nhận khách vắng mặt (No-Show) và hủy đơn thành công.");
     }
 
     private async Task<int> ResolveHotelIdAsync(Booking booking)

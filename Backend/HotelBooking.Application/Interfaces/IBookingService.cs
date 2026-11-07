@@ -13,4 +13,6 @@ public interface IBookingService
     Task<ApiResponse<CancelPreviewResponseDto>> PreviewCancelBookingAsync(long bookingId, long currentUserId, bool isAdmin);
     Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request);
     Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, bool isAdmin, UpdateBookingRequest request);
+    Task<ApiResponse<BookingResponseDto>> RescheduleBookingAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request);
+    Task<ApiResponse<bool>> MarkNoShowAsync(long bookingId, long staffUserId, bool isAdmin, NoShowRequest request);
 }
