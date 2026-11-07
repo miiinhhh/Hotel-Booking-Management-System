@@ -124,8 +124,22 @@ builder.Services.AddAuthorization(options =>
         policy => policy.RequireRole(SystemRoles.HotelStaff, SystemRoles.Admin));
     options.AddPolicy(AuthorizationPolicies.AdminOnly,
         policy => policy.RequireRole(SystemRoles.Admin));
+    options.AddPolicy(AuthorizationPolicies.BookingRead, policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingSelfView) ||
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingView)));
+    options.AddPolicy(AuthorizationPolicies.BookingCancel, policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingSelfCancel) ||
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingManage)));
+    options.AddPolicy(AuthorizationPolicies.PaymentRead, policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.PaymentSelfManage) ||
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.PaymentView) ||
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.PaymentManage)));
+    foreach (var permission in SystemPermissions.All)
+        options.AddPolicy(PermissionAuthorization.Policy(permission), policy =>
+            policy.RequireAuthenticatedUser().RequireClaim(PermissionAuthorization.ClaimType, permission));
 });
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<HotelBooking.Application.Authorization.IPermissionManagementService, PermissionManagementService>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

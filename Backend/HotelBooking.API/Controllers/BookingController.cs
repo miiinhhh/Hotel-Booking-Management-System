@@ -46,7 +46,7 @@ public class BookingController : BaseAPIController
     /// Tạo đơn đặt phòng mới (Khách hàng) - Lấy CustomerId từ JWT Claims để chống IDOR
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
+    [RequirePermission(SystemPermissions.BookingSelfCreate)]
     public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
     {
         var (currentUserId, _, _) = GetUserContext();
@@ -64,7 +64,7 @@ public class BookingController : BaseAPIController
     /// Lấy chi tiết đơn đặt phòng theo ID (Chống IDOR & Phân quyền Staff/Admin)
     /// </summary>
     [HttpGet("{id:long}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BookingRead)]
     public async Task<IActionResult> GetById(long id)
     {
         var (currentUserId, isAdmin, isStaff) = GetUserContext();
@@ -82,7 +82,7 @@ public class BookingController : BaseAPIController
     /// Tra cứu đơn đặt phòng theo mã BookingCode (Chống IDOR & Phân quyền Staff/Admin)
     /// </summary>
     [HttpGet("code/{code}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BookingRead)]
     public async Task<IActionResult> GetByCode(string code)
     {
         var (currentUserId, isAdmin, isStaff) = GetUserContext();
@@ -100,7 +100,7 @@ public class BookingController : BaseAPIController
     /// Tìm kiếm và lọc danh sách đơn đặt phòng (Khách hàng chỉ xem đơn của mình; Staff chỉ xem đơn thuộc Phân khu phụ trách; Admin toàn quyền)
     /// </summary>
     [HttpGet]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BookingRead)]
     public async Task<IActionResult> GetList([FromQuery] BookingFilterRequest filter)
     {
         var (currentUserId, isAdmin, isStaff) = GetUserContext();
@@ -113,7 +113,7 @@ public class BookingController : BaseAPIController
     /// Xem trước chi tiết hoàn hủy phòng (Khách hàng hoặc Quản trị viên)
     /// </summary>
     [HttpGet("{id:long}/preview-cancel")]
-    [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.BookingCancel)]
     public async Task<IActionResult> PreviewCancelBooking(long id)
     {
         var (currentUserId, isAdmin, _) = GetUserContext();
@@ -131,7 +131,7 @@ public class BookingController : BaseAPIController
     /// Hủy đơn đặt phòng (Khách hàng hoặc Quản trị viên)
     /// </summary>
     [HttpPost("{id:long}/cancel")]
-    [Authorize(Policy = AuthorizationPolicies.CustomerOrAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.BookingCancel)]
     public async Task<IActionResult> CancelBooking(long id, [FromBody] CancelBookingRequest request)
     {
         var (currentUserId, isAdmin, _) = GetUserContext();
@@ -149,7 +149,7 @@ public class BookingController : BaseAPIController
     /// Cập nhật trạng thái đơn đặt phòng (Check-in, Check-out, Hoàn tất - dành cho Lễ tân theo phân khu / Admin)
     /// </summary>
     [HttpPatch("{id:long}/status")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.BookingManage)]
     public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateBookingRequest request)
     {
         var (staffUserId, isAdmin, isStaff) = GetUserContext();

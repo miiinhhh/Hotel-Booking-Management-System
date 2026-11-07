@@ -70,7 +70,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             return Accepted(await authService.RequestOtpAsync(request, ct));
         }
-        catch (InvalidOperationException)
+        catch (OtpDeliveryException)
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
                 Problem(StatusCodes.Status503ServiceUnavailable, "AUTH_OTP_DELIVERY_UNAVAILABLE", "OTP unavailable",

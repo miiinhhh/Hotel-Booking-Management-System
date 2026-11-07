@@ -30,24 +30,3 @@ export type SortOption =
   | 'price_asc'
   | 'price_desc'
   | 'best_deal';
-
-export interface PropertyTypeFilter {
-  id: string;
-  label: string;
-  count: number;
-}
-
-export interface GuestRatingFilter {
-  id: string;
-  label: string;
-  count: number;
-  minScore?: number;
-}
-
-export interface SearchFilterState {
-  maxPrice: number;
-  selectedStarRating: number | null;
-  propertyTypes: string[];
-  guestRating: string;
-  selectedAmenities: string[];
-}

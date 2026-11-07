@@ -45,7 +45,7 @@ public class PricingController : BaseAPIController
     /// Xem lịch sử và các cấu hình giá của một loại phòng (Admin & Staff)
     /// </summary>
     [HttpGet("~/api/hotels/{hotelId:int}/room-types/{roomTypeId:int}/prices")]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [RequirePermission(SystemPermissions.PricingView)]
     public async Task<ActionResult<IReadOnlyList<RoomPriceHistoryDto>>> GetPriceHistories(
         int hotelId,
         int roomTypeId,
@@ -59,7 +59,7 @@ public class PricingController : BaseAPIController
     /// Tạo cấu hình giá mới theo khoảng thời gian cho một loại phòng (Admin)
     /// </summary>
     [HttpPost("~/api/hotels/{hotelId:int}/room-types/{roomTypeId:int}/prices")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.PricingManage)]
     public async Task<ActionResult<RoomPriceHistoryDto>> CreatePriceHistory(
         int hotelId,
         int roomTypeId,
@@ -87,7 +87,7 @@ public class PricingController : BaseAPIController
     /// Lấy danh sách các quy tắc tăng giá theo ngày (PriceSurgeRules) có bộ lọc (Admin & HotelStaff)
     /// </summary>
     [HttpGet("surge-rules")]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [RequirePermission(SystemPermissions.PricingView)]
     public async Task<ActionResult<IReadOnlyList<PriceSurgeRuleDto>>> GetSurgeRules(
         [FromQuery] PriceSurgeRuleFilterRequest filter,
         CancellationToken ct)
@@ -100,7 +100,7 @@ public class PricingController : BaseAPIController
     /// Lấy chi tiết một quy tắc tăng giá theo ID (Admin & HotelStaff)
     /// </summary>
     [HttpGet("surge-rules/{id:long}")]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [RequirePermission(SystemPermissions.PricingView)]
     public async Task<ActionResult<PriceSurgeRuleDto>> GetSurgeRuleById(
         long id,
         CancellationToken ct)
@@ -118,7 +118,7 @@ public class PricingController : BaseAPIController
     /// Tạo mới quy tắc tăng giá theo ngày (Admin)
     /// </summary>
     [HttpPost("surge-rules")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.PricingManage)]
     public async Task<ActionResult<PriceSurgeRuleDto>> CreateSurgeRule(
         [FromBody] CreatePriceSurgeRuleRequest request,
         CancellationToken ct)
@@ -144,7 +144,7 @@ public class PricingController : BaseAPIController
     /// Cập nhật quy tắc tăng giá theo ngày (Admin)
     /// </summary>
     [HttpPut("surge-rules/{id:long}")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.PricingManage)]
     public async Task<ActionResult<PriceSurgeRuleDto>> UpdateSurgeRule(
         long id,
         [FromBody] UpdatePriceSurgeRuleRequest request,
@@ -169,7 +169,7 @@ public class PricingController : BaseAPIController
     /// Bật/Tắt trạng thái hoạt động của quy tắc tăng giá (Admin)
     /// </summary>
     [HttpPatch("surge-rules/{id:long}/toggle")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.PricingManage)]
     public async Task<ActionResult<object>> ToggleSurgeRuleStatus(
         long id,
         CancellationToken ct)
@@ -189,7 +189,7 @@ public class PricingController : BaseAPIController
     /// Xóa một quy tắc tăng giá (Admin)
     /// </summary>
     [HttpDelete("surge-rules/{id:long}")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.PricingManage)]
     public async Task<ActionResult> DeleteSurgeRule(
         long id,
         CancellationToken ct)

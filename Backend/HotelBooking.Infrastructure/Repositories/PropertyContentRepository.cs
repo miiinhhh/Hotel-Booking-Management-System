@@ -15,7 +15,8 @@ public sealed class ContentAccess(IUserRepository users) : IContentAccess
     public async Task EnsureAdminAsync(long userId, CancellationToken ct)
     {
         var user = await users.FindByIdAsync(userId, ct);
-        if (user is null || !user.IsActive || !user.UserRoles.Any(x => x.Role.RoleName == SystemRoles.Admin))
+        if (user is null || !user.IsActive || !user.UserRoles.Where(x => x.Role.IsActive)
+                .SelectMany(x => x.Role.RolePermissions).Any(x => x.Permission.IsActive && x.Permission.PermissionCode == SystemPermissions.ContentManage))
             throw new ContentAccessDeniedException();
     }
 }

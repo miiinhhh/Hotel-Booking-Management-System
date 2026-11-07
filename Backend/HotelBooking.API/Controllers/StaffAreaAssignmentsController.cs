@@ -21,7 +21,7 @@ public class StaffAreaAssignmentsController : ControllerBase
     /// Lấy danh sách toàn bộ nhân viên và các phân khu phụ trách theo từng khách sạn (Dành cho Admin/Quản lý)
     /// </summary>
     [HttpGet("api/hotels/{hotelId:int}/staff-assignments")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(SystemPermissions.StaffView)]
     public async Task<IActionResult> GetHotelStaffAssignments([FromRoute] int hotelId, CancellationToken ct)
     {
         var result = await _assignmentService.GetHotelStaffAssignmentsAsync(hotelId, ct);
@@ -37,7 +37,7 @@ public class StaffAreaAssignmentsController : ControllerBase
     /// Lấy danh sách toàn bộ phân khu (Zone/Building) của khách sạn kèm thống kê phòng
     /// </summary>
     [HttpGet("api/hotels/{hotelId:int}/staff-assignments/areas")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.StaffView)]
     public async Task<IActionResult> GetHotelAreas([FromRoute] int hotelId, CancellationToken ct)
     {
         var result = await _assignmentService.GetHotelAreasAsync(hotelId, ct);
@@ -53,7 +53,7 @@ public class StaffAreaAssignmentsController : ControllerBase
     /// Đồng bộ phân công phân khu cho một nhân viên (Thêm mới, kích hoạt lại hoặc hủy phân công các phân khu bị bỏ chọn)
     /// </summary>
     [HttpPut("api/hotels/{hotelId:int}/staff-assignments/sync")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(SystemPermissions.StaffManage)]
     public async Task<IActionResult> SyncStaffAreas(
         [FromRoute] int hotelId,
         [FromBody] AssignStaffAreasRequest request,
@@ -73,7 +73,7 @@ public class StaffAreaAssignmentsController : ControllerBase
     /// Hủy quyền phụ trách một phân khu cụ thể
     /// </summary>
     [HttpDelete("api/hotels/{hotelId:int}/staff-assignments/{assignmentId:long}")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(SystemPermissions.StaffManage)]
     public async Task<IActionResult> RemoveAssignment(
         [FromRoute] int hotelId,
         [FromRoute] long assignmentId,
@@ -92,7 +92,7 @@ public class StaffAreaAssignmentsController : ControllerBase
     /// Lấy danh sách các phân khu mà nhân sự đang đăng nhập phụ trách (Dành cho Staff Portal - Active Zone)
     /// </summary>
     [HttpGet("api/staff/me/assigned-areas")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.StaffView)]
     public async Task<IActionResult> GetMyAssignedAreas(
         [FromQuery] int? hotelId,
         CancellationToken ct)

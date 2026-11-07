@@ -23,7 +23,7 @@ public sealed class AccountService(
         if (user is null) return null;
 
         var email = string.IsNullOrWhiteSpace(request.Email) ? user.Email : request.Email.Trim().ToLowerInvariant();
-        var phone = Normalize(request.Phone);
+        var phone = PhoneNumberNormalizer.Normalize(request.Phone);
         var changesIdentity = !string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(phone, user.Phone, StringComparison.Ordinal);
         if (changesIdentity && (user.LastReauthenticatedAt is null || user.LastReauthenticatedAt < UtcNow.AddMinutes(-5)))
@@ -49,7 +49,7 @@ public sealed class AccountService(
         long userId, string? email, string? phone, CancellationToken ct)
     {
         var normalizedEmail = Normalize(email)?.ToLowerInvariant();
-        var normalizedPhone = Normalize(phone);
+        var normalizedPhone = PhoneNumberNormalizer.Normalize(phone);
         if (normalizedEmail is null && normalizedPhone is null)
             throw new DomainRuleException("Provide an email address or phone number to check.");
         return new(

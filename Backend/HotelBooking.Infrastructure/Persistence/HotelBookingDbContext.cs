@@ -79,6 +79,7 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
         var role = model.Entity<Role>();
         role.ToTable("Roles");
         role.HasKey(x => x.RoleId);
+        role.Ignore(x => x.RolePermissions);
 
         var userRole = model.Entity<UserRole>();
         userRole.ToTable("UserRoles");

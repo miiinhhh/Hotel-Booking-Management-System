@@ -31,6 +31,7 @@ interface AuthContextValue {
   updateAvatar: (file: File) => Promise<AccountProfile>;
   deleteAvatar: () => Promise<void>;
   hasRole: (role: string) => boolean;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,7 +47,7 @@ function readSession(): { value: AuthResponse | null; remember: boolean } {
       sessionStorage.removeItem(AUTH_STORAGE_KEY);
       return { value: null, remember: false };
     }
-    return { value, remember: Boolean(local) };
+    return { value: { ...value, permissions: value.permissions || [] }, remember: Boolean(local) };
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
@@ -146,7 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     logoutAll: async () => {
       const current = requireSession();
-      try { await authApi.logoutAll(current.accessToken); } finally { clearSession(); }
+      await authApi.logoutAll(current.accessToken);
+      clearSession();
     },
     refreshProfile: async () => {
       const result = await authApi.getProfile(requireSession().accessToken);
@@ -168,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile((current) => current ? { ...current, avatarUrl: null, avatarUpdatedAt: null } : current);
     },
     hasRole: (role) => Boolean(session?.roles.includes(role)),
+    hasPermission: (permission) => Boolean(session?.permissions?.includes(permission)),
   }), [session, profile, loading, clearSession, persist, requireSession, updateSessionIdentity]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -28,6 +28,9 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new("token_version", user.TokenVersion.ToString())
         };
         claims.AddRange(roles.Distinct(StringComparer.Ordinal).Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(user.UserRoles.Where(x => x.Role.IsActive).SelectMany(x => x.Role.RolePermissions)
+            .Where(x => x.Permission.IsActive).Select(x => x.Permission.PermissionCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Select(permission => new Claim("permission", permission)));
 
         var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SecretKey)), SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(

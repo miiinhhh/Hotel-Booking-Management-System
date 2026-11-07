@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace HotelBooking.Application.Auth;
 
-public enum OtpChannel { Email, Phone }
+public enum OtpChannel { Email }
 public enum OtpPurpose { Login, PasswordReset }
 public enum AuthFailure { None, InvalidCredentials, LockedOut, InvalidToken, InvalidOtp, OtpExpired, ProviderRejected, DeliveryUnavailable }
 
@@ -71,6 +71,9 @@ public interface IOtpSender
 {
     Task SendAsync(OtpChannel channel, string destination, string code, OtpPurpose purpose, CancellationToken cancellationToken);
 }
+
+public sealed class OtpDeliveryException(Exception innerException)
+    : Exception("The verification code could not be delivered.", innerException);
 
 public interface IGoogleTokenValidator
 {

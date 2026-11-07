@@ -24,7 +24,7 @@ public sealed class PropertyImagesController(IPropertyContentService service) : 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ImageDto>>> List(int hotelId, [FromRoute] long? roomId, CancellationToken ct) =>
         Ok(await service.ImagesAsync(new(hotelId, roomId), ct));
-    [HttpPost, Authorize(Roles = SystemRoles.Admin)]
+    [HttpPost, RequirePermission(SystemPermissions.ContentManage)]
     [RequestSizeLimit(6 * 1024 * 1024), RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ImageDto>> Upload(int hotelId, [FromRoute] long? roomId,
@@ -42,13 +42,13 @@ public sealed class PropertyImagesController(IPropertyContentService service) : 
         Response.Headers["X-Content-Type-Options"] = "nosniff";
         return File(file.Content, file.ContentType);
     }
-    [HttpDelete("{imageId:long:min(1)}"), Authorize(Roles = SystemRoles.Admin)]
+    [HttpDelete("{imageId:long:min(1)}"), RequirePermission(SystemPermissions.ContentManage)]
     public async Task<IActionResult> Delete(int hotelId, [FromRoute] long? roomId, long imageId, CancellationToken ct)
     { await service.DeleteImageAsync(Actor, new(hotelId, roomId), imageId, ct); return NoContent(); }
-    [HttpPut("{imageId:long:min(1)}/primary"), Authorize(Roles = SystemRoles.Admin)]
+    [HttpPut("{imageId:long:min(1)}/primary"), RequirePermission(SystemPermissions.ContentManage)]
     public async Task<IActionResult> Primary(int hotelId, [FromRoute] long? roomId, long imageId, CancellationToken ct)
     { await service.SelectPrimaryAsync(Actor, new(hotelId, roomId), imageId, ct); return NoContent(); }
-    [HttpPut("order"), Authorize(Roles = SystemRoles.Admin)]
+    [HttpPut("order"), RequirePermission(SystemPermissions.ContentManage)]
     public async Task<IActionResult> Order(int hotelId, [FromRoute] long? roomId, ImageOrderRequest request, CancellationToken ct)
     { await service.ReorderAsync(Actor, new(hotelId, roomId), request.ImageIds, ct); return NoContent(); }
 }

@@ -6,6 +6,7 @@ import { AdminPricing } from './pages/AdminPricing';
 import { AdminStaff } from './pages/AdminStaff';
 import { AdminVouchers } from './pages/AdminVouchers';
 import { AdminAccounts } from './pages/AdminAccounts';
+import { AdminRoles } from './pages/AdminRoles';
 import { AdminPage } from './types';
 
 interface AdminPortalProps {
@@ -22,6 +23,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onExit }) => {
     vouchers: <AdminVouchers />,
     staff: <AdminStaff />,
     accounts: <AdminAccounts />,
+    roles: <AdminRoles />,
   };
 
   return <AdminShell activePage={activePage} onPageChange={setActivePage} onExit={onExit}>{content[activePage]}</AdminShell>;

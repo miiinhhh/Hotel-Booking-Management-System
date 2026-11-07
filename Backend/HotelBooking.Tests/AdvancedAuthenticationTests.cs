@@ -137,6 +137,31 @@ public sealed class AdvancedAuthenticationTests
     }
 
     [Fact]
+    public async Task Logout_all_revokes_access_and_refresh_tokens_for_every_session()
+    {
+        using var factory = new StaffFactory();
+        using var client = factory.CreateClient();
+        await factory.Seed();
+        var first = await Login(client, rememberMe: false);
+        var second = await Login(client, rememberMe: true);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.AccessToken);
+        var logoutAll = await client.PostAsync("/api/auth/logout-all", null);
+        Assert.Equal(HttpStatusCode.NoContent, logoutAll.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.AccessToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/me")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", second.AccessToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/me")).StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = first.RefreshToken })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = second.RefreshToken })).StatusCode);
+    }
+
+    [Fact]
     public async Task Remember_me_extends_refresh_token_lifetime()
     {
         using var factory = new StaffFactory();

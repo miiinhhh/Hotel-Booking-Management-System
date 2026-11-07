@@ -9,5 +9,4 @@ export * from './components/RoomInventory';
 export * from './components/HotelPolicies';
 export * from './components/RoomDetailModal';
 export * from './types';
-export * from './data/mockHotelDetail';
 export { default } from './HotelDetailPage';

@@ -8,6 +8,7 @@ export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
   { id: 'vouchers', label: 'Voucher & Hủy hoàn', icon: 'confirmation_number' },
   { id: 'staff', label: 'Nhân viên & Phân công', icon: 'badge' },
   { id: 'accounts', label: 'Quản trị tài khoản', icon: 'manage_accounts' },
+  { id: 'roles', label: 'Vai trò & Phân quyền', icon: 'admin_panel_settings' },
 ];
 
 export const ZONES = [

@@ -35,7 +35,7 @@ public class CancellationPoliciesController : BaseAPIController
     /// Lấy chi tiết chính sách hủy phòng theo ID
     /// </summary>
     [HttpGet("{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PoliciesManage)]
     public async Task<ActionResult<CancellationPolicyDto>> GetById(int id, CancellationToken ct = default)
     {
         var result = await _cancellationPolicyService.GetByIdAsync(id, ct);
@@ -50,7 +50,7 @@ public class CancellationPoliciesController : BaseAPIController
     /// Tạo mới chính sách hủy phòng (Admin / Staff)
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PoliciesManage)]
     public async Task<ActionResult<CancellationPolicyDto>> Create(
         [FromBody] CreateCancellationPolicyRequest request,
         CancellationToken ct = default)
@@ -74,7 +74,7 @@ public class CancellationPoliciesController : BaseAPIController
     /// Cập nhật chính sách hủy phòng (Admin / Staff)
     /// </summary>
     [HttpPut("{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PoliciesManage)]
     public async Task<ActionResult<CancellationPolicyDto>> Update(
         int id,
         [FromBody] UpdateCancellationPolicyRequest request,
@@ -103,7 +103,7 @@ public class CancellationPoliciesController : BaseAPIController
     /// Xóa chính sách hủy phòng (Admin Only)
     /// </summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(SystemPermissions.PoliciesManage)]
     public async Task<IActionResult> Delete(int id, CancellationToken ct = default)
     {
         await _cancellationPolicyService.DeletePolicyAsync(id, ct);

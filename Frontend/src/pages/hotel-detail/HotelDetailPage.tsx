@@ -7,18 +7,17 @@ import { ResortAmenities } from './components/ResortAmenities';
 import { RoomInventory } from './components/RoomInventory';
 import { HotelPolicies } from './components/HotelPolicies';
 import { RoomDetailModal } from './components/RoomDetailModal';
-import { MOCK_HOTEL_DETAIL } from './data/mockHotelDetail';
 import { HotelDetail, Room } from './types';
 
 interface HotelDetailPageProps {
-  hotelData?: HotelDetail;
+  hotelData: HotelDetail;
   onNavigateHome?: () => void;
   onNavigateSearch?: () => void;
   onNavigateCheckout?: (room?: Room, totalPrice?: number) => void;
 }
 
 export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
-  hotelData = MOCK_HOTEL_DETAIL,
+  hotelData,
   onNavigateHome,
   onNavigateSearch,
   onNavigateCheckout,
