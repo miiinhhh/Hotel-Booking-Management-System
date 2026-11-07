@@ -28,7 +28,7 @@ public class PaymentsController : BaseAPIController
 
     // POST: api/payments
     [HttpPost]
-    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
+    [RequirePermission(SystemPermissions.PaymentSelfManage)]
     public async Task<IActionResult> CreatePayment(
         [FromBody] CreatePaymentRequest request)
     {
@@ -58,7 +58,7 @@ public class PaymentsController : BaseAPIController
 
     // GET: api/payments/1
     [HttpGet("{id:long}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.PaymentRead)]
     public async Task<IActionResult> GetPayment(
         long id)
     {
@@ -81,7 +81,7 @@ public class PaymentsController : BaseAPIController
 
     // GET: api/payments/my-history?page=1&pageSize=10
     [HttpGet("my-history")]
-    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
+    [RequirePermission(SystemPermissions.PaymentSelfManage)]
     public async Task<IActionResult> GetMyPaymentHistory(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
@@ -111,7 +111,7 @@ public class PaymentsController : BaseAPIController
     // GET: api/payments/booking/{bookingId}?page=1&pageSize=10
     [HttpGet("~/api/bookings/{bookingId:long}/payments")]
     [HttpGet("booking/{bookingId:long}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.PaymentRead)]
     public async Task<IActionResult> GetPaymentsByBooking(
         long bookingId,
         [FromQuery] int page = 1,
@@ -154,7 +154,7 @@ public class PaymentsController : BaseAPIController
 
     // GET: api/payments?page=1&pageSize=10
     [HttpGet]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PaymentView)]
     public async Task<IActionResult> GetPaymentHistory(
         [FromQuery] PaymentHistoryFilterRequest filter)
     {
@@ -187,7 +187,7 @@ public class PaymentsController : BaseAPIController
 
     // PUT: api/payments/1/confirm
     [HttpPut("{id:long}/confirm")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PaymentManage)]
     public async Task<IActionResult> ConfirmPayment(
         long id,
         [FromBody] ConfirmPaymentRequest request)
@@ -232,7 +232,7 @@ public class PaymentsController : BaseAPIController
     /// Khởi tạo giao dịch thanh toán cọc hoặc toàn phần qua cổng VNPay
     /// </summary>
     [HttpPost("vnpay/create-payment")]
-    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
+    [RequirePermission(SystemPermissions.PaymentSelfManage)]
     public async Task<IActionResult> CreateVnPayPayment(
         [FromBody] CreateVnPayPaymentRequest request,
         CancellationToken ct)
@@ -314,7 +314,7 @@ public class PaymentsController : BaseAPIController
     /// Tra cứu trạng thái giao dịch thanh toán VNPay theo mã tham chiếu TxnRef (Dành cho Frontend xác minh)
     /// </summary>
     [HttpGet("vnpay/status/{txnRef}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.PaymentRead)]
     public async Task<IActionResult> GetVnPayStatus(string txnRef, CancellationToken ct)
     {
         var userId = GetCurrentUserId();

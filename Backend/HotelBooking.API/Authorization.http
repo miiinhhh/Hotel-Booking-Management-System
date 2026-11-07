@@ -1,0 +1,38 @@
+@base = https://localhost:7042
+@token = paste-admin-jwt-here
+
+### Danh mục permission
+GET {{base}}/api/admin/permissions
+Authorization: Bearer {{token}}
+
+### Danh sách role
+GET {{base}}/api/admin/roles
+Authorization: Bearer {{token}}
+
+### Tạo role tùy chỉnh
+POST {{base}}/api/admin/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Lễ tân",
+  "description": "Tiếp nhận và xử lý đặt phòng"
+}
+
+### Gán permission cho role
+PUT {{base}}/api/admin/roles/4/permissions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "permissionCodes": ["bookings.view", "bookings.manage", "payments.view"]
+}
+
+### Gán role cho user
+PUT {{base}}/api/admin/users/2/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "roleIds": [2, 4]
+}

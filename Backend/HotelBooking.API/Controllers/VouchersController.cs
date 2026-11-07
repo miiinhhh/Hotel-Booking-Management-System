@@ -37,7 +37,7 @@ public class VouchersController : BaseAPIController
     /// Danh sách mã voucher (Admin / Hotel Staff) có phân trang và bộ lọc
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [RequirePermission(SystemPermissions.VoucherView)]
     public async Task<ActionResult<PagedResult<VoucherResponseDto>>> GetList(
         [FromQuery] VoucherFilterRequest filter,
         CancellationToken ct)
@@ -50,7 +50,7 @@ public class VouchersController : BaseAPIController
     /// Lấy chi tiết một mã voucher theo ID (Admin / Hotel Staff)
     /// </summary>
     [HttpGet("{id:long}")]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.HotelStaff}")]
+    [RequirePermission(SystemPermissions.VoucherView)]
     public async Task<ActionResult<VoucherResponseDto>> GetById(
         long id,
         CancellationToken ct)
@@ -70,7 +70,7 @@ public class VouchersController : BaseAPIController
     /// Tạo mã voucher khuyến mãi mới (Admin)
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.VoucherManage)]
     public async Task<ActionResult<VoucherResponseDto>> Create(
         [FromBody] CreateVoucherRequest request,
         CancellationToken ct)
@@ -90,7 +90,7 @@ public class VouchersController : BaseAPIController
     /// Cập nhật thông tin mã voucher (Admin)
     /// </summary>
     [HttpPut("{id:long}")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.VoucherManage)]
     public async Task<ActionResult<VoucherResponseDto>> Update(
         long id,
         [FromBody] UpdateVoucherRequest request,
@@ -115,7 +115,7 @@ public class VouchersController : BaseAPIController
     /// Bật / Tắt kích hoạt mã voucher (Admin)
     /// </summary>
     [HttpPatch("{id:long}/toggle-status")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.VoucherManage)]
     public async Task<IActionResult> ToggleStatus(
         long id,
         CancellationToken ct)
@@ -135,7 +135,7 @@ public class VouchersController : BaseAPIController
     /// Ngừng kích hoạt / Soft delete mã voucher (Admin)
     /// </summary>
     [HttpDelete("{id:long}")]
-    [Authorize(Roles = SystemRoles.Admin)]
+    [RequirePermission(SystemPermissions.VoucherManage)]
     public async Task<IActionResult> Delete(
         long id,
         CancellationToken ct)

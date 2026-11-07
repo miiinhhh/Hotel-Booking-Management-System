@@ -19,21 +19,21 @@ public sealed class DiscoveryController(DiscoveryService service) : ControllerBa
     [HttpGet("api/discovery/hotels/{hotelId:int:min(1)}")]
     public async Task<ActionResult<HotelDiscoveryDetail>> Detail(int hotelId, [FromQuery] HotelDiscoveryRequest request, CancellationToken ct) =>
         Ok(await service.DetailAsync(hotelId, request, ct));
-    [HttpPut("api/hotels/{hotelId:int:min(1)}/policy"), Authorize(Roles = SystemRoles.Admin)]
+    [HttpPut("api/hotels/{hotelId:int:min(1)}/policy"), RequirePermission(SystemPermissions.PoliciesManage)]
     public async Task<IActionResult> Policy(int hotelId, HotelPolicyRequest request, CancellationToken ct)
     { await service.SetPolicyAsync(Actor, hotelId, request, ct); return NoContent(); }
-    [HttpGet("api/me/wishlist"), Authorize]
+    [HttpGet("api/me/wishlist"), RequirePermission(SystemPermissions.WishlistSelfManage)]
     public async Task<ActionResult<IReadOnlyList<HotelCardDto>>> Wishlist(CancellationToken ct) => Ok(await service.WishlistAsync(Actor, ct));
-    [HttpPut("api/me/wishlist/{hotelId:int:min(1)}"), Authorize]
+    [HttpPut("api/me/wishlist/{hotelId:int:min(1)}"), RequirePermission(SystemPermissions.WishlistSelfManage)]
     public async Task<IActionResult> Save(int hotelId, CancellationToken ct)
     { await service.SetWishlistAsync(Actor, hotelId, true, ct); return NoContent(); }
-    [HttpDelete("api/me/wishlist/{hotelId:int:min(1)}"), Authorize]
+    [HttpDelete("api/me/wishlist/{hotelId:int:min(1)}"), RequirePermission(SystemPermissions.WishlistSelfManage)]
     public async Task<IActionResult> Remove(int hotelId, CancellationToken ct)
     { await service.SetWishlistAsync(Actor, hotelId, false, ct); return NoContent(); }
-    [HttpGet("api/admin/reports/overview"), Authorize(Roles = SystemRoles.Admin)]
+    [HttpGet("api/admin/reports/overview"), RequirePermission(SystemPermissions.ReportsView)]
     public async Task<ActionResult<BusinessReport>> Overview([FromQuery] ReportFilter filter, CancellationToken ct) =>
         Ok(await service.ReportAsync(Actor, filter, ct));
-    [HttpGet("api/admin/reports/export"), Authorize(Roles = SystemRoles.Admin)]
+    [HttpGet("api/admin/reports/export"), RequirePermission(SystemPermissions.ReportsView)]
     public async Task<IActionResult> Export([FromQuery] ReportFilter filter, CancellationToken ct)
     {
         var report = await service.ReportAsync(Actor, filter, ct);

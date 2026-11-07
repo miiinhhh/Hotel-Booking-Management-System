@@ -16,7 +16,7 @@ public sealed class AvatarUploadForm
 
 [ApiController]
 [Route("api")]
-[Authorize]
+[RequirePermission(SystemPermissions.ProfileSelfManage)]
 public sealed class AccountController(IAccountService accountService) : ControllerBase
 {
     /// <summary>Returns the profile of the authenticated account.</summary>
@@ -141,12 +141,12 @@ public sealed class AccountController(IAccountService accountService) : Controll
 
     /// <summary>Example resource available to hotel staff and administrators.</summary>
     [HttpGet("staff/resource")]
-    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.StaffView)]
     public IActionResult GetStaffResource() => Ok(new { Message = "Hotel staff resource authorized." });
 
     /// <summary>Example resource available only to administrators.</summary>
     [HttpGet("admin")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    [RequirePermission(SystemPermissions.RolesManage)]
     public IActionResult GetAdminResource() => Ok(new { Message = "Administrator resource authorized." });
 
     private long? GetCurrentUserId()

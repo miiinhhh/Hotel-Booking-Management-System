@@ -36,8 +36,14 @@ public sealed class ActiveAccountJwtEvents(IUserRepository users) : JwtBearerEve
         // Use current database roles, never stale roles from an earlier JWT.
         var identity = (ClaimsIdentity)context.Principal!.Identity!;
         foreach (var claim in identity.FindAll(identity.RoleClaimType).ToArray()) identity.RemoveClaim(claim);
-        foreach (var role in user.UserRoles.Select(x => x.Role.RoleName).Distinct())
+        foreach (var role in user.UserRoles.Where(x => x.Role.IsActive).Select(x => x.Role.RoleName).Distinct())
             identity.AddClaim(new Claim(identity.RoleClaimType, role));
+        foreach (var claim in identity.FindAll(PermissionAuthorization.ClaimType).ToArray()) identity.RemoveClaim(claim);
+        foreach (var permission in user.UserRoles.Where(x => x.Role.IsActive)
+                     .SelectMany(x => x.Role.RolePermissions)
+                     .Where(x => x.Permission.IsActive)
+                     .Select(x => x.Permission.PermissionCode).Distinct(StringComparer.OrdinalIgnoreCase))
+            identity.AddClaim(new Claim(PermissionAuthorization.ClaimType, permission));
         foreach (var claim in identity.FindAll(ClaimTypes.NameIdentifier).ToArray()) identity.RemoveClaim(claim);
         identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, id.ToString()));
     }

@@ -254,8 +254,11 @@ public sealed class AuthService(
             User = user, TokenHash = HashToken(rawRefreshToken), CreatedAt = UtcNow, ExpiresAt = refreshExpires,
             CreatedByIp = client.IpAddress, DeviceInfo = Truncate(client.DeviceInfo, 500)
         }, ct);
+        var permissions = user.UserRoles.Where(x => x.Role.IsActive).SelectMany(x => x.Role.RolePermissions)
+            .Where(x => x.Permission.IsActive).Select(x => x.Permission.PermissionCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order().ToArray();
         return new(user.UserId, user.FullName, user.Email, roles, access.Token, access.ExpiresAt,
-            rawRefreshToken, new DateTimeOffset(refreshExpires, TimeSpan.Zero));
+            rawRefreshToken, new DateTimeOffset(refreshExpires, TimeSpan.Zero), permissions);
     }
 
     private void ClearLockout(User user, bool updateLastLogin = true)

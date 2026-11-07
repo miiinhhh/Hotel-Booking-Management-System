@@ -5,6 +5,7 @@ export interface AuthResponse {
   fullName: string;
   email: string;
   roles: string[];
+  permissions: string[];
   accessToken: string;
   expiresAt: string;
   refreshToken: string;

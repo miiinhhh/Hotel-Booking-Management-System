@@ -6,14 +6,16 @@ import { maskEmail } from '../../utils/privacy';
 interface HeaderProps { activeTab?: string; onTabChange?: (tab: string) => void; }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab = 'kham-pha', onTabChange }) => {
-  const { session, profile, hasRole, logout } = useAuth();
+  const { session, profile, hasRole, hasPermission, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const navItems = [
     { id: 'kham-pha', label: 'Khám phá' }, { id: 'tim-kiem', label: 'Tìm kiếm' },
-    { id: 'dat-phong-cua-toi', label: 'Đặt phòng của tôi' }, { id: 'danh-gia', label: 'Đánh giá kỳ nghỉ' },
-    { id: 'uu-dai', label: 'Ưu đãi' }, { id: 'yeu-thich', label: 'Yêu thích', badge: undefined },
-  ];
+    { id: 'dat-phong-cua-toi', label: 'Đặt phòng của tôi', permission: 'bookings.self.view' },
+    { id: 'danh-gia', label: 'Đánh giá kỳ nghỉ', permission: 'reviews.self.manage' },
+    { id: 'uu-dai', label: 'Ưu đãi' },
+    { id: 'yeu-thich', label: 'Yêu thích', badge: undefined, permission: 'wishlist.self.manage' },
+  ].filter(item => !item.permission || hasPermission(item.permission));
   const navigate = (id: string) => { onTabChange?.(id); setMobileMenuOpen(false); setAccountMenuOpen(false); };
   const initials = session?.fullName.split(' ').filter(Boolean).map((part) => part[0]).slice(-2).join('').toUpperCase() || '';
   const avatarUrl = profile?.avatarUrl ? `${absoluteApiUrl(profile.avatarUrl)}?v=${encodeURIComponent(profile.avatarUpdatedAt || '')}` : null;

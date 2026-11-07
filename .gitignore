@@ -41,3 +41,4 @@ Thumbs.db
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscoveryDemo.sql
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelAreas.sql
 !Database&Docs/AdvancedAuth.sql
+!Database&Docs/DynamicAuthorization.sql

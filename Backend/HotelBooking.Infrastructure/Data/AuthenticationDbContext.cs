@@ -8,6 +8,8 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuthOtpChallenge> AuthOtpChallenges => Set<AuthOtpChallenge>();
     public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
@@ -39,7 +41,30 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
             entity.HasKey(x => x.RoleId);
             entity.Property(x => x.RoleName).HasMaxLength(50).IsRequired().IsUnicode(false);
             entity.Property(x => x.Description).HasMaxLength(255);
+            entity.Property(x => x.IsSystem).HasDefaultValue(false);
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.HasIndex(x => x.RoleName).IsUnique();
+        });
+
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.ToTable("Permissions");
+            entity.HasKey(x => x.PermissionId);
+            entity.Property(x => x.PermissionCode).HasMaxLength(100).IsUnicode(false).IsRequired();
+            entity.Property(x => x.PermissionName).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.PermissionGroup).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.HasIndex(x => x.PermissionCode).IsUnique();
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.ToTable("RolePermissions");
+            entity.HasKey(x => new { x.RoleId, x.PermissionId });
+            entity.Property(x => x.GrantedAt).HasDefaultValueSql("SYSDATETIME()");
+            entity.HasOne(x => x.Role).WithMany(x => x.RolePermissions).HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Permission).WithMany(x => x.RolePermissions).HasForeignKey(x => x.PermissionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UserRole>(entity =>

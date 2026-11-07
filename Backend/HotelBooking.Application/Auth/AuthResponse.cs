@@ -10,4 +10,5 @@ public sealed record AuthResponse(
     DateTimeOffset ExpiresAt,
     string RefreshToken,
     DateTimeOffset RefreshExpiresAt,
+    IReadOnlyList<string> Permissions,
     string TokenType = "Bearer");
