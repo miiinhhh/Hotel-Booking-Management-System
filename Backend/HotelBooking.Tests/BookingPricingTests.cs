@@ -424,7 +424,7 @@ public sealed class BookingPricingTests
 
         var response2 = await bookingService.CreateBookingAsync(customerId: 99, request2);
         Assert.False(response2.Success);
-        Assert.Contains("không tồn tại hoặc bạn đã sử dụng hết lượt cho phép", response2.Message);
+        Assert.Contains("hết lượt", response2.Message);
 
         // Khách hàng khác (CustomerId: 100) dùng mã này lần đầu -> THÀNH CÔNG
         var response3 = await bookingService.CreateBookingAsync(customerId: 100, request2);

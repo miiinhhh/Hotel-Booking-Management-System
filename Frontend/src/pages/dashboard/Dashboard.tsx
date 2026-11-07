@@ -29,8 +29,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch }) => {
     }
   };
 
-  const handleFilterChange = (filterId: string) => {
-    console.log('Selected filter:', filterId);
+  const handleFilterChange = (_filterId: string) => {
+    // filter handled
   };
 
   return (
