@@ -18,12 +18,16 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Xunit;
+using HotelDbContext = HotelBooking.Infrastructure.Persistence.HotelDbContext;
+using RoomDbContext = HotelBooking.Infrastructure.Persistence.HotelBookingDbContext;
 
 namespace HotelBooking.Tests;
 
 public class StaffFactory : WebApplicationFactory<Program>
 {
     private readonly string database = Guid.NewGuid().ToString();
+    private readonly string hotelDatabase = Guid.NewGuid().ToString();
+    private readonly string roomDatabase = Guid.NewGuid().ToString();
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -48,6 +52,14 @@ public class StaffFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<HotelBookingDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<HotelBookingDbContext>>();
             services.AddDbContext<HotelBookingDbContext>(o => o.UseInMemoryDatabase(database));
+            services.RemoveAll<HotelDbContext>();
+            services.RemoveAll<DbContextOptions<HotelDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<HotelDbContext>>();
+            services.AddDbContext<HotelDbContext>(o => o.UseInMemoryDatabase(hotelDatabase));
+            services.RemoveAll<RoomDbContext>();
+            services.RemoveAll<DbContextOptions<RoomDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<RoomDbContext>>();
+            services.AddDbContext<RoomDbContext>(o => o.UseInMemoryDatabase(roomDatabase));
         });
     }
     public async Task Seed()
