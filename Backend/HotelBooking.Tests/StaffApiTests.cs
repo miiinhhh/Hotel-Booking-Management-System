@@ -120,11 +120,11 @@ public sealed class StaffApiTests
         Assert.Equal(HttpStatusCode.OK, (await admin.PatchAsJsonAsync("/api/staff/2/status", new { isActive = false })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await staff.GetAsync("/api/me")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await staff.GetAsync("/api/staff")).StatusCode);
-        var login = await staff.PostAsJsonAsync("/api/auth/login", new { email = "user2@example.com", password = "ValidPassword123!" });
+        var login = await staff.PostAsJsonAsync("/api/auth/staff/login", new { email = "user2@example.com", password = "ValidPassword123!" });
         Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.PatchAsJsonAsync("/api/staff/2/status", new { isActive = true })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync("/api/me")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await staff.PostAsJsonAsync("/api/auth/login", new { email = "user2@example.com", password = "ValidPassword123!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await staff.PostAsJsonAsync("/api/auth/staff/login", new { email = "user2@example.com", password = "ValidPassword123!" })).StatusCode);
     }
     [Fact]
     public async Task StaffCannotLockAccountsOrInjectPermissionFields()

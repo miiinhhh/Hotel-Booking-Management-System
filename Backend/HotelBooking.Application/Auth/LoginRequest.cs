@@ -2,6 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HotelBooking.Application.Auth;
 
+public enum LoginPortal
+{
+    Customer,
+    Staff,
+    Admin
+}
+
 /// <summary>Payload used to authenticate an account.</summary>
 public sealed record LoginRequest
 {

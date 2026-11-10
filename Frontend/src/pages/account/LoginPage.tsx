@@ -1,9 +1,13 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { authApi, OtpChannel } from '../../services/authApi';
+import { authApi, LoginPortal, OtpChannel } from '../../services/authApi';
 import { AccountShell, Field, PasswordField } from './AccountShell';
 
-interface LoginPageProps { onRegister: () => void; onSuccess: () => void; }
+interface LoginPageProps {
+  portal?: LoginPortal;
+  onRegister?: () => void;
+  onSuccess: () => void;
+}
 type Mode = 'password' | 'otp' | 'reset';
 
 declare global {
@@ -15,7 +19,7 @@ declare global {
   }
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ portal = 'customer', onRegister, onSuccess }) => {
   const { login, loginWithOtp, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('password');
   const [remember, setRemember] = useState(false);
@@ -31,9 +35,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
   const rememberRef = useRef(remember);
   rememberRef.current = remember;
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  const isCustomerPortal = portal === 'customer';
+  const portalText = portal === 'admin'
+    ? { eyebrow: 'Cổng quản trị StayLuxe', title: 'Đăng nhập quản trị', description: 'Chỉ tài khoản Admin được phép truy cập hệ thống quản trị.' }
+    : portal === 'staff'
+      ? { eyebrow: 'Cổng nhân viên StayLuxe', title: 'Đăng nhập nhân viên', description: 'Dành cho nhân viên khách sạn đã được quản trị viên cấp tài khoản.' }
+      : { eyebrow: 'Tài khoản StayLuxe', title: 'Chào mừng bạn trở lại', description: 'Đăng nhập để quản lý hồ sơ và các kỳ nghỉ đã đặt.' };
 
   useEffect(() => {
-    if (!googleClientId || !googleButton.current) return;
+    if (!isCustomerPortal || !googleClientId || !googleButton.current) return;
     const render = () => {
       if (!window.google || !googleButton.current) return;
       window.google.accounts.id.initialize({
@@ -53,7 +63,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
     script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.onload = render;
     document.head.appendChild(script);
     return () => { script.onload = null; };
-  }, [googleClientId, loginWithGoogle, onSuccess]);
+  }, [googleClientId, isCustomerPortal, loginWithGoogle, onSuccess]);
 
   const startMode = (next: Mode) => {
     setMode(next); setChallengeId(''); setCode(''); setNewPassword(''); setMessage(''); setError('');
@@ -62,7 +72,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
   const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); const data = new FormData(event.currentTarget);
     setSubmitting(true); setError('');
-    try { await login(String(data.get('email')), String(data.get('password')), remember); onSuccess(); }
+    try { await login(String(data.get('email')), String(data.get('password')), remember, portal); onSuccess(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Đăng nhập không thành công.'); }
     finally { setSubmitting(false); }
   };
@@ -91,7 +101,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
     {error && <div role="alert" className="flex gap-3 rounded-lg bg-error-container px-4 py-3 text-sm text-on-error-container"><span className="material-symbols-outlined text-xl">error</span><span>{error}</span></div>}
   </>;
 
-  return <AccountShell eyebrow="Tài khoản StayLuxe" title={mode === 'password' ? 'Chào mừng bạn trở lại' : mode === 'otp' ? 'Đăng nhập bằng mã OTP' : 'Khôi phục mật khẩu'} description={mode === 'password' ? 'Đăng nhập để quản lý hồ sơ và các kỳ nghỉ đã đặt.' : 'Mã xác thực 6 chữ số sẽ được gửi đến thông tin đã đăng ký.'}>
+  return <AccountShell eyebrow={portalText.eyebrow} title={mode === 'password' ? portalText.title : mode === 'otp' ? 'Đăng nhập bằng mã OTP' : 'Khôi phục mật khẩu'} description={mode === 'password' ? portalText.description : 'Mã xác thực 6 chữ số sẽ được gửi đến thông tin đã đăng ký.'}>
     {mode === 'password' ? <form onSubmit={submitPassword} className="space-y-5">
       {notice}
       <Field name="email" label="Email" icon="mail" type="email" autoComplete="email" required placeholder="tenban@email.com" />
@@ -101,9 +111,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
         <button type="button" onClick={() => startMode('reset')} className="text-sm font-semibold text-primary hover:underline">Quên mật khẩu?</button>
       </div>
       <PrimaryButton loading={submitting} icon="login">Đăng nhập</PrimaryButton>
-      <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-outline"><span className="h-px flex-1 bg-outline-variant/50" />Hoặc<span className="h-px flex-1 bg-outline-variant/50" /></div>
-      <button type="button" onClick={() => startMode('otp')} className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest font-semibold text-on-surface hover:bg-surface-container-low"><span className="material-symbols-outlined">password</span>Đăng nhập bằng OTP</button>
-      {googleClientId && <div className="flex justify-center overflow-hidden" ref={googleButton} />}
+      {isCustomerPortal && <>
+        <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-outline"><span className="h-px flex-1 bg-outline-variant/50" />Hoặc<span className="h-px flex-1 bg-outline-variant/50" /></div>
+        <button type="button" onClick={() => startMode('otp')} className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest font-semibold text-on-surface hover:bg-surface-container-low"><span className="material-symbols-outlined">password</span>Đăng nhập bằng OTP</button>
+        {googleClientId && <div className="flex justify-center overflow-hidden" ref={googleButton} />}
+      </>}
     </form> : <form onSubmit={challengeId ? verifyCode : requestCode} className="space-y-5">
       {notice}
       {!challengeId ? <>
@@ -119,7 +131,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onRegister, onSuccess }) =
       </>}
       <button type="button" onClick={() => startMode('password')} className="flex w-full items-center justify-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary"><span className="material-symbols-outlined text-lg">arrow_back</span>Quay lại đăng nhập</button>
     </form>}
-    <p className="mt-7 text-center text-sm text-on-surface-variant">Chưa có tài khoản? <button onClick={onRegister} className="font-semibold text-primary hover:underline">Đăng ký ngay</button></p>
+    {isCustomerPortal && onRegister
+      ? <p className="mt-7 text-center text-sm text-on-surface-variant">Chưa có tài khoản? <button onClick={onRegister} className="font-semibold text-primary hover:underline">Đăng ký ngay</button></p>
+      : <p className="mt-7 rounded-lg bg-surface-container-low px-4 py-3 text-center text-sm text-on-surface-variant">Tài khoản {portal === 'admin' ? 'quản trị' : 'nhân viên'} do quản trị viên cấp, không hỗ trợ đăng ký tại đây.</p>}
   </AccountShell>;
 };
 

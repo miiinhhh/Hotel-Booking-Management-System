@@ -24,9 +24,7 @@ public sealed class AccountService(
 
         var email = string.IsNullOrWhiteSpace(request.Email) ? user.Email : request.Email.Trim().ToLowerInvariant();
         var phone = PhoneNumberNormalizer.Normalize(request.Phone);
-        var changesIdentity = !string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(phone, user.Phone, StringComparison.Ordinal);
-        if (changesIdentity && (user.LastReauthenticatedAt is null || user.LastReauthenticatedAt < UtcNow.AddMinutes(-5)))
+        if (user.LastReauthenticatedAt is null || user.LastReauthenticatedAt < UtcNow.AddMinutes(-5))
             throw new ReauthenticationRequiredException();
         if (await users.EmailExistsAsync(email, userId, ct))
             throw new DuplicateEmailException(email);
@@ -40,7 +38,7 @@ public sealed class AccountService(
         user.Phone = phone;
         user.DateOfBirth = request.DateOfBirth?.UtcDateTime;
         user.UpdatedAt = UtcNow;
-        if (changesIdentity) user.LastReauthenticatedAt = null;
+        user.LastReauthenticatedAt = null;
         await users.SaveChangesAsync(ct);
         return MapProfile(user);
     }

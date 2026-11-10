@@ -4,7 +4,7 @@ public interface IAuthService
 {
     Task<AccountAvailabilityResponse> CheckRegistrationAvailabilityAsync(string? email, string? phone, CancellationToken cancellationToken);
     Task<AuthResponse> RegisterAsync(RegisterRequest request, AuthClientContext client, CancellationToken cancellationToken);
-    Task<AuthResult> LoginAsync(LoginRequest request, AuthClientContext client, CancellationToken cancellationToken);
+    Task<AuthResult> LoginAsync(LoginRequest request, LoginPortal portal, AuthClientContext client, CancellationToken cancellationToken);
     Task<AuthResult> RefreshAsync(string refreshToken, AuthClientContext client, CancellationToken cancellationToken);
     Task LogoutAsync(string refreshToken, AuthClientContext client, CancellationToken cancellationToken);
     Task LogoutAllAsync(long userId, AuthClientContext client, CancellationToken cancellationToken);

@@ -35,10 +35,21 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         }
     }
 
-    [HttpPost("login"), AllowAnonymous]
+    [HttpPost("customer/login")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken ct) =>
-        Result(await authService.LoginAsync(request, Client(), ct));
+    public async Task<ActionResult<AuthResponse>> CustomerLogin(LoginRequest request, CancellationToken ct) =>
+        Result(await authService.LoginAsync(request, LoginPortal.Customer, Client(), ct));
+
+    [HttpPost("staff/login"), AllowAnonymous]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AuthResponse>> StaffLogin(LoginRequest request, CancellationToken ct) =>
+        Result(await authService.LoginAsync(request, LoginPortal.Staff, Client(), ct));
+
+    [HttpPost("admin/login"), AllowAnonymous]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AuthResponse>> AdminLogin(LoginRequest request, CancellationToken ct) =>
+        Result(await authService.LoginAsync(request, LoginPortal.Admin, Client(), ct));
 
     [HttpPost("refresh"), AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
@@ -107,6 +118,8 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     {
         var (status, code, title, detail) = failure switch
         {
+            AuthFailure.PortalAccessDenied => (StatusCodes.Status401Unauthorized, AuthenticationErrorCodes.InvalidCredentials,
+                "Đăng nhập thất bại", "Sai tài khoản hoặc mật khẩu."),
             AuthFailure.LockedOut => (StatusCodes.Status423Locked, AuthenticationErrorCodes.AccountLocked,
                 "Account locked", "Too many failed attempts. Try again after the lockout period."),
             AuthFailure.InvalidToken => (StatusCodes.Status401Unauthorized, AuthenticationErrorCodes.RefreshTokenInvalid,
@@ -118,7 +131,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
             AuthFailure.ProviderRejected => (StatusCodes.Status401Unauthorized, AuthenticationErrorCodes.ExternalProviderRejected,
                 "Google authentication failed", "The Google identity token could not be verified."),
             _ => (StatusCodes.Status401Unauthorized, AuthenticationErrorCodes.InvalidCredentials,
-                "Authentication failed", "The supplied credentials are not valid.")
+                "Đăng nhập thất bại", "Sai tài khoản hoặc mật khẩu.")
         };
         var problem = Problem(status, code, title, detail);
         if (retryAt is not null)

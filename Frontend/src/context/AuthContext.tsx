@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AccountProfile, ApiError, AUTH_STORAGE_KEY, AuthResponse, authApi } from '../services/authApi';
+import { AccountProfile, ApiError, AUTH_STORAGE_KEY, AuthResponse, authApi, LoginPortal } from '../services/authApi';
 
 interface RegisterInput {
   fullName: string;
@@ -20,7 +20,7 @@ interface AuthContextValue {
   session: AuthResponse | null;
   profile: AccountProfile | null;
   loading: boolean;
-  login: (email: string, password: string, remember: boolean) => Promise<void>;
+  login: (email: string, password: string, remember: boolean, portal?: LoginPortal) => Promise<void>;
   loginWithOtp: (challengeId: string, code: string, remember: boolean) => Promise<void>;
   loginWithGoogle: (idToken: string, remember: boolean) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
@@ -136,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     session,
     profile,
     loading,
-    login: async (email, password, remember) => persist(await authApi.login(email, password, remember), remember),
+    login: async (email, password, remember, portal = 'customer') => persist(await authApi.login(email, password, remember, portal), remember),
     loginWithOtp: async (challengeId, code, remember) => persist(await authApi.verifyOtp(challengeId, code, remember), remember),
     loginWithGoogle: async (idToken, remember) => persist(await authApi.google(idToken, remember), remember),
     register: async (input) => persist(await authApi.register(input), true),

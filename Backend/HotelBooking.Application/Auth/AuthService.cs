@@ -48,7 +48,7 @@ public sealed class AuthService(
         return await IssueSession(user, [SystemRoles.Customer], true, client, ct);
     }
 
-    public async Task<AuthResult> LoginAsync(LoginRequest request, AuthClientContext client, CancellationToken ct)
+    public async Task<AuthResult> LoginAsync(LoginRequest request, LoginPortal portal, AuthClientContext client, CancellationToken ct)
     {
         var user = await users.FindByEmailAsync(NormalizeEmail(request.Email), ct);
         if (user is null || !user.IsActive) return AuthResult.Failed(AuthFailure.InvalidCredentials);
@@ -68,6 +68,13 @@ public sealed class AuthService(
             user.UpdatedAt = UtcNow;
             await users.SaveChangesAsync(ct);
             return retryAt is null ? AuthResult.Failed(AuthFailure.InvalidCredentials) : AuthResult.Failed(AuthFailure.LockedOut, retryAt);
+        }
+
+        if (!CanUsePortal(user, portal))
+        {
+            ClearLockout(user, false);
+            await users.SaveChangesAsync(ct);
+            return AuthResult.Failed(AuthFailure.PortalAccessDenied);
         }
 
         ClearLockout(user);
@@ -132,7 +139,8 @@ public sealed class AuthService(
         challenge.CodeHash = HashOtp(challenge.ChallengeId, code);
         await users.AddOtpChallengeAsync(challenge, ct);
         await users.SaveChangesAsync(ct);
-        if (user is not null && user.IsActive)
+        if (user is not null && user.IsActive &&
+            (request.Purpose != OtpPurpose.Login || CanUsePortal(user, LoginPortal.Customer)))
         {
             try
             {
@@ -158,6 +166,11 @@ public sealed class AuthService(
             return AuthResult.Failed(failure);
         }
         challenge!.ConsumedAt = UtcNow;
+        if (!CanUsePortal(challenge.User!, LoginPortal.Customer))
+        {
+            await users.SaveChangesAsync(ct);
+            return AuthResult.Failed(AuthFailure.PortalAccessDenied);
+        }
         ClearLockout(challenge.User!);
         return AuthResult.Success(await IssueSession(challenge.User!, Roles(challenge.User!), request.RememberMe, client, ct));
     }
@@ -212,6 +225,8 @@ public sealed class AuthService(
             }
             else
             {
+                if (!CanUsePortal(user, LoginPortal.Customer))
+                    return AuthResult.Failed(AuthFailure.PortalAccessDenied);
                 await users.AddExternalLoginAsync(new ExternalLogin
                 {
                     User = user, Provider = GoogleProvider, ProviderSubject = identity.Subject, Email = email, CreatedAt = UtcNow
@@ -220,6 +235,7 @@ public sealed class AuthService(
             await users.SaveChangesAsync(ct);
         }
         if (!user.IsActive) return AuthResult.Failed(AuthFailure.InvalidCredentials);
+        if (!CanUsePortal(user, LoginPortal.Customer)) return AuthResult.Failed(AuthFailure.PortalAccessDenied);
         ClearLockout(user);
         return AuthResult.Success(await IssueSession(user, Roles(user), request.RememberMe, client, ct));
     }
@@ -267,6 +283,21 @@ public sealed class AuthService(
         user.LockoutEnd = null;
         if (updateLastLogin) user.LastLoginAt = UtcNow;
         user.UpdatedAt = UtcNow;
+    }
+
+    private static bool CanUsePortal(User user, LoginPortal portal)
+    {
+        var roles = user.UserRoles.Where(x => x.Role.IsActive).Select(x => x.Role.RoleName)
+            .ToHashSet(StringComparer.Ordinal);
+        return portal switch
+        {
+            LoginPortal.Admin => roles.Contains(SystemRoles.Admin),
+            LoginPortal.Staff => roles.Contains(SystemRoles.HotelStaff) && !roles.Contains(SystemRoles.Admin),
+            LoginPortal.Customer => roles.Contains(SystemRoles.Customer) &&
+                                    !roles.Contains(SystemRoles.HotelStaff) &&
+                                    !roles.Contains(SystemRoles.Admin),
+            _ => false
+        };
     }
 
     private string HashOtp(Guid challengeId, string code)

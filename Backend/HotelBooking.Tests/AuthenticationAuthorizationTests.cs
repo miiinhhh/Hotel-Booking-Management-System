@@ -45,7 +45,7 @@ public sealed class AuthenticationAuthorizationTests
         using var client = factory.CreateClient();
         await factory.Seed();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new
+        var response = await client.PostAsJsonAsync("/api/auth/customer/login", new
         {
             email = "user4@example.com",
             password = "wrong-password"
@@ -53,6 +53,34 @@ public sealed class AuthenticationAuthorizationTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         await AssertProblemCode(response, AuthenticationErrorCodes.InvalidCredentials);
+    }
+
+    [Theory]
+    [InlineData("/api/auth/admin/login", "user1@example.com", 200)]
+    [InlineData("/api/auth/admin/login", "user2@example.com", 401)]
+    [InlineData("/api/auth/admin/login", "user4@example.com", 401)]
+    [InlineData("/api/auth/staff/login", "user2@example.com", 200)]
+    [InlineData("/api/auth/staff/login", "user1@example.com", 401)]
+    [InlineData("/api/auth/staff/login", "user4@example.com", 401)]
+    [InlineData("/api/auth/customer/login", "user4@example.com", 200)]
+    [InlineData("/api/auth/customer/login", "user1@example.com", 401)]
+    [InlineData("/api/auth/customer/login", "user2@example.com", 401)]
+    public async Task LoginPortalsOnlyAcceptTheirAccountType(string endpoint, string email, int expectedStatus)
+    {
+        using var factory = new StaffFactory();
+        using var client = factory.CreateClient();
+        await factory.Seed();
+
+        var response = await client.PostAsJsonAsync(endpoint, new
+        {
+            email,
+            password = "ValidPassword123!",
+            rememberMe = false
+        });
+
+        Assert.Equal(expectedStatus, (int)response.StatusCode);
+        if (expectedStatus == StatusCodes.Status401Unauthorized)
+            await AssertProblemCode(response, AuthenticationErrorCodes.InvalidCredentials);
     }
 
     [Theory]

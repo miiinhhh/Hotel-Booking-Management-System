@@ -6,6 +6,7 @@ import { Field, PasswordField } from './AccountShell';
 
 interface ProfilePageProps { onLogin: () => void; onBookings: () => void; }
 const dateValue = (value: string | null | undefined) => value ? value.slice(0, 10) : '';
+type PrivateField = 'email' | 'phone' | 'dateOfBirth';
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings }) => {
   const { session, profile, loading, updateProfile, updateAvatar, deleteAvatar, logout, logoutAll } = useAuth();
@@ -21,6 +22,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
   const [logoutAllBusy, setLogoutAllBusy] = useState(false);
   const [reauthOpen, setReauthOpen] = useState(false);
   const [reauthPassword, setReauthPassword] = useState('');
+  const [reauthPurpose, setReauthPurpose] = useState<'edit' | PrivateField | null>(null);
+  const [reauthValidUntil, setReauthValidUntil] = useState(0);
+  const [visibleFields, setVisibleFields] = useState<Record<PrivateField, boolean>>({ email: false, phone: false, dateOfBirth: false });
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const avatarInput = useRef<HTMLInputElement>(null);
 
@@ -28,16 +32,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
     if (profile) setForm({ fullName: profile.fullName, email: profile.email, phone: profile.phone || '', dateOfBirth: dateValue(profile.dateOfBirth) });
   }, [profile]);
 
+  useEffect(() => {
+    if (!Object.values(visibleFields).some(Boolean)) return;
+    const timer = window.setTimeout(() => setVisibleFields({ email: false, phone: false, dateOfBirth: false }), 60_000);
+    return () => window.clearTimeout(timer);
+  }, [visibleFields]);
+
   if (!session) return <main className="min-h-[70vh] bg-background px-5 pt-36 text-center"><span className="material-symbols-outlined text-5xl text-primary">lock</span><h1 className="mt-4 font-headline-md text-3xl font-semibold">Đăng nhập để xem hồ sơ</h1><button onClick={onLogin} className="mt-6 rounded-full bg-primary px-7 py-3 font-semibold text-on-primary">Đăng nhập</button></main>;
   if (loading && !profile) return <main className="flex min-h-[70vh] items-center justify-center pt-20"><span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span></main>;
 
-  const identityChanged = Boolean(profile && (form.email.trim().toLowerCase() !== profile.email.toLowerCase() || form.phone.trim() !== (profile.phone || '')));
   const initials = (profile?.fullName || session.fullName).split(' ').filter(Boolean).map((part) => part[0]).slice(-2).join('').toUpperCase();
   const avatarUrl = profile?.avatarUrl ? `${absoluteApiUrl(profile.avatarUrl)}?v=${encodeURIComponent(profile.avatarUpdatedAt || '')}` : null;
 
-  const openEditor = () => {
+  const showEditor = () => {
     if (profile) setForm({ fullName: profile.fullName, email: profile.email, phone: profile.phone || '', dateOfBirth: dateValue(profile.dateOfBirth) });
     setAvailability({}); setError(''); setMessage(''); setEditOpen(true);
+  };
+
+  const openEditor = () => {
+    if (reauthValidUntil > Date.now()) { showEditor(); return; }
+    setReauthPurpose('edit'); setReauthPassword(''); setError(''); setMessage(''); setReauthOpen(true);
+  };
+
+  const togglePrivateInformation = (field: PrivateField) => {
+    if (visibleFields[field]) {
+      setVisibleFields((current) => ({ ...current, [field]: false }));
+      return;
+    }
+    if (reauthValidUntil > Date.now()) {
+      setVisibleFields((current) => ({ ...current, [field]: true }));
+      return;
+    }
+    setReauthPurpose(field); setReauthPassword(''); setError(''); setMessage(''); setReauthOpen(true);
   };
 
   const openPasswordEditor = () => {
@@ -59,23 +85,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
   const save = async () => {
     setSaving(true); setError(''); setMessage('');
     try {
-      await updateProfile(form); setAvailability({}); setEditOpen(false);
+      await updateProfile(form); setAvailability({}); setEditOpen(false); setReauthValidUntil(0); setVisibleFields({ email: false, phone: false, dateOfBirth: false });
       setMessage('Thông tin hồ sơ đã được cập nhật.');
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể cập nhật hồ sơ.'); }
+    } catch (reason) { setReauthValidUntil(0); setError(reason instanceof Error ? reason.message : 'Không thể cập nhật hồ sơ.'); }
     finally { setSaving(false); }
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (availability.email === false || availability.phone === false) { setError('Email hoặc số điện thoại đã được tài khoản khác sử dụng.'); return; }
-    if (identityChanged) { setReauthPassword(''); setError(''); setReauthOpen(true); return; }
     await save();
   };
 
   const confirmReauthentication = async (event: FormEvent) => {
     event.preventDefault(); setSaving(true); setError('');
-    try { await authApi.reauthenticate(session.accessToken, reauthPassword); setReauthOpen(false); await save(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Mật khẩu hiện tại không đúng.'); setSaving(false); }
+    try {
+      const verification = await authApi.reauthenticate(session.accessToken, reauthPassword);
+      setReauthValidUntil(new Date(verification.verifiedAt).getTime() + verification.validForSeconds * 1000);
+      setReauthOpen(false); setReauthPassword('');
+      if (reauthPurpose === 'edit') showEditor();
+      else if (reauthPurpose) setVisibleFields((current) => ({ ...current, [reauthPurpose]: true }));
+      setReauthPurpose(null);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Mật khẩu hiện tại không đúng.'); }
+    finally { setSaving(false); }
   };
 
   const onAvatar = async (file?: File) => {
@@ -137,9 +169,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
             <div className="flex flex-col gap-4 border-b border-outline-variant/30 pb-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-headline-sm text-2xl font-semibold">Thông tin cá nhân</h2><p className="mt-1 text-sm text-on-surface-variant">Dữ liệu liên hệ được che để bảo vệ quyền riêng tư.</p></div><button type="button" onClick={openEditor} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 font-semibold text-on-primary"><span className="material-symbols-outlined text-xl">edit</span>Chỉnh sửa thông tin</button></div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <InfoItem icon="person" label="Họ và tên" value={profile?.fullName || session.fullName} />
-              <InfoItem icon="mail" label="Email" value={maskEmail(profile?.email || session.email)} privateValue />
-              <InfoItem icon="call" label="Số điện thoại" value={maskPhone(profile?.phone)} privateValue />
-              <InfoItem icon="cake" label="Ngày sinh" value={maskBirthDate(profile?.dateOfBirth)} privateValue />
+              <InfoItem icon="mail" label="Email" value={visibleFields.email ? profile?.email || session.email : maskEmail(profile?.email || session.email)} privateValue visible={visibleFields.email} onToggle={() => togglePrivateInformation('email')} />
+              <InfoItem icon="call" label="Số điện thoại" value={visibleFields.phone ? profile?.phone || 'Chưa cập nhật' : maskPhone(profile?.phone)} privateValue visible={visibleFields.phone} onToggle={() => togglePrivateInformation('phone')} />
+              <InfoItem icon="cake" label="Ngày sinh" value={visibleFields.dateOfBirth ? dateValue(profile?.dateOfBirth) || 'Chưa cập nhật' : maskBirthDate(profile?.dateOfBirth)} privateValue visible={visibleFields.dateOfBirth} onToggle={() => togglePrivateInformation('dateOfBirth')} />
             </div>
           </section>
           <section className="rounded-lg bg-surface-container-lowest p-6 shadow-sm md:p-8">
@@ -148,7 +180,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
               <div className="flex items-center gap-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed"><span className="material-symbols-outlined">shield_lock</span></span><div><p className="font-semibold">Mật khẩu đăng nhập</p><p className="mt-1 text-sm text-on-surface-variant">Mật khẩu luôn được mã hóa và không hiển thị trên trang.</p></div></div>
               <button type="button" onClick={openPasswordEditor} className="shrink-0 rounded-full border border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary-fixed">Đổi mật khẩu</button>
             </div>
-            <div className="mt-4 flex flex-col gap-4 rounded-lg border border-outline-variant/40 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Phiên đăng nhập</p><p className="mt-1 text-sm text-on-surface-variant">Thu hồi toàn bộ access token và refresh token đang hoạt động.</p></div><button type="button" onClick={() => { setError(''); setLogoutAllOpen(true); }} className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-error hover:bg-error-container">Đăng xuất mọi thiết bị</button></div>
+            <div className="mt-4 flex flex-col gap-4 rounded-lg border border-outline-variant/40 p-5 sm:flex-row sm:items-center sm:justify-between"><p className="font-semibold">Phiên đăng nhập</p><button type="button" onClick={() => { setError(''); setLogoutAllOpen(true); }} className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-error hover:bg-error-container">Đăng xuất mọi thiết bị</button></div>
           </section>
         </div>
       </div>
@@ -183,11 +215,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
       </div>
     </Modal>
 
-    {reauthOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-inverse-surface/60 p-5" role="dialog" aria-modal="true" aria-labelledby="reauth-title"><form onSubmit={confirmReauthentication} className="w-full max-w-md rounded-lg bg-surface-container-lowest p-6 shadow-2xl">{error && <div className="mb-4"><Feedback error={error} message="" /></div>}<div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed"><span className="material-symbols-outlined">verified_user</span></div><h2 id="reauth-title" className="mt-4 text-xl font-semibold">Xác thực thay đổi quan trọng</h2><p className="mt-2 text-sm text-on-surface-variant">Nhập mật khẩu hiện tại để thay đổi email hoặc số điện thoại.</p><div className="mt-5"><PasswordField label="Mật khẩu hiện tại" icon="lock" value={reauthPassword} onChange={(event) => setReauthPassword(event.target.value)} required autoFocus autoComplete="current-password" /></div><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => { setReauthOpen(false); setError(''); }} className="rounded-full px-5 py-2.5 font-semibold text-on-surface-variant hover:bg-surface-container">Hủy</button><button disabled={saving} className="rounded-full bg-primary px-5 py-2.5 font-semibold text-on-primary disabled:opacity-70">Xác nhận và lưu</button></div></form></div>}
+    {reauthOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-inverse-surface/60 p-5" role="dialog" aria-modal="true" aria-labelledby="reauth-title"><form onSubmit={confirmReauthentication} className="w-full max-w-md rounded-lg bg-surface-container-lowest p-6 shadow-2xl">{error && <div className="mb-4"><Feedback error={error} message="" /></div>}<div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed"><span className="material-symbols-outlined">verified_user</span></div><h2 id="reauth-title" className="mt-4 text-xl font-semibold">Xác thực tài khoản</h2><p className="mt-2 text-sm text-on-surface-variant">Vui lòng xác nhận mật khẩu.</p><div className="mt-5"><PasswordField label="Mật khẩu hiện tại" icon="lock" value={reauthPassword} onChange={(event) => setReauthPassword(event.target.value)} required autoFocus autoComplete="current-password" /></div><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => { setReauthOpen(false); setReauthPurpose(null); setError(''); }} className="rounded-full px-5 py-2.5 font-semibold text-on-surface-variant hover:bg-surface-container">Hủy</button><button disabled={saving} className="rounded-full bg-primary px-5 py-2.5 font-semibold text-on-primary disabled:opacity-70">{saving ? 'Đang xác thực...' : 'Xác nhận'}</button></div></form></div>}
   </main>;
 };
 
-const InfoItem: React.FC<{ icon: string; label: string; value: string; privateValue?: boolean }> = ({ icon, label, value, privateValue }) => <div className="flex items-center gap-4 rounded-lg bg-surface-container-low p-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed"><span className="material-symbols-outlined text-xl">{icon}</span></span><div className="min-w-0"><p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-outline">{label}{privateValue && <span className="material-symbols-outlined text-sm" title="Thông tin đã được che">visibility_off</span>}</p><p className="mt-1 truncate font-semibold text-on-surface">{value}</p></div></div>;
+const InfoItem: React.FC<{ icon: string; label: string; value: string; privateValue?: boolean; visible?: boolean; onToggle?: () => void }> = ({ icon, label, value, privateValue, visible, onToggle }) => <div className="flex items-center gap-4 rounded-lg bg-surface-container-low p-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed"><span className="material-symbols-outlined text-xl">{icon}</span></span><div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-outline">{label}{privateValue && <button type="button" onClick={onToggle} className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-surface-container-high hover:text-primary" title={visible ? 'Ẩn thông tin' : 'Hiện thông tin'} aria-label={visible ? `Ẩn ${label}` : `Hiện ${label}`}><span className="material-symbols-outlined text-base">{visible ? 'visibility' : 'visibility_off'}</span></button>}</p><p className="mt-1 truncate font-semibold text-on-surface">{value}</p></div></div>;
 
 const Feedback: React.FC<{ error: string; message: string }> = ({ error, message }) => <div role={error ? 'alert' : 'status'} className={`flex gap-2 rounded-lg px-4 py-3 text-sm ${error ? 'bg-error-container text-on-error-container' : 'bg-secondary-fixed text-on-secondary-fixed'}`}><span className="material-symbols-outlined text-xl">{error ? 'error' : 'check_circle'}</span>{error || message}</div>;
 

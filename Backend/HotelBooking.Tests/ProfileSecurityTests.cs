@@ -28,6 +28,12 @@ public sealed class ProfileSecurityTests
         }
         Authenticate(client, await factory.Token(4));
 
+        var profileOnlyWithoutReauthentication = await client.PutAsJsonAsync("/api/me", new
+        {
+            fullName = "Changed without verification", email = "user4@example.com", phone = (string?)null, dateOfBirth = (string?)null
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, profileOnlyWithoutReauthentication.StatusCode);
+
         var unavailable = await client.GetFromJsonAsync<AccountAvailabilityResponse>(
             "/api/me/availability?email=user2%40example.com&phone=%2B84901111111");
         Assert.False(unavailable!.EmailAvailable);
@@ -122,7 +128,7 @@ public sealed class ProfileSecurityTests
     }
 
     private static Task<HttpResponseMessage> LoginResponse(HttpClient client, string password) =>
-        client.PostAsJsonAsync("/api/auth/login", new { email = "user4@example.com", password, rememberMe = false });
+        client.PostAsJsonAsync("/api/auth/customer/login", new { email = "user4@example.com", password, rememberMe = false });
 
     private static MultipartFormDataContent AvatarUpload()
     {

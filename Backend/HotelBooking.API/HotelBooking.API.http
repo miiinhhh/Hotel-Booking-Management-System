@@ -11,13 +11,33 @@ Content-Type: application/json
   "phone": "0900000000"
 }
 
-### Login
-POST {{HotelBooking.API_HostAddress}}/api/auth/login
+### Customer login (Customer account only)
+POST {{HotelBooking.API_HostAddress}}/api/auth/customer/login
 Content-Type: application/json
 
 {
   "email": "customer@example.com",
   "password": "StrongPassword123!"
+}
+
+### Staff login (Hotel Staff account only)
+POST {{HotelBooking.API_HostAddress}}/api/auth/staff/login
+Content-Type: application/json
+
+{
+  "email": "staff@example.com",
+  "password": "StrongPassword123!",
+  "rememberMe": false
+}
+
+### Admin login (Admin account only)
+POST {{HotelBooking.API_HostAddress}}/api/auth/admin/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "StrongPassword123!",
+  "rememberMe": false
 }
 
 ### Authenticated profile (replace token)

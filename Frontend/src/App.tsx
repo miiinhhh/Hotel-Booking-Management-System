@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Dashboard from './pages/dashboard/Dashboard';
@@ -18,15 +18,40 @@ import { LoginPage, ProfilePage, RegisterPage } from './pages/account';
 import { VnPayReturnPage } from './pages/checkout/VnPayReturnPage';
 import { useAuth } from './context/AuthContext';
 
+const portalFromPath = () => {
+  const path = window.location.pathname.toLowerCase().replace(/\/$/, '');
+  if (path === '/admin' || path === '/admin/login') return 'admin-portal';
+  if (path === '/staff' || path === '/staff/login') return 'staff-portal';
+  return null;
+};
+
 function App() {
   const { session, hasRole } = useAuth();
   const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef=') || window.location.search.includes('vnp_TxnRef='));
-  const [activeTab, setActiveTab] = useState(isVnPayReturn ? 'vnpay-return' : 'tim-kiem');
+  const [activeTab, setActiveTab] = useState(isVnPayReturn ? 'vnpay-return' : portalFromPath() || 'tim-kiem');
   const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
   const [detailStatus, setDetailStatus] = useState('');
   const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail | null>(null);
   const [currentCheckoutData, setCurrentCheckoutData] =
     useState<CheckoutBookingData>(DEFAULT_CHECKOUT_DATA);
+  const leaveInternalPortal = () => {
+    window.history.replaceState({}, document.title, '/');
+    setActiveTab('kham-pha');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const onPopState = () => setActiveTab(portalFromPath() || 'tim-kiem');
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'admin-portal')
+      window.history.replaceState({}, document.title, session && hasRole('Admin') ? '/admin' : '/admin/login');
+    if (activeTab === 'staff-portal')
+      window.history.replaceState({}, document.title, session && hasRole('Hotel Staff') && !hasRole('Admin') ? '/staff' : '/staff/login');
+  }, [activeTab, session, hasRole]);
 
   const handleSearchFromDashboard = (params: DiscoverySelection) => {
     setSearchParams(params);
@@ -77,29 +102,23 @@ function App() {
 
   // Staff Portal view has its own dedicated full-page layout
   if (activeTab === 'staff-portal') {
-    if (!session || (!hasRole('Hotel Staff') && !hasRole('Admin'))) {
-      return <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />;
+    if (!session || !hasRole('Hotel Staff') || hasRole('Admin')) {
+      return <LoginPage portal="staff" onSuccess={() => { window.history.replaceState({}, document.title, '/staff'); setActiveTab('staff-portal'); }} />;
     }
     return (
       <StaffBookingsPage
-        onNavigateCustomerPortal={() => {
-          setActiveTab('kham-pha');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onNavigateCustomerPortal={leaveInternalPortal}
       />
     );
   }
 
   if (activeTab === 'admin-portal') {
     if (!session || !hasRole('Admin')) {
-      return <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />;
+      return <LoginPage portal="admin" onSuccess={() => { window.history.replaceState({}, document.title, '/admin'); setActiveTab('admin-portal'); }} />;
     }
     return (
       <AdminPortal
-        onExit={() => {
-          setActiveTab('kham-pha');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onExit={leaveInternalPortal}
       />
     );
   }
@@ -179,7 +198,7 @@ function App() {
           />
         )}
 
-        {activeTab === 'dang-nhap' && <LoginPage onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />}
+        {activeTab === 'dang-nhap' && <LoginPage portal="customer" onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />}
         {activeTab === 'dang-ky' && <RegisterPage onLogin={() => setActiveTab('dang-nhap')} onSuccess={() => setActiveTab('tai-khoan')} />}
         {activeTab === 'tai-khoan' && <ProfilePage onLogin={() => setActiveTab('dang-nhap')} onBookings={() => setActiveTab('dat-phong-cua-toi')} />}
         {activeTab === 'vnpay-return' && (

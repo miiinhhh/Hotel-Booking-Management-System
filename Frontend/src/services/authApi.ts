@@ -31,6 +31,7 @@ export interface AccountAvailability { emailAvailable: boolean; phoneAvailable: 
 export interface OtpChallenge { challengeId: string; expiresAt: string; resendAfterSeconds: number; }
 export type OtpChannel = 'Email';
 export type OtpPurpose = 'Login' | 'PasswordReset';
+export type LoginPortal = 'customer' | 'staff' | 'admin';
 
 export interface StaffAccount {
   userId: number;
@@ -101,7 +102,7 @@ export const authApi = {
     if (email) query.set('email', email); if (phone) query.set('phone', phone);
     return request<AccountAvailability>(`/api/auth/availability?${query}`);
   },
-  login: (email: string, password: string, rememberMe: boolean) => request<AuthResponse>('/api/auth/login', {
+  login: (email: string, password: string, rememberMe: boolean, portal: LoginPortal = 'customer') => request<AuthResponse>(`/api/auth/${portal}/login`, {
     method: 'POST', body: JSON.stringify({ email, password, rememberMe }),
   }),
   register: (input: { fullName: string; email: string; password: string; phone?: string; dateOfBirth?: string }) =>

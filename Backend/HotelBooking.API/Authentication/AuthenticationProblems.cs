@@ -45,8 +45,8 @@ public static class AuthenticationProblems
         context,
         StatusCodes.Status401Unauthorized,
         AuthenticationErrorCodes.InvalidCredentials,
-        "Authentication failed",
-        "The email or password is incorrect, or the account is inactive.");
+        "Đăng nhập thất bại",
+        "Sai tài khoản hoặc mật khẩu.");
 
     public static ProblemDetails AuthenticationRequired(
         HttpContext context,

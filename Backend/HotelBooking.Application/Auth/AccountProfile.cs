@@ -53,5 +53,5 @@ public sealed record AccountAvailabilityResponse(bool EmailAvailable, bool Phone
 public enum AccountOperationResult { Success, NotFound, InvalidPassword }
 
 public sealed class ReauthenticationRequiredException()
-    : Exception("Reauthenticate before changing the email address or phone number.");
+    : Exception("Reauthenticate before changing profile information.");
 

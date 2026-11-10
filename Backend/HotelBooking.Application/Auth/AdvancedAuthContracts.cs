@@ -5,7 +5,7 @@ namespace HotelBooking.Application.Auth;
 
 public enum OtpChannel { Email }
 public enum OtpPurpose { Login, PasswordReset }
-public enum AuthFailure { None, InvalidCredentials, LockedOut, InvalidToken, InvalidOtp, OtpExpired, ProviderRejected, DeliveryUnavailable }
+public enum AuthFailure { None, InvalidCredentials, PortalAccessDenied, LockedOut, InvalidToken, InvalidOtp, OtpExpired, ProviderRejected, DeliveryUnavailable }
 
 public sealed record AuthClientContext(string? IpAddress, string? DeviceInfo);
 public sealed record AuthResult(AuthResponse? Response, AuthFailure Failure = AuthFailure.None, DateTimeOffset? RetryAt = null)

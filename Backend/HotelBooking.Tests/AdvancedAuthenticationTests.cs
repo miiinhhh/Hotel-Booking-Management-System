@@ -62,12 +62,12 @@ public sealed class AdvancedAuthenticationTests
         });
         Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
 
-        var oldPassword = await client.PostAsJsonAsync("/api/auth/login", new
+        var oldPassword = await client.PostAsJsonAsync("/api/auth/customer/login", new
         {
             email = "otp@example.com", password = "ValidPassword123!", rememberMe = false
         });
         Assert.Equal(HttpStatusCode.Unauthorized, oldPassword.StatusCode);
-        var newPassword = await client.PostAsJsonAsync("/api/auth/login", new
+        var newPassword = await client.PostAsJsonAsync("/api/auth/customer/login", new
         {
             email = "otp@example.com", password = "NewValidPassword123!", rememberMe = false
         });
@@ -183,20 +183,20 @@ public sealed class AdvancedAuthenticationTests
 
         for (var attempt = 1; attempt <= 4; attempt++)
         {
-            var response = await client.PostAsJsonAsync("/api/auth/login", new
+            var response = await client.PostAsJsonAsync("/api/auth/customer/login", new
             {
                 email = "user4@example.com", password = "wrong-password", rememberMe = false
             });
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
-        var locked = await client.PostAsJsonAsync("/api/auth/login", new
+        var locked = await client.PostAsJsonAsync("/api/auth/customer/login", new
         {
             email = "user4@example.com", password = "wrong-password", rememberMe = false
         });
         Assert.Equal(423, (int)locked.StatusCode);
         await AssertProblemCode(locked, AuthenticationErrorCodes.AccountLocked);
 
-        var correctPassword = await client.PostAsJsonAsync("/api/auth/login", new
+        var correctPassword = await client.PostAsJsonAsync("/api/auth/customer/login", new
         {
             email = "user4@example.com", password = "ValidPassword123!", rememberMe = false
         });
@@ -205,7 +205,7 @@ public sealed class AdvancedAuthenticationTests
 
     private static async Task<SessionPayload> Login(HttpClient client, bool rememberMe)
     {
-        var response = await client.PostAsJsonAsync("/api/auth/login", new
+        var response = await client.PostAsJsonAsync("/api/auth/customer/login", new
         {
             email = "user4@example.com", password = "ValidPassword123!", rememberMe
         });
