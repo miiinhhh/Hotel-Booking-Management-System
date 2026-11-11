@@ -11,7 +11,7 @@ public sealed record RegisterRequest
     [Required, EmailAddress, StringLength(255)]
     public required string Email { get; init; }
 
-    [Required, StringLength(100, MinimumLength = 8)]
+    [Required, StringLength(PasswordPolicy.MaximumLength, MinimumLength = PasswordPolicy.MinimumLength)]
     public required string Password { get; init; }
 
     [StringLength(20)]

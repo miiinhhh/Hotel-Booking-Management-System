@@ -124,7 +124,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ portal = 'customer', onReg
         <PrimaryButton loading={submitting} icon="send">Gửi mã xác thực</PrimaryButton>
       </> : <>
         <Field label="Mã xác thực" icon="pin" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoComplete="one-time-code" />
-        {mode === 'reset' && <PasswordField label="Mật khẩu mới" icon="lock_reset" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={100} required autoComplete="new-password" />}
+        {mode === 'reset' && <PasswordField label="Mật khẩu mới" icon="lock_reset" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={15} maxLength={128} required autoComplete="new-password" />}
         {mode === 'otp' && <Remember checked={remember} onChange={setRemember} />}
         <PrimaryButton loading={submitting} icon={mode === 'otp' ? 'login' : 'lock_reset'}>{mode === 'otp' ? 'Xác thực và đăng nhập' : 'Đặt lại mật khẩu'}</PrimaryButton>
         <button type="button" onClick={() => setChallengeId('')} className="w-full text-sm font-semibold text-primary hover:underline">Gửi lại hoặc đổi thông tin nhận mã</button>

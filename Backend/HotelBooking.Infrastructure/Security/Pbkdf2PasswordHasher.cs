@@ -7,7 +7,7 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
 {
     private const int SaltSize = 16;
     private const int KeySize = 32;
-    private const int Iterations = 100_000;
+    private const int Iterations = 600_000;
 
     public string Hash(string password)
     {
@@ -34,5 +34,12 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
         {
             return false;
         }
+    }
+
+    public bool NeedsRehash(string passwordHash)
+    {
+        var parts = passwordHash.Split('$');
+        return parts.Length != 4 || parts[0] != "PBKDF2-SHA256" ||
+               !int.TryParse(parts[1], out var iterations) || iterations < Iterations;
     }
 }

@@ -40,7 +40,7 @@ public sealed record UpdateAccountProfileRequest
 public sealed record ChangePasswordRequest
 {
     [Required] public required string CurrentPassword { get; init; }
-    [Required, StringLength(128, MinimumLength = 8)] public required string NewPassword { get; init; }
+    [Required, StringLength(PasswordPolicy.MaximumLength, MinimumLength = PasswordPolicy.MinimumLength)] public required string NewPassword { get; init; }
 }
 
 public sealed record ReauthenticateRequest

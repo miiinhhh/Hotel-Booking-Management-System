@@ -40,7 +40,7 @@ public class BookingPricingService : IBookingPricingService
         CalculatePriceRequest request,
         CancellationToken ct = default)
     {
-        return CalculatePriceAsync(request, request.CustomerId, ct);
+        return CalculatePriceAsync(request, null, ct);
     }
 
     public async Task<ApiResponse<PriceCalculationResultDto>> CalculatePriceAsync(
@@ -60,8 +60,6 @@ public class BookingPricingService : IBookingPricingService
                 "Vui lòng chọn ít nhất 1 phòng để tính giá.");
         }
 
-        var effectiveCustomerId = customerId ?? request.CustomerId;
-
         try
         {
             var result = await CalculateAuthoritativePriceAsync(
@@ -70,7 +68,7 @@ public class BookingPricingService : IBookingPricingService
                 request.RoomIds,
                 request.VoucherCode,
                 request.PaymentMethod,
-                effectiveCustomerId,
+                customerId,
                 ct);
 
             return ApiResponse<PriceCalculationResultDto>.SuccessResult(

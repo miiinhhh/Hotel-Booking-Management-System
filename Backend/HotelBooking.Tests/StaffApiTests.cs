@@ -135,7 +135,7 @@ public sealed class StaffApiTests
         var login = await staff.PostAsJsonAsync("/api/auth/staff/login", new { email = "user2@example.com", password = "ValidPassword123!" });
         Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.PatchAsJsonAsync("/api/staff/2/status", new { isActive = true })).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync("/api/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await staff.GetAsync("/api/me")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await staff.PostAsJsonAsync("/api/auth/staff/login", new { email = "user2@example.com", password = "ValidPassword123!" })).StatusCode);
     }
     [Fact]

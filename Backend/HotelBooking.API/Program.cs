@@ -143,6 +143,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<HotelBooking.Application.Authorization.IPermissionManagementService, PermissionManagementService>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
+builder.Services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddSingleton(TimeProvider.System);

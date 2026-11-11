@@ -201,8 +201,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
       <form onSubmit={changePassword} className="space-y-5">
         {error && <Feedback error={error} message="" />}
         <PasswordField label="Mật khẩu hiện tại" icon="lock" value={passwords.current} onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} required autoComplete="current-password" />
-        <PasswordField label="Mật khẩu mới" icon="password" minLength={8} value={passwords.next} onChange={(e) => setPasswords({ ...passwords, next: e.target.value })} required autoComplete="new-password" />
-        <PasswordField label="Xác nhận mật khẩu mới" icon="verified_user" minLength={8} value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} required autoComplete="new-password" />
+        <PasswordField label="Mật khẩu mới" icon="password" minLength={15} maxLength={128} value={passwords.next} onChange={(e) => setPasswords({ ...passwords, next: e.target.value })} required autoComplete="new-password" />
+        <PasswordField label="Xác nhận mật khẩu mới" icon="verified_user" minLength={15} maxLength={128} value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} required autoComplete="new-password" />
         <div className="flex justify-end gap-3"><button type="button" onClick={() => setPasswordOpen(false)} className="rounded-full px-5 py-2.5 font-semibold text-on-surface-variant hover:bg-surface-container">Hủy</button><button disabled={saving} className="rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary disabled:opacity-70">{saving ? 'Đang xử lý...' : 'Đổi mật khẩu'}</button></div>
       </form>
     </Modal>

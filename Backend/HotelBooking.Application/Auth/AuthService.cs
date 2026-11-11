@@ -8,6 +8,7 @@ namespace HotelBooking.Application.Auth;
 public sealed class AuthService(
     IUserRepository users,
     IPasswordHasher passwordHasher,
+    IPasswordPolicy passwordPolicy,
     ITokenService tokenService,
     IOtpSender otpSender,
     IGoogleTokenValidator googleTokens,
@@ -29,6 +30,7 @@ public sealed class AuthService(
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, AuthClientContext client, CancellationToken ct)
     {
         var email = NormalizeEmail(request.Email);
+        passwordPolicy.Validate(request.Password, request.FullName, email);
         if (await users.FindByEmailAsync(email, ct) is not null)
             throw new DuplicateEmailException(email);
         var phone = PhoneNumberNormalizer.Normalize(request.Phone);
@@ -77,6 +79,8 @@ public sealed class AuthService(
             return AuthResult.Failed(AuthFailure.PortalAccessDenied);
         }
 
+        if (passwordHasher.NeedsRehash(user.PasswordHash))
+            user.PasswordHash = passwordHasher.Hash(request.Password);
         ClearLockout(user);
         return AuthResult.Success(await IssueSession(user, Roles(user), request.RememberMe, client, ct));
     }
@@ -186,6 +190,7 @@ public sealed class AuthService(
         }
         challenge!.ConsumedAt = UtcNow;
         var user = challenge.User!;
+        passwordPolicy.Validate(request.NewPassword, user.FullName, user.Email);
         user.PasswordHash = passwordHasher.Hash(request.NewPassword);
         user.UpdatedAt = UtcNow;
         user.TokenVersion++;

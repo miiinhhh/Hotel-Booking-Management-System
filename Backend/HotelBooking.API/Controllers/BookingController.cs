@@ -31,8 +31,7 @@ public class BookingController : BaseAPIController
     [AllowAnonymous]
     public async Task<IActionResult> CalculatePrice([FromBody] CalculatePriceRequest request, CancellationToken ct)
     {
-        var (currentUserId, _, _) = GetUserContext();
-        var effectiveCustomerId = request.CustomerId ?? (User.Identity?.IsAuthenticated == true ? currentUserId : (long?)null);
+        var effectiveCustomerId = User.Identity?.IsAuthenticated == true ? TryGetUserId() : null;
         var result = await _pricingService.CalculatePriceAsync(request, effectiveCustomerId, ct);
         if (!result.Success)
         {
@@ -220,9 +219,13 @@ public class BookingController : BaseAPIController
             return (userId, isAdmin, isStaff);
         }
 
-        // Fallback linh hoạt cho dev/test khi chưa truyền JWT
-        return (1, true, true);
+        // Never substitute another account when a JWT is malformed or incomplete.
+        throw new UnauthorizedAccessException("Authenticated account identifier is missing.");
     }
 
-    private long GetCurrentUserId() => GetUserContext().UserId;
+    private long? TryGetUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id");
+        return claim is not null && long.TryParse(claim.Value, out var userId) ? userId : null;
+    }
 }

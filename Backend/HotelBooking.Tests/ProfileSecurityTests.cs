@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using HotelBooking.Application.Auth;
+using HotelBooking.Domain.Entities;
 using HotelBooking.Infrastructure.Data;
+using HotelBooking.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
@@ -13,6 +16,62 @@ namespace HotelBooking.Tests;
 
 public sealed class ProfileSecurityTests
 {
+    [Fact]
+    public async Task Profile_identity_comes_only_from_the_access_token()
+    {
+        using var factory = new StaffFactory();
+        using var client = factory.CreateClient();
+        await factory.Seed();
+        Authenticate(client, await factory.Token(4));
+
+        var profile = await client.GetFromJsonAsync<AccountProfileResponse>("/api/me?userId=2");
+
+        Assert.NotNull(profile);
+        Assert.Equal(4, profile.UserId);
+        Assert.Equal("user4@example.com", profile.Email);
+    }
+
+    [Fact]
+    public async Task Price_preview_rejects_a_client_supplied_customer_identity()
+    {
+        using var factory = new StaffFactory();
+        using var client = factory.CreateClient();
+        await factory.Seed();
+
+        var response = await client.PostAsJsonAsync("/api/bookings/calculate-price", new
+        {
+            checkInDate = "2030-01-01",
+            checkOutDate = "2030-01-02",
+            roomIds = new[] { 1 },
+            customerId = 2
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("short-password")]
+    [InlineData("password123456")]
+    public void Password_policy_rejects_short_or_common_passwords(string password)
+    {
+        var policy = new PasswordPolicy();
+        Assert.Throws<DomainRuleException>(() => policy.Validate(password, "Customer Four", "user4@example.com"));
+    }
+
+    [Fact]
+    public void Password_hasher_accepts_legacy_hashes_and_marks_them_for_upgrade()
+    {
+        const string password = "ValidPassword123!";
+        var hasher = new Pbkdf2PasswordHasher();
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var key = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
+        var legacyHash = $"PBKDF2-SHA256$100000${Convert.ToBase64String(salt)}${Convert.ToBase64String(key)}";
+
+        Assert.True(hasher.Verify(password, legacyHash));
+        Assert.True(hasher.NeedsRehash(legacyHash));
+        Assert.False(hasher.NeedsRehash(hasher.Hash(password)));
+    }
+
     [Fact]
     public async Task Availability_and_profile_update_enforce_unique_email_and_phone()
     {

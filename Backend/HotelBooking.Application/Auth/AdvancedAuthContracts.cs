@@ -42,7 +42,7 @@ public sealed record ResetPasswordRequest
 {
     public Guid ChallengeId { get; init; }
     [Required, RegularExpression("^[0-9]{6}$")] public required string Code { get; init; }
-    [Required, MinLength(8), MaxLength(128)] public required string NewPassword { get; init; }
+    [Required, MinLength(PasswordPolicy.MinimumLength), MaxLength(PasswordPolicy.MaximumLength)] public required string NewPassword { get; init; }
 }
 
 public sealed record GoogleLoginRequest

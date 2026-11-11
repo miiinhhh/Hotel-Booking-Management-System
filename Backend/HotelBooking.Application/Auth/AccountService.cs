@@ -8,6 +8,7 @@ namespace HotelBooking.Application.Auth;
 public sealed class AccountService(
     IUserRepository users,
     IPasswordHasher passwordHasher,
+    IPasswordPolicy passwordPolicy,
     IImageStorage imageStorage,
     TimeProvider timeProvider) : IAccountService
 {
@@ -63,6 +64,7 @@ public sealed class AccountService(
             return AccountOperationResult.InvalidPassword;
         if (passwordHasher.Verify(request.NewPassword, user.PasswordHash))
             throw new DomainRuleException("The new password must be different from the current password.");
+        passwordPolicy.Validate(request.NewPassword, user.FullName, user.Email);
 
         user.PasswordHash = passwordHasher.Hash(request.NewPassword);
         user.TokenVersion++;

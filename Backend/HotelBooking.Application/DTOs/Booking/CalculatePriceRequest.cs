@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace HotelBooking.Application.DTOs.Booking;
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public class CalculatePriceRequest
 {
     [Required]
@@ -20,5 +22,4 @@ public class CalculatePriceRequest
 
     public int? NumberOfGuests { get; set; }
 
-    public long? CustomerId { get; set; }
 }

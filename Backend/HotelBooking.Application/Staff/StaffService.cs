@@ -72,9 +72,16 @@ public sealed class StaffService(IUserRepository users, IStaffRepository staff)
     public async Task<StaffResponse> SetActive(long actorId, long id, bool active, CancellationToken ct)
     {
         var target = await Target(actorId, id, true, ct);
-        target.IsActive = active;
-        target.UpdatedAt = DateTime.UtcNow;
-        await users.SaveChangesAsync(ct);
+        if (target.IsActive != active)
+        {
+            var now = DateTime.UtcNow;
+            target.IsActive = active;
+            target.TokenVersion++;
+            target.UpdatedAt = now;
+            foreach (var token in target.RefreshTokens.Where(x => x.IsActive(now)))
+                token.RevokedAt = now;
+            await users.SaveChangesAsync(ct);
+        }
         return Map(target);
     }
     private static StaffResponse Map(User u) => new(u.UserId, u.FullName, u.Email, u.Phone,

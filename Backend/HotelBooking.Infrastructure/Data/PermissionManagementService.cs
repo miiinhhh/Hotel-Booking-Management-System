@@ -125,7 +125,7 @@ public sealed class PermissionManagementService(HotelBookingDbContext db) : IPer
 
     public async Task<AdminUserResponse> SetUserStatus(long actorId, long userId, bool active, CancellationToken ct)
     {
-        var user = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
+        var user = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).Include(x => x.RefreshTokens)
             .SingleOrDefaultAsync(x => x.UserId == userId, ct) ?? throw new NotFoundException("User not found.");
         if (actorId == userId && !active) throw new ConflictException("You cannot lock your own account.");
         if (!active && user.UserRoles.Any(x => x.Role.RoleName == SystemRoles.Admin))
@@ -133,7 +133,16 @@ public sealed class PermissionManagementService(HotelBookingDbContext db) : IPer
             var activeAdmins = await db.Users.CountAsync(x => x.IsActive && x.UserRoles.Any(r => r.Role.RoleName == SystemRoles.Admin), ct);
             if (activeAdmins <= 1) throw new ConflictException("The last active Admin account cannot be locked.");
         }
-        if (user.IsActive != active) { user.IsActive = active; user.TokenVersion++; user.UpdatedAt = DateTime.UtcNow; await db.SaveChangesAsync(ct); }
+        if (user.IsActive != active)
+        {
+            var now = DateTime.UtcNow;
+            user.IsActive = active;
+            user.TokenVersion++;
+            user.UpdatedAt = now;
+            foreach (var token in user.RefreshTokens.Where(x => x.IsActive(now)))
+                token.RevokedAt = now;
+            await db.SaveChangesAsync(ct);
+        }
         return MapAccount(user);
     }
 
