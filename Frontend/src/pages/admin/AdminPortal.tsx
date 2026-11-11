@@ -7,6 +7,7 @@ import { AdminStaff } from './pages/AdminStaff';
 import { AdminVouchers } from './pages/AdminVouchers';
 import { AdminAccounts } from './pages/AdminAccounts';
 import { AdminRoles } from './pages/AdminRoles';
+import { AdminContent } from './pages/AdminContent';
 import { AdminPage } from './types';
 
 interface AdminPortalProps {
@@ -19,6 +20,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onExit }) => {
   const content: Record<AdminPage, React.ReactNode> = {
     overview: <AdminOverview />,
     inventory: <AdminInventory />,
+    content: <AdminContent />,
     pricing: <AdminPricing />,
     vouchers: <AdminVouchers />,
     staff: <AdminStaff />,
