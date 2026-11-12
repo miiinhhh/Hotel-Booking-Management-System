@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { StaffCustomer } from '../types';
-import { MOCK_STAFF_CUSTOMERS, MOCK_CUSTOMER_CRM_STATS } from '../data/mockStaffCustomers';
 import { StaffCustomerMetrics } from './StaffCustomerMetrics';
 import { StaffCustomerDrawer } from './StaffCustomerDrawer';
-import { StaffAddCustomerModal } from './StaffAddCustomerModal';
 import { getStaffCustomers } from '../../../services/staffPortalApi';
 
 interface StaffCustomersViewProps {
@@ -14,20 +12,25 @@ type CustomerFilterTab = 'all' | 'staying' | 'vip' | 'notes' | 'international';
 type CustomerSortOption = 'recent' | 'spend_high' | 'bookings_high' | 'name_asc';
 
 export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowToast }) => {
-  const [customers, setCustomers] = useState<StaffCustomer[]>(MOCK_STAFF_CUSTOMERS);
-  const [selectedCustomer, setSelectedCustomer] = useState<StaffCustomer | null>(MOCK_STAFF_CUSTOMERS[0]);
+  const [customers, setCustomers] = useState<StaffCustomer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<StaffCustomer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilterTab, setActiveFilterTab] = useState<CustomerFilterTab>('all');
   const [sortOption, setSortOption] = useState<CustomerSortOption>('recent');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
+    setError('');
     getStaffCustomers().then((data) => {
-      if (data && data.length > 0) {
-        setCustomers(data);
-        setSelectedCustomer(data[0]);
-      }
-    });
+      setCustomers(data);
+      setSelectedCustomer(data[0] ?? null);
+    }).catch((reason) => {
+      setCustomers([]);
+      setSelectedCustomer(null);
+      setError(reason instanceof Error ? reason.message : 'Không tải được hồ sơ khách hàng.');
+    }).finally(() => setLoading(false));
   }, []);
 
   // Pagination state
@@ -98,33 +101,28 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
     setSelectedCustomer(cust);
   };
 
-  const handleAddPreferenceNote = (noteText: string) => {
-    if (!selectedCustomer) return;
-    const updated = {
-      ...selectedCustomer,
-      preferences: [
-        ...selectedCustomer.preferences,
-        {
-          icon: 'room_service',
-          text: noteText,
-          colorClass: 'text-primary',
-        },
-      ],
-      serviceNotesTags: [...selectedCustomer.serviceNotesTags, noteText],
-    };
-    setSelectedCustomer(updated);
-    setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    onShowToast?.(`Đã thêm ghi chú phục vụ cho khách ${selectedCustomer.name}`);
-  };
-
-  const handleCreateCustomer = (newCust: StaffCustomer) => {
-    setCustomers([newCust, ...customers]);
-    setSelectedCustomer(newCust);
-    onShowToast?.(`Đã tạo mới hồ sơ khách ${newCust.name} (${newCust.customerCode}) thành công!`);
-  };
-
   const handleExportData = () => {
-    onShowToast?.('Đang trích xuất dữ liệu khách hàng CRM ra tệp Excel...');
+    const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = [
+      ['Mã khách', 'Họ tên', 'Điện thoại', 'Email', 'Hạng', 'Đang lưu trú', 'Tổng chi tiêu', 'Số booking hoàn tất'],
+      ...sortedCustomers.map((item) => [item.customerCode, item.name, item.phone, item.email, item.tier, item.isStaying ? 'Có' : 'Không', item.totalSpend, item.totalCompletedBookings]),
+    ].map(row => row.map(escape).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = `staff-customers-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
+    onShowToast?.(`Đã xuất ${sortedCustomers.length} hồ sơ khách hàng.`);
+  };
+
+  const completedBookings = customers.reduce((sum, item) => sum + item.totalCompletedBookings, 0);
+  const totalSpend = customers.reduce((sum, item) => sum + item.totalSpend, 0);
+  const returningCustomers = customers.filter(item => item.totalCompletedBookings > 1).length;
+  const customerStats = {
+    returnRatePercent: customers.length ? Math.round(returningCustomers * 100 / customers.length) : 0,
+    returnRateTrend: 'Tính từ dữ liệu booking hiện tại',
+    adrAmount: completedBookings ? `${Math.round(totalSpend / completedBookings).toLocaleString('vi-VN')} ₫` : '0 ₫',
+    adrSegment: 'Trung bình trên booking hoàn tất',
+    verifiedCccdPercent: customers.length ? Math.round(customers.filter(item => item.identityCard).length * 100 / customers.length) : 0,
+    verifiedCccdNote: 'Theo dữ liệu hồ sơ đã lưu',
+    totalStoredCount: customers.length,
   };
 
   return (
@@ -143,7 +141,7 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
                 Quản lý Hồ sơ Khách hàng
               </h1>
               <span className="bg-surface-container px-3 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant font-medium">
-                Tổng cộng: {MOCK_CUSTOMER_CRM_STATS.totalStoredCount} khách đã lưu trữ
+                Tổng cộng: {customers.length} khách trong phạm vi phụ trách
               </span>
             </div>
           </div>
@@ -157,16 +155,12 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
               <span className="material-symbols-outlined text-[18px]">file_download</span>
               <span>Xuất tệp</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 bg-primary-container hover:bg-primary text-on-primary px-5 py-2.5 rounded-full font-label-lg text-label-lg shadow-[0_4px_16px_rgba(194,65,12,0.25)] transition-all font-semibold cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">person_add</span>
-              <span>+ Thêm khách mới</span>
-            </button>
           </div>
         </div>
+
+        {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
+        {loading && <p role="status" className="rounded-lg bg-surface-container-low p-4 text-on-surface-variant">Đang tải khách hàng trong phạm vi được phân công…</p>}
+        {!loading && !error && customers.length === 0 && <p className="rounded-lg bg-surface-container-low p-4 text-on-surface-variant">Chưa có khách hàng phát sinh booking trong phạm vi được phân công.</p>}
 
         {/* Search & Fast Filters Bar */}
         <div className="bg-surface-container-lowest p-3 rounded-lg shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 border border-[#eae8e5]">
@@ -528,25 +522,18 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
           </div>
 
           {/* Quick KPI Strip for Customer Relations */}
-          <StaffCustomerMetrics stats={MOCK_CUSTOMER_CRM_STATS} />
+          <StaffCustomerMetrics stats={customerStats} />
         </div>
 
         {/* Right Column: Guest Profile Detail Drawer (35% / 5 columns) */}
         <StaffCustomerDrawer
           customer={selectedCustomer}
-          onAddPreferenceNote={handleAddPreferenceNote}
           onOpenZaloChat={(phone) => onShowToast?.(`Đang mở cổng trò chuyện Zalo OA với số điện thoại ${phone}...`)}
           onEditCustomer={(c) => onShowToast?.(`Mở biểu mẫu chỉnh sửa hồ sơ khách hàng ${c.name}...`)}
           onViewAllBookings={(id) => onShowToast?.(`Chuyển hướng sang danh sách đầy đủ các booking của khách #${id}...`)}
         />
       </div>
 
-      {/* Add Customer Modal */}
-      <StaffAddCustomerModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddCustomer={handleCreateCustomer}
-      />
     </div>
   );
 };

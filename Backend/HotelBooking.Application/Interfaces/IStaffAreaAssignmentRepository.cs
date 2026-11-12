@@ -14,7 +14,7 @@ public interface IStaffAreaAssignmentRepository
     Task<StaffAreaAssignment?> GetAssignmentAsync(long userId, int areaId, CancellationToken ct);
     Task<StaffAreaAssignment?> GetAssignmentByIdAsync(long assignmentId, CancellationToken ct);
     Task AddAssignmentAsync(StaffAreaAssignment assignment, CancellationToken ct);
-    Task SyncAssignmentsForUserAsync(long userId, List<int> newAreaIds, long? assignedByUserId, CancellationToken ct);
+    Task SyncAssignmentsForUserAsync(long userId, int hotelId, List<int> newAreaIds, long? assignedByUserId, CancellationToken ct);
     Task<bool> DeactivateAssignmentAsync(long assignmentId, CancellationToken ct);
     Task SaveChangesAsync(CancellationToken ct);
 }

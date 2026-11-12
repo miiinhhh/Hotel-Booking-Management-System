@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using HotelBooking.API.Authentication;
+using HotelBooking.Application.Auth;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Domain.Enums;
 using HotelBooking.Infrastructure.Data;
@@ -34,32 +35,165 @@ public class StaffPortalController(
         }
     }
 
+    private bool IsAdmin => User.IsInRole(SystemRoles.Admin);
+
+    private async Task<HashSet<int>?> GetAllowedAreaIdsAsync(CancellationToken ct)
+    {
+        if (IsAdmin) return null;
+
+        var assignedIds = await roomDb.StaffAreaAssignments
+            .AsNoTracking()
+            .Where(x => x.UserId == ActorId && x.IsActive)
+            .Select(x => x.AreaId)
+            .ToListAsync(ct);
+
+        if (assignedIds.Count == 0) return new HashSet<int>();
+
+        return (await roomDb.HotelAreas
+                .AsNoTracking()
+                .Where(x => assignedIds.Contains(x.AreaId) ||
+                            (x.ParentAreaId.HasValue && assignedIds.Contains(x.ParentAreaId.Value)))
+                .Select(x => x.AreaId)
+                .ToListAsync(ct))
+            .ToHashSet();
+    }
+
+    private async Task<HashSet<long>?> GetAllowedRoomIdsAsync(CancellationToken ct)
+    {
+        var areaIds = await GetAllowedAreaIdsAsync(ct);
+        if (areaIds is null) return null;
+        if (areaIds.Count == 0) return new HashSet<long>();
+
+        return (await roomDb.Rooms.AsNoTracking()
+                .Where(x => areaIds.Contains(x.AreaId))
+                .Select(x => x.RoomId)
+                .ToListAsync(ct))
+            .ToHashSet();
+    }
+
+    [HttpGet("bookings"), RequirePermission(SystemPermissions.BookingView)]
+    public async Task<IActionResult> GetBookings(CancellationToken ct)
+    {
+        var allowedRoomIds = await GetAllowedRoomIdsAsync(ct);
+        if (allowedRoomIds is { Count: 0 })
+            return Ok(new { success = true, data = new { bookings = Array.Empty<object>(), metrics = EmptyMetrics() } });
+
+        var query = bookingDb.Bookings
+            .AsNoTracking()
+            .Include(x => x.BookingDetails)
+            .Include(x => x.BookingGuests)
+            .AsQueryable();
+
+        if (allowedRoomIds is not null)
+            query = query.Where(x => x.BookingDetails.Any(d => allowedRoomIds.Contains(d.RoomId)));
+
+        var bookings = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(200)
+            .ToListAsync(ct);
+
+        var roomIds = bookings.SelectMany(x => x.BookingDetails).Select(x => x.RoomId).Distinct().ToList();
+        var rooms = await roomDb.Rooms.AsNoTracking()
+            .Include(x => x.RoomType)
+            .Include(x => x.Area)
+            .Where(x => roomIds.Contains(x.RoomId))
+            .ToDictionaryAsync(x => x.RoomId, ct);
+
+        var customerIds = bookings.Select(x => x.CustomerId).Distinct().ToList();
+        var customers = await roomDb.Users.AsNoTracking()
+            .Where(x => customerIds.Contains(x.UserId))
+            .ToDictionaryAsync(x => x.UserId, ct);
+
+        var result = bookings.Select(booking =>
+        {
+            customers.TryGetValue(booking.CustomerId, out var customer);
+            var primaryGuest = booking.BookingGuests.FirstOrDefault(x => x.IsPrimaryGuest)
+                ?? booking.BookingGuests.FirstOrDefault();
+            var roomInfo = booking.BookingDetails
+                .Select(x => rooms.GetValueOrDefault(x.RoomId))
+                .Where(x => x is not null)
+                .ToList();
+            var roomNumbers = roomInfo.Select(x => x!.RoomNumber).Distinct().ToList();
+            var roomTypes = roomInfo.Select(x => x!.RoomType.RoomTypeName).Distinct().ToList();
+            var areas = roomInfo.Select(x => x!.Area.AreaName).Distinct().ToList();
+
+            return new
+            {
+                bookingId = booking.BookingId,
+                booking.BookingCode,
+                booking.CustomerId,
+                customerName = customer?.FullName ?? primaryGuest?.FullName ?? $"Khách hàng #{booking.CustomerId}",
+                customerPhone = customer?.Phone ?? primaryGuest?.Phone,
+                customerEmail = customer?.Email ?? primaryGuest?.Email,
+                roomNumbers,
+                roomTypes,
+                areas,
+                booking.CheckInDate,
+                booking.CheckOutDate,
+                booking.NumberOfGuests,
+                bookingStatus = booking.BookingStatus.ToString(),
+                booking.PaymentStatus,
+                booking.TotalAmount,
+                paidAmount = Math.Max(0, booking.TotalAmount - booking.RemainingAmount),
+                booking.RemainingAmount,
+                booking.DepositAmount,
+                booking.SpecialRequests,
+                booking.CreatedAt,
+                booking.UpdatedAt
+            };
+        }).ToList();
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var createdToday = bookings.Count(x => DateOnly.FromDateTime(x.CreatedAt) == today);
+        var checkIns = bookings.Where(x => x.CheckInDate == today).ToList();
+        var checkOuts = bookings.Where(x => x.CheckOutDate == today).ToList();
+        var metrics = new
+        {
+            totalToday = createdToday,
+            totalChangePercent = 0,
+            pendingDepositCount = bookings.Count(x => x.PaymentStatus is "Unpaid" or "Pending"),
+            checkInTodayCount = checkIns.Sum(x => x.BookingDetails.Count),
+            checkInCompletedCount = checkIns.Where(x => x.BookingStatus == BookingStatus.CheckedIn).Sum(x => x.BookingDetails.Count),
+            checkInRemainingCount = checkIns.Where(x => x.BookingStatus is BookingStatus.Pending or BookingStatus.Confirmed).Sum(x => x.BookingDetails.Count),
+            checkOutTodayCount = checkOuts.Sum(x => x.BookingDetails.Count),
+            checkOutCompletedCount = checkOuts.Where(x => x.BookingStatus is BookingStatus.CheckedOut or BookingStatus.Completed).Sum(x => x.BookingDetails.Count),
+            checkOutPendingKeyCount = checkOuts.Where(x => x.BookingStatus == BookingStatus.CheckedIn).Sum(x => x.BookingDetails.Count)
+        };
+
+        return Ok(new { success = true, data = new { bookings = result, metrics } });
+    }
+
+    private static object EmptyMetrics() => new
+    {
+        totalToday = 0,
+        totalChangePercent = 0,
+        pendingDepositCount = 0,
+        checkInTodayCount = 0,
+        checkInCompletedCount = 0,
+        checkInRemainingCount = 0,
+        checkOutTodayCount = 0,
+        checkOutCompletedCount = 0,
+        checkOutPendingKeyCount = 0
+    };
+
     /// <summary>
     /// Lấy danh sách khách hàng CRM phục vụ cho lễ tân/quản lý
     /// </summary>
-    [HttpGet("customers")]
+    [HttpGet("customers"), RequirePermission(SystemPermissions.BookingView)]
     public async Task<IActionResult> GetCustomers(CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var allowedRoomIds = await GetAllowedRoomIdsAsync(ct);
+        if (allowedRoomIds is { Count: 0 })
+            return Ok(new { success = true, data = Array.Empty<object>() });
 
-        var users = await roomDb.Users
-            .Where(u => u.IsActive)
-            .OrderByDescending(u => u.UserId)
-            .Take(50)
-            .Select(u => new
-            {
-                u.UserId,
-                u.FullName,
-                u.Email,
-                u.Phone,
-                u.CreatedAt
-            })
-            .ToListAsync(ct);
+        var bookingsQuery = bookingDb.Bookings
+            .AsNoTracking()
+            .Where(b => b.BookingDetails.Any());
+        if (allowedRoomIds is not null)
+            bookingsQuery = bookingsQuery.Where(b => b.BookingDetails.Any(d => allowedRoomIds.Contains(d.RoomId)));
 
-        var userIds = users.Select(u => u.UserId).ToList();
-
-        var bookings = await bookingDb.Bookings
-            .Where(b => userIds.Contains(b.CustomerId))
+        var bookings = await bookingsQuery
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new
             {
@@ -72,6 +206,21 @@ public class StaffPortalController(
                 b.TotalAmount,
                 b.SpecialRequests,
                 RoomIds = b.BookingDetails.Select(d => d.RoomId).ToList()
+            })
+            .ToListAsync(ct);
+
+        var userIds = bookings.Select(x => x.CustomerId).Distinct().ToList();
+        var users = await roomDb.Users.AsNoTracking()
+            .Where(u => u.IsActive && userIds.Contains(u.UserId))
+            .OrderByDescending(u => u.UserId)
+            .Select(u => new
+            {
+                u.UserId,
+                u.FullName,
+                u.Email,
+                u.Phone,
+                u.DateOfBirth,
+                u.CreatedAt
             })
             .ToListAsync(ct);
 
@@ -151,8 +300,8 @@ public class StaffPortalController(
                 country = "Việt Nam",
                 phone = u.Phone ?? "Chưa cập nhật",
                 email = u.Email,
-                identityCard = "07909" + u.UserId.ToString("D7"),
-                birthDate = "1995-01-01",
+                identityCard = string.Empty,
+                birthDate = u.DateOfBirth.HasValue ? u.DateOfBirth.Value.ToString("yyyy-MM-dd") : string.Empty,
                 isStaying = activeStay != null,
                 currentRoom,
                 lastStayInfo,
@@ -180,7 +329,7 @@ public class StaffPortalController(
     /// <summary>
     /// Lấy lịch buồng phòng theo ma trận ngày và danh mục phòng (Calendar matrix)
     /// </summary>
-    [HttpGet("calendar")]
+    [HttpGet("calendar"), RequirePermission(SystemPermissions.InventoryView)]
     public async Task<IActionResult> GetCalendar([FromQuery] int days = 7, [FromQuery] int? hotelId = null, CancellationToken ct = default)
     {
         if (days is not (7 or 14 or 30)) days = 7;
@@ -192,6 +341,12 @@ public class StaffPortalController(
             .Include(rt => rt.Area)
             .Include(rt => rt.Rooms)
             .Where(rt => rt.IsActive);
+
+        var allowedAreaIds = await GetAllowedAreaIdsAsync(ct);
+        if (allowedAreaIds is { Count: 0 })
+            return Ok(new { success = true, data = Array.Empty<object>() });
+        if (allowedAreaIds is not null)
+            query = query.Where(rt => allowedAreaIds.Contains(rt.AreaId));
 
         if (hotelId.HasValue)
         {
@@ -230,8 +385,8 @@ public class StaffPortalController(
 
         var schedules = roomTypes.Select(rt =>
         {
-            var areaName = rt.Area?.AreaName ?? "Tòa A";
-            var buildingName = areaName.Contains("Tòa B") ? "Tòa B" : "Tòa A";
+            var areaName = rt.Area?.AreaName ?? $"Phân khu #{rt.AreaId}";
+            var buildingName = areaName;
             var totalRooms = rt.Rooms.Count(r => r.IsActive);
             var roomIds = rt.Rooms.Where(r => r.IsActive).Select(r => r.RoomId).ToHashSet();
 
@@ -289,6 +444,7 @@ public class StaffPortalController(
                     occupancyPercent,
                     availableCount,
                     totalCount = totalRooms,
+                    lockedCount = lockedRoomsCount,
                     status,
                     statusNote = status == "locked" ? "Có phòng khóa sự cố" : (status == "full" ? "Hết phòng" : $"{availableCount} phòng trống"),
                     isEmergencyLocked = lockedRoomsCount > 0
@@ -298,6 +454,10 @@ public class StaffPortalController(
             return new
             {
                 id = rt.RoomTypeId.ToString(),
+                hotelId = rt.HotelId,
+                areaId = rt.AreaId,
+                roomTypeId = rt.RoomTypeId,
+                roomIds = roomIds.OrderBy(id => id).ToArray(),
                 building = buildingName,
                 categoryGroup = $"Phân khu {areaName} · {rt.RoomTypeName}",
                 name = rt.RoomTypeName,

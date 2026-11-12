@@ -134,6 +134,7 @@ export interface RoomAvailabilityDay {
   occupancyPercent: number;
   availableCount: number;
   totalCount: number;
+  lockedCount?: number;
   status: RoomDayStatus;
   statusNote?: string;
   isEmergencyLocked?: boolean;
@@ -143,6 +144,10 @@ export interface RoomAvailabilityDay {
 
 export interface RoomCategorySchedule {
   id: string;
+  hotelId: number;
+  areaId: number;
+  roomTypeId: number;
+  roomIds: number[];
   building: string; // e.g. "Tòa A", "Tòa B"
   categoryGroup: string; // e.g. "Phân khu Tòa B · Deluxe Category", "Phân khu Tòa A · Villa & Suite Category"
   name: string;

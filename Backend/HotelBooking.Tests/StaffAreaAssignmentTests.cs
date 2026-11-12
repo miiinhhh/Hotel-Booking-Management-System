@@ -206,6 +206,50 @@ public sealed class StaffAreaAssignmentTests
     }
 
     [Fact]
+    public async Task SyncStaffAreas_ForSecondHotel_PreservesFirstHotelAssignments()
+    {
+        using var db = CreateDatabase();
+        var (firstHotel, areaA, _, staff, _) = SeedData(db);
+
+        var secondHotel = new Hotel();
+        db.Hotels.Add(secondHotel);
+        db.Entry(secondHotel).Property(x => x.HotelId).CurrentValue = 2;
+        db.Entry(secondHotel).Property(x => x.IsActive).CurrentValue = true;
+        var secondHotelArea = new HotelArea
+        {
+            AreaId = 3,
+            HotelId = 2,
+            AreaName = "Zone C: Second Hotel",
+            AreaType = "Zone",
+            IsActive = true
+        };
+        db.HotelAreas.Add(secondHotelArea);
+        await db.SaveChangesAsync(Ct);
+
+        var repository = new StaffAreaAssignmentRepository(db);
+        var service = new StaffAreaAssignmentService(repository);
+
+        var firstResult = await service.SyncStaffAreasAsync(firstHotel.HotelId, new AssignStaffAreasRequest
+        {
+            UserId = staff.UserId,
+            AreaIds = new List<int> { areaA.AreaId }
+        }, assignedByUserId: 1, Ct);
+        var secondResult = await service.SyncStaffAreasAsync(secondHotel.HotelId, new AssignStaffAreasRequest
+        {
+            UserId = staff.UserId,
+            AreaIds = new List<int> { secondHotelArea.AreaId }
+        }, assignedByUserId: 1, Ct);
+
+        Assert.True(firstResult.Success);
+        Assert.True(secondResult.Success);
+        var activeAssignments = await db.StaffAreaAssignments
+            .Where(assignment => assignment.UserId == staff.UserId && assignment.IsActive)
+            .OrderBy(assignment => assignment.AreaId)
+            .ToListAsync(Ct);
+        Assert.Equal(new[] { areaA.AreaId, secondHotelArea.AreaId }, activeAssignments.Select(x => x.AreaId));
+    }
+
+    [Fact]
     public async Task SyncStaffAreas_WhenInvalidAreaId_ReturnsFailure()
     {
         using var db = CreateDatabase();

@@ -101,7 +101,7 @@ public class StaffAreaAssignmentService : IStaffAreaAssignmentService
         }
 
         // Thực hiện đồng bộ phân công
-        await _repository.SyncAssignmentsForUserAsync(request.UserId, cleanAreaIds, assignedByUserId, ct);
+        await _repository.SyncAssignmentsForUserAsync(request.UserId, hotelId, cleanAreaIds, assignedByUserId, ct);
         await _repository.SaveChangesAsync(ct);
 
         var updatedAreas = await _repository.GetAssignedAreasForUserAsync(request.UserId, hotelId, ct);
@@ -147,20 +147,28 @@ public class StaffAreaAssignmentService : IStaffAreaAssignmentService
         }
 
         var areas = await _repository.GetAreasByHotelAsync(hotelId, ct);
-        var dtos = areas.Select(a => new StaffAssignedAreaDto
+        var dtos = areas.Select(a =>
         {
-            AreaId = a.AreaId,
-            HotelId = a.HotelId,
-            AreaName = a.AreaName,
-            AreaType = a.AreaType,
-            ParentAreaId = a.ParentAreaId,
-            ParentAreaName = a.ParentArea?.AreaName,
-            Description = a.Description,
-            FloorCount = a.FloorCount,
-            TotalRooms = a.Rooms?.Count ?? 0,
-            AvailableRooms = a.Rooms?.Count(r => r.Status == Domain.Entities.RoomStatus.Available) ?? 0,
-            OccupiedRooms = a.Rooms?.Count(r => r.Status == Domain.Entities.RoomStatus.Occupied) ?? 0,
-            IsActive = a.IsActive
+            var rooms = string.Equals(a.AreaType, "Zone", StringComparison.OrdinalIgnoreCase)
+                ? a.Rooms.Concat(areas.Where(child => child.ParentAreaId == a.AreaId).SelectMany(child => child.Rooms))
+                    .DistinctBy(room => room.RoomId).ToList()
+                : a.Rooms.ToList();
+
+            return new StaffAssignedAreaDto
+            {
+                AreaId = a.AreaId,
+                HotelId = a.HotelId,
+                AreaName = a.AreaName,
+                AreaType = a.AreaType,
+                ParentAreaId = a.ParentAreaId,
+                ParentAreaName = a.ParentArea?.AreaName,
+                Description = a.Description,
+                FloorCount = a.FloorCount,
+                TotalRooms = rooms.Count,
+                AvailableRooms = rooms.Count(r => r.Status == Domain.Entities.RoomStatus.Available),
+                OccupiedRooms = rooms.Count(r => r.Status == Domain.Entities.RoomStatus.Occupied),
+                IsActive = a.IsActive
+            };
         }).ToList();
 
         return ApiResponse<IReadOnlyList<StaffAssignedAreaDto>>.SuccessResult(dtos, "Lấy danh sách phân khu thành công.");

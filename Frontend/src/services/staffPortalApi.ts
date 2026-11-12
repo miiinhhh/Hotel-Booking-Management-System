@@ -1,37 +1,68 @@
 import { apiClient, ApiResponse } from './apiClient';
-import { RoomCategorySchedule, StaffCustomer } from '../pages/staff/types';
-import { MOCK_STAFF_CUSTOMERS } from '../pages/staff/data/mockStaffCustomers';
-import { MOCK_ROOM_SCHEDULES } from '../pages/staff/data/mockStaffCalendar';
+import { RoomCategorySchedule, StaffCustomer, StaffMetricsData } from '../pages/staff/types';
+
+export interface StaffPortalBookingDto {
+  bookingId: number;
+  bookingCode: string;
+  customerId: number;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  roomNumbers: string[];
+  roomTypes: string[];
+  areas: string[];
+  checkInDate: string;
+  checkOutDate: string;
+  numberOfGuests: number;
+  bookingStatus: string;
+  paymentStatus: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  depositAmount: number;
+  specialRequests?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface StaffPortalDashboard {
+  bookings: StaffPortalBookingDto[];
+  metrics: StaffMetricsData;
+}
+
+const requireData = <T>(response: ApiResponse<T>, fallbackMessage: string): T => {
+  if (!response.success || response.data === undefined) {
+    throw new Error(response.message || fallbackMessage);
+  }
+  return response.data;
+};
+
+export async function getStaffDashboard(): Promise<StaffPortalDashboard> {
+  return requireData(
+    await apiClient<StaffPortalDashboard>('/api/staff/portal/bookings'),
+    'Không tải được dữ liệu đặt phòng của nhân viên.',
+  );
+}
 
 /**
  * Lấy danh sách khách hàng CRM thực tế từ backend
  */
 export async function getStaffCustomers(): Promise<StaffCustomer[]> {
-  try {
-    const res = await apiClient<StaffCustomer[]>('/api/staff/portal/customers');
-    if (res.success && res.data && res.data.length > 0) {
-      return res.data;
-    }
-  } catch (err) {
-    console.warn('Lỗi gọi API /api/staff/portal/customers, sử dụng dữ liệu mẫu:', err);
-  }
-  return MOCK_STAFF_CUSTOMERS;
+  return requireData(
+    await apiClient<StaffCustomer[]>('/api/staff/portal/customers'),
+    'Không tải được hồ sơ khách hàng.',
+  );
 }
 
 /**
  * Lấy ma trận lịch buồng phòng (Calendar) thực tế từ backend
  */
 export async function getStaffCalendar(days: number = 7, hotelId?: number): Promise<RoomCategorySchedule[]> {
-  try {
-    const url = `/api/staff/portal/calendar?days=${days}${hotelId ? `&hotelId=${hotelId}` : ''}`;
-    const res = await apiClient<RoomCategorySchedule[]>(url);
-    if (res.success && res.data && res.data.length > 0) {
-      return res.data;
-    }
-  } catch (err) {
-    console.warn('Lỗi gọi API /api/staff/portal/calendar, sử dụng dữ liệu mẫu:', err);
-  }
-  return MOCK_ROOM_SCHEDULES;
+  const url = `/api/staff/portal/calendar?days=${days}${hotelId ? `&hotelId=${hotelId}` : ''}`;
+  return requireData(
+    await apiClient<RoomCategorySchedule[]>(url),
+    'Không tải được lịch phòng.',
+  );
 }
 
 /**

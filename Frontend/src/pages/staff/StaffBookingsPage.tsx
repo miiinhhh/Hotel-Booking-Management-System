@@ -9,17 +9,15 @@ import { BookingDetailDrawer } from './components/BookingDetailDrawer';
 import { StaffCustomersView } from './components/StaffCustomersView';
 import { StaffCalendarView } from './components/StaffCalendarView';
 import { StaffSuitesView } from './components/StaffSuitesView';
-import { MOCK_STAFF_BOOKINGS, MOCK_STAFF_METRICS } from './data/mockStaffBookings';
 import { StaffBooking, StaffMetricsData, StaffPortalTab, StaffBookingStatus, StaffDepositStatus } from './types';
 import { getMyAssignedAreas } from '../../services/staffAssignmentApi';
 import {
-  getBookingsList,
   updateBookingStatus,
   cancelBooking,
-  BookingListDto,
 } from '../../services/bookingApi';
-import { getCurrentUser } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { getStaffDashboard, StaffPortalBookingDto } from '../../services/staffPortalApi';
+import { roomApi } from '../../services/roomApi';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
@@ -28,19 +26,24 @@ interface StaffBookingsPageProps {
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   onNavigateCustomerPortal,
 }) => {
-  const { logout } = useAuth();
+  const { logout, session } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
-  const [bookings, setBookings] = useState<StaffBooking[]>(MOCK_STAFF_BOOKINGS);
-  const [metrics, setMetrics] = useState<StaffMetricsData>(MOCK_STAFF_METRICS);
+  const [bookings, setBookings] = useState<StaffBooking[]>([]);
+  const [metrics, setMetrics] = useState<StaffMetricsData>({
+    totalToday: 0, totalChangePercent: 0, pendingDepositCount: 0,
+    checkInTodayCount: 0, checkInCompletedCount: 0, checkInRemainingCount: 0,
+    checkOutTodayCount: 0, checkOutCompletedCount: 0, checkOutPendingKeyCount: 0,
+  });
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [bookingError, setBookingError] = useState('');
   const [assignedAreas, setAssignedAreas] = useState<Array<{
     areaId: number;
+    hotelId: number;
+    hotelName: string;
     areaName: string;
     areaType: string;
     totalRooms?: number;
-  }>>([
-    { areaId: 1, areaName: 'Zone A: Royal Pavilion', areaType: 'Zone', totalRooms: 48 },
-    { areaId: 2, areaName: 'Zone B: Ocean Wing', areaType: 'Zone', totalRooms: 36 },
-  ]);
+  }>>([]);
 
 
   // Filters state
@@ -84,44 +87,46 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     }
   };
 
-  const mapBackendPayment = (pmt: string, dep: number, _tot: number): { status: StaffDepositStatus; label: string } => {
+  const mapBackendPayment = (pmt: string, paid: number): { status: StaffDepositStatus; label: string } => {
     if (pmt === 'Paid') return { status: 'paid_100', label: 'Đã trả 100%' };
     if (pmt === 'RefundPending') return { status: 'refund_pending', label: 'Chờ hoàn cọc' };
     if (pmt === 'Refunded') return { status: 'refunded', label: 'Đã hoàn cọc' };
-    if (dep > 0) return { status: 'deposited_50', label: `Đã cọc ${dep.toLocaleString('vi-VN')}₫` };
+    if (paid > 0) return { status: 'deposited_50', label: `Đã thanh toán ${paid.toLocaleString('vi-VN')}₫` };
     return { status: 'unpaid', label: 'Chưa thanh toán' };
   };
 
   // Load Bookings from Backend API
   const fetchBookings = useCallback(async () => {
-    const res = await getBookingsList({
-      pageIndex: 1,
-      pageSize: 50,
-    });
-
-    if (res.success && res.data && res.data.length > 0) {
-      const apiBookings: StaffBooking[] = res.data.map((b: BookingListDto, idx: number) => {
+    setLoadingBookings(true);
+    setBookingError('');
+    try {
+      const dashboard = await getStaffDashboard();
+      const apiBookings: StaffBooking[] = dashboard.bookings.map((b: StaffPortalBookingDto) => {
         const mappedSt = mapBackendStatus(b.bookingStatus);
-        const mappedDep = mapBackendPayment(b.paymentStatus, b.depositAmount, b.totalAmount);
+        const mappedDep = mapBackendPayment(b.paymentStatus, b.paidAmount);
         const checkIn = new Date(b.checkInDate);
         const checkOut = new Date(b.checkOutDate);
         const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 3600 * 24)));
+        const nameParts = b.customerName.trim().split(/\s+/);
+        const initials = nameParts.length > 1
+          ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+          : (nameParts[0]?.slice(0, 2).toUpperCase() || 'KH');
 
         return {
           id: String(b.bookingId),
           bookingCode: b.bookingCode || `#BK-${10000 + b.bookingId}`,
-          createdAt: b.createdAt ? new Date(b.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
-          customerName: `Khách hàng #${b.customerId}`,
-          customerInitials: `KH`,
-          customerPhone: '0908 *** ***',
-          customerEmail: `guest_${b.customerId}@hotel.vn`,
-          customerCccd: '0482 ********',
-          vipLevel: 'Hội viên StayLuxe',
+          createdAt: new Date(b.createdAt).toLocaleString('vi-VN'),
+          customerName: b.customerName,
+          customerInitials: initials,
+          customerPhone: b.customerPhone || 'Chưa cập nhật',
+          customerEmail: b.customerEmail || 'Chưa cập nhật',
+          customerCccd: 'Chưa cập nhật',
+          vipLevel: 'Khách lưu trú',
           membershipTier: 'Standard',
-          zone: idx % 2 === 0 ? 'Tòa A' : 'Tòa B',
-          roomNumber: `P.${300 + (b.bookingId % 100)}`,
-          roomType: 'Deluxe Heritage Suite',
-          roomDetails: `${b.numberOfGuests} khách · ${b.roomCount} phòng`,
+          zone: b.areas.join(', ') || 'Chưa xếp khu vực',
+          roomNumber: b.roomNumbers.join(', ') || 'Chưa xếp phòng',
+          roomType: b.roomTypes.join(', ') || 'Chưa xác định',
+          roomDetails: `${b.numberOfGuests} khách · ${b.roomNumbers.length} phòng`,
           checkInDate: b.checkInDate,
           checkOutDate: b.checkOutDate,
           checkInTime: '14:00',
@@ -129,46 +134,39 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           nightsCount: nights,
           nightsLabel: `${nights} đêm nghỉ`,
           totalAmount: b.totalAmount,
-          paidAmount: b.depositAmount,
-          remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
+          paidAmount: b.paidAmount,
+          remainingAmount: b.remainingAmount,
           depositStatus: mappedDep.status,
           depositStatusLabel: mappedDep.label,
           depositDeadline: '15 phút',
           status: mappedSt.status,
           statusLabel: mappedSt.label,
-          transactionCode: `TRANS-${b.bookingId}`,
-          receptionist: 'Lễ tân trực',
-          lastUpdated: 'Vừa xong',
+          specialRequests: b.specialRequests,
+          receptionist: session?.fullName || 'Nhân viên khách sạn',
+          lastUpdated: b.updatedAt ? new Date(b.updatedAt).toLocaleString('vi-VN') : undefined,
         };
       });
-
-      // Merge with sample bookings so table stays comprehensive
-      setBookings((prev) => {
-        const apiIds = new Set(apiBookings.map((b) => b.id));
-        const kept = prev.filter((b) => !apiIds.has(b.id));
-        return [...apiBookings, ...kept];
-      });
-
-      // Update metrics from active data
-      setMetrics((prev) => ({
-        ...prev,
-        totalToday: apiBookings.length,
-        pendingDepositCount: apiBookings.filter((b) => b.status === 'pending_deposit').length,
-        checkInCompletedCount: apiBookings.filter((b) => b.status === 'checked_in').length,
-      }));
+      setBookings(apiBookings);
+      setMetrics(dashboard.metrics);
+    } catch (reason) {
+      setBookings([]);
+      setBookingError(reason instanceof Error ? reason.message : 'Không tải được dữ liệu đặt phòng.');
+    } finally {
+      setLoadingBookings(false);
     }
-  }, []);
+  }, [session?.fullName]);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    const effectiveUserId = user?.userId || 2;
-    const effectiveHotelId = user?.hotelId || 1;
-
-    getMyAssignedAreas(effectiveUserId, effectiveHotelId).then((res) => {
-      if (res.success && res.data && res.data.length > 0) {
+    getMyAssignedAreas().then(async (res) => {
+      if (res.success && res.data) {
+        const hotelIds = Array.from(new Set(res.data.map(area => area.hotelId)));
+        const hotels = await Promise.all(hotelIds.map(id => roomApi.hotel(id)));
+        const hotelNames = Object.fromEntries(hotels.map(hotel => [hotel.hotelId, hotel.hotelName]));
         setAssignedAreas(
           res.data.map((a) => ({
             areaId: a.areaId,
+            hotelId: a.hotelId,
+            hotelName: hotelNames[a.hotelId] || `Khách sạn #${a.hotelId}`,
             areaName: a.areaName,
             areaType: a.areaType,
             totalRooms: a.totalRooms,
@@ -213,6 +211,10 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     const start = (currentPage - 1) * pageSize;
     return filteredBookings.slice(start, start + pageSize);
   }, [filteredBookings, currentPage, pageSize]);
+  const zoneOptions = useMemo(
+    () => Array.from(new Set(bookings.flatMap(booking => booking.zone.split(', ').filter(Boolean)))),
+    [bookings],
+  );
 
   // Reset filters
   const handleResetFilters = () => {
@@ -235,7 +237,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
       const res = await updateBookingStatus(bookingIdNum, {
         newStatus: 'CheckedIn',
-        note: `Check-in thành công bởi Lễ tân trực lúc ${new Date().toLocaleTimeString('vi-VN')}`,
+        note: `Check-in thành công bởi ${session?.fullName || 'nhân viên khách sạn'} lúc ${new Date().toLocaleTimeString('vi-VN')}`,
       });
       if (!res.success) {
         showToast(`Lỗi Check-in: ${res.message || 'Không thể cập nhật trên máy chủ'}`);
@@ -281,43 +283,20 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   // Quick confirm deposit
-  const handleConfirmDeposit = async (target: StaffBooking) => {
+  const handleConfirmBooking = async (target: StaffBooking) => {
     const bookingIdNum = Number(target.id);
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
       const res = await updateBookingStatus(bookingIdNum, {
         newStatus: 'Confirmed',
-        note: `Xác nhận nhận tiền cọc thành công bởi Lễ tân trực`,
+        note: `Xác nhận booking bởi ${session?.fullName || 'nhân viên khách sạn'}`,
       });
       if (!res.success) {
-        showToast(`Lỗi xác nhận cọc: ${res.message || 'Không thể cập nhật trên máy chủ'}`);
+        showToast(`Lỗi xác nhận booking: ${res.message || 'Không thể cập nhật trên máy chủ'}`);
         return;
       }
     }
-
-    const depositVal = Math.round(target.totalAmount * 0.5);
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === target.id
-          ? {
-              ...b,
-              status: 'confirmed_deposit',
-              statusLabel: 'ĐÃ XÁC NHẬN CỌC',
-              paidAmount: depositVal,
-              remainingAmount: target.totalAmount - depositVal,
-              depositStatus: 'deposited_50',
-              depositStatusLabel: 'Đã cọc 50%',
-              transactionCode: `TRANS-${Math.floor(100000 + Math.random() * 900000)}`,
-            }
-          : b
-      )
-    );
-
-    setMetrics((prev) => ({
-      ...prev,
-      pendingDepositCount: Math.max(0, prev.pendingDepositCount - 1),
-    }));
-
-    showToast(`Đã xác nhận cọc thành công cho đơn ${target.bookingCode}.`);
+    await fetchBookings();
+    showToast(`Đã xác nhận booking ${target.bookingCode}. Trạng thái thanh toán được giữ theo giao dịch thực tế.`);
   };
 
   // Cancel booking
@@ -379,71 +358,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     showToast(`${message} cho đơn ${updated.bookingCode}`);
   };
 
-  const handleUpdateNotes = (
-    bookingId: string,
-    notes: string,
-    approval: 'accepted' | 'rejected'
-  ) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              internalNotes: notes,
-              approvalStatus: approval,
-              lastUpdated: `${new Date().toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })} bởi Lễ tân trực`,
-            }
-          : b
-      )
-    );
-  };
-
-  // Walk-in direct reservation
-  const handleDirectBooking = () => {
-    const code = `#BK-${Math.floor(94830 + Math.random() * 100)}`;
-    const newBooking: StaffBooking = {
-      id: `staff-bk-${Date.now()}`,
-      bookingCode: code,
-      createdAt: 'Vừa xong · 24/10',
-      customerName: 'Khách Vãng Lai Trực Tiếp',
-      customerInitials: 'VL',
-      customerPhone: '0909 000 111',
-      customerEmail: 'walkin.guest@stayluxe.vn',
-      customerCccd: '0482 0200 9988',
-      vipLevel: 'Khách Nhận Tại Quầy',
-      membershipTier: 'Hội viên Mới',
-      zone: 'Tòa A',
-      roomNumber: 'P.405',
-      roomType: 'Deluxe Ocean View',
-      roomDetails: 'Giường King · Hướng biển',
-      checkInDate: '24/10/2025',
-      checkOutDate: '25/10/2025',
-      checkInTime: 'Nhận ngay',
-      checkOutTime: 'trước 12:00',
-      nightsCount: 1,
-      nightsLabel: '1 đêm nghỉ',
-      totalAmount: 4500000,
-      paidAmount: 4500000,
-      remainingAmount: 0,
-      depositStatus: 'paid_100',
-      depositStatusLabel: 'Đã trả 100%',
-      status: 'checked_in',
-      statusLabel: 'ĐÃ CHECK-IN',
-      transactionCode: 'POS-DIRECT-01',
-      specialRequests: '“Khách nhận phòng trực tiếp tại quầy lễ tân.”',
-      receptionist: 'Nguyễn Mai Anh',
-      internalNotes: 'Khách thanh toán trực tiếp qua quẹt thẻ POS tại quầy 02.',
-      approvalStatus: 'accepted',
-      lastUpdated: 'Vừa xong',
-    };
-
-    setBookings([newBooking, ...bookings]);
-    showToast(`Đã thêm thành công đơn nhận trực tiếp ${code}!`);
-  };
-
   const [staffTab, setStaffTab] = useState<StaffPortalTab>('reservations');
 
   const handleSelectStaffTab = (tab: string) => {
@@ -462,7 +376,24 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   const handleExportExcel = () => {
-    showToast('Đang xuất danh sách đơn đặt phòng ra tệp Excel...');
+    const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const rows = filteredBookings.map((booking) => [
+      booking.bookingCode, booking.customerName, booking.customerPhone,
+      booking.zone, booking.roomNumber, booking.roomType,
+      booking.checkInDate, booking.checkOutDate, booking.statusLabel,
+      booking.depositStatusLabel, booking.totalAmount,
+    ]);
+    const csv = [
+      ['Mã booking', 'Khách hàng', 'Điện thoại', 'Phân khu', 'Phòng', 'Hạng phòng', 'Nhận phòng', 'Trả phòng', 'Trạng thái', 'Thanh toán', 'Tổng tiền'],
+      ...rows,
+    ].map((row) => row.map(escape).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `staff-bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast(`Đã xuất ${rows.length} booking từ dữ liệu hiện tại.`);
   };
 
   const handleLogout = async () => {
@@ -483,12 +414,11 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         onSelectTab={handleSelectStaffTab}
         onNavigateCustomerPortal={onNavigateCustomerPortal}
         assignedAreas={assignedAreas}
-        activeAreaId={selectedZone === 'Tòa B' ? 2 : 1}
+        activeAreaId={(selectedZone === 'all' ? assignedAreas[0] : assignedAreas.find(area => area.areaName === selectedZone))?.areaId}
         onSelectArea={(areaId) => {
           const areaObj = assignedAreas.find((a) => a.areaId === areaId);
-          const zoneName = areaId === 2 ? 'Tòa B' : 'Tòa A';
-          setSelectedZone(zoneName);
-          showToast(`Đã chuyển khu vực trực sang: ${areaObj ? areaObj.areaName : (areaId === 2 ? 'Zone B: Ocean Wing' : 'Zone A: Royal Pavilion')}`);
+          setSelectedZone('all');
+          showToast(`Đã chuyển khu vực trực sang: ${areaObj ? `${areaObj.hotelName} · ${areaObj.areaName}` : 'Không xác định'}`);
         }}
       />
 
@@ -502,6 +432,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
             setCurrentPage(1);
           }}
           selectedZone={selectedZone}
+          zoneOptions={zoneOptions}
           onSelectZone={(zone) => {
             setSelectedZone(zone);
             setCurrentPage(1);
@@ -553,7 +484,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-secondary font-label-sm uppercase tracking-widest text-[11px]">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
-                    <span>Khu vực phụ trách: Tòa A &amp; Tòa B</span>
+                    <span>Khu vực phụ trách: {assignedAreas.length ? assignedAreas.map(area => `${area.hotelName} · ${area.areaName}`).join(', ') : 'Chưa được phân công'}</span>
                     <span className="text-outline-variant">·</span>
                     <span>Ca trực sáng (08:00 - 16:00)</span>
                     <span className="text-outline-variant">·</span>
@@ -583,19 +514,18 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                     </span>
                     <span>Xuất Excel</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleDirectBooking}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md hover:bg-tertiary-container shadow-[0_4px_16px_rgba(194,65,12,0.22)] transition-all duration-200 font-semibold cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[19px]">add</span>
-                    <span>+ Nhận khách vãng lai / Đặt trực tiếp</span>
+                  <button type="button" disabled={loadingBookings} onClick={() => void fetchBookings()} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md hover:bg-tertiary-container shadow-[0_4px_16px_rgba(194,65,12,0.22)] transition-all duration-200 font-semibold cursor-pointer disabled:opacity-60">
+                    <span className={`material-symbols-outlined text-[19px] ${loadingBookings ? 'animate-spin' : ''}`}>{loadingBookings ? 'progress_activity' : 'refresh'}</span>
+                    <span>{loadingBookings ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu'}</span>
                   </button>
                 </div>
               </div>
 
               {/* OPERATIONAL METRICS & KPI HEADER */}
               <StaffMetrics metrics={metrics} />
+
+              {bookingError && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{bookingError}</p>}
+              {loadingBookings && <p role="status" className="rounded-lg bg-surface-container-low p-4 text-on-surface-variant">Đang tải booking trong phạm vi được phân công…</p>}
 
               {/* FILTER & ACTIONS BAR */}
               <StaffFilterBar
@@ -615,6 +545,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                   setCurrentPage(1);
                 }}
                 onResetFilters={handleResetFilters}
+                zoneOptions={zoneOptions}
               />
 
               {/* COMPREHENSIVE DATA TABLE */}
@@ -622,7 +553,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                 bookings={paginatedBookings}
                 onViewDetails={handleViewDetails}
                 onQuickCheckIn={handleCheckIn}
-                onQuickConfirmDeposit={handleConfirmDeposit}
+                onQuickConfirmBooking={handleConfirmBooking}
               />
 
               {/* PAGINATION CONTROLS */}
@@ -668,7 +599,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         onClose={() => setIsDrawerOpen(false)}
         onCheckIn={handleCheckIn}
         onCancelBooking={handleCancelBooking}
-        onUpdateNotes={handleUpdateNotes}
         onRefundBooking={handleRefundBooking}
         onConfirmPayment={handleConfirmPayment}
       />

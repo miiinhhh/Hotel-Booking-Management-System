@@ -233,7 +233,7 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
           ))}
         </div>
 
-        {isAddingNote ? (
+        {onAddPreferenceNote && (isAddingNote ? (
           <form onSubmit={handleSaveNote} className="mt-2 flex flex-col gap-2">
             <textarea
               className="w-full bg-surface-container-lowest rounded-DEFAULT p-2.5 font-body-md text-xs text-on-surface border border-primary outline-none"
@@ -271,7 +271,7 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
             <span className="material-symbols-outlined text-[16px]">add_circle</span>
             <span>+ Thêm ghi chú phục vụ đặc biệt</span>
           </button>
-        )}
+        ))}
       </div>
 
       {/* Card 3: Lịch sử đặt phòng gần nhất */}

@@ -161,10 +161,15 @@ public class StaffAreaAssignmentRepository : IStaffAreaAssignmentRepository
         await _context.StaffAreaAssignments.AddAsync(assignment, ct);
     }
 
-    public async Task SyncAssignmentsForUserAsync(long userId, List<int> newAreaIds, long? assignedByUserId, CancellationToken ct)
+    public async Task SyncAssignmentsForUserAsync(long userId, int hotelId, List<int> newAreaIds, long? assignedByUserId, CancellationToken ct)
     {
+        var hotelAreaIds = await _context.HotelAreas
+            .Where(area => area.HotelId == hotelId)
+            .Select(area => area.AreaId)
+            .ToListAsync(ct);
+
         var existingAssignments = await _context.StaffAreaAssignments
-            .Where(sa => sa.UserId == userId)
+            .Where(sa => sa.UserId == userId && hotelAreaIds.Contains(sa.AreaId))
             .ToListAsync(ct);
 
         var newAreaSet = new HashSet<int>(newAreaIds);

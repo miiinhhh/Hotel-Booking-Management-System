@@ -86,6 +86,17 @@ export const AdminStaff: React.FC = () => {
     } finally { setSaving(false); }
   };
   const managedAreaCount = new Set(Object.values(assignments).flat().map(a => a.areaId)).size;
+  const rootAreas = areas.filter(area => !area.parentAreaId || !areas.some(candidate => candidate.areaId === area.parentAreaId));
+  const toggleArea = (area: StaffAssignedArea, checked: boolean) => {
+    const childIds = areas.filter(child => child.parentAreaId === area.areaId).map(child => child.areaId);
+    setAreaIds(current => {
+      if (checked) {
+        const withoutChildren = current.filter(id => !childIds.includes(id));
+        return Array.from(new Set([...withoutChildren, area.areaId]));
+      }
+      return current.filter(id => id !== area.areaId);
+    });
+  };
 
   return <>
     <PageHeading title="Nhân viên & Phân công khu vực" description="Quản lý tài khoản nhân viên và phân công theo dữ liệu hệ thống." actions={<button disabled={loading || saving} onClick={() => void load()} className="rounded-full bg-surface-container-high px-5 py-2.5 disabled:opacity-50">Làm mới</button>} />
@@ -104,7 +115,14 @@ export const AdminStaff: React.FC = () => {
       <p className="mb-4 font-semibold">{selected?.fullName} · Khách sạn #{hotelId}</p>
       {modalError && <p role="alert" className="mb-4 rounded-lg bg-error-container p-3 text-on-error-container">{modalError}</p>}
       {!areas.length && <p>Khách sạn chưa có khu vực hoạt động.</p>}
-      {areas.map(area => <label key={area.areaId} className="mb-2 flex items-center gap-3 rounded-lg bg-surface-container-low p-4"><input type="checkbox" disabled={saving} checked={areaIds.includes(area.areaId)} onChange={e => setAreaIds(current => e.target.checked ? [...current, area.areaId] : current.filter(id => id !== area.areaId))} className="h-5 w-5 accent-primary" /><span>{area.areaName}<small className="block text-outline">{area.totalRooms} phòng</small></span></label>)}
+      <div className="space-y-3">{rootAreas.map(area => {
+        const children = areas.filter(child => child.parentAreaId === area.areaId);
+        const parentSelected = areaIds.includes(area.areaId);
+        return <section key={area.areaId} className="overflow-hidden rounded-lg border border-outline-variant/30 bg-surface-container-low">
+          <label className="flex items-center gap-3 p-4"><input type="checkbox" disabled={saving} checked={parentSelected} onChange={e => toggleArea(area, e.target.checked)} className="h-5 w-5 accent-primary" /><span className="flex-1"><strong className="block">{area.areaName}</strong><small className="text-outline">Zone · {area.totalRooms} phòng trong {children.length} tòa</small></span></label>
+          {children.length > 0 && <div className="space-y-2 border-t border-outline-variant/20 bg-surface-container-lowest p-3">{children.map(child => <label key={child.areaId} className={`ml-6 flex items-center gap-3 rounded-lg p-3 ${parentSelected ? 'opacity-60' : 'bg-surface-container-low'}`}><input type="checkbox" disabled={saving || parentSelected} checked={parentSelected || areaIds.includes(child.areaId)} onChange={e => toggleArea(child, e.target.checked)} className="h-5 w-5 accent-primary" /><span><strong className="block font-medium">↳ {child.areaName}</strong><small className="text-outline">Building thuộc {area.areaName} · {child.totalRooms} phòng</small></span></label>)}</div>}
+        </section>;
+      })}</div>
     </Modal>
     <Toast message={toast} />
   </>;

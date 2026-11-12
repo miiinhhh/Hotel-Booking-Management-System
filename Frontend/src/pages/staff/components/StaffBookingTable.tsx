@@ -5,14 +5,14 @@ interface StaffBookingTableProps {
   bookings: StaffBooking[];
   onViewDetails: (booking: StaffBooking) => void;
   onQuickCheckIn: (booking: StaffBooking) => void;
-  onQuickConfirmDeposit: (booking: StaffBooking) => void;
+  onQuickConfirmBooking: (booking: StaffBooking) => void;
 }
 
 export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
   bookings,
   onViewDetails,
   onQuickCheckIn,
-  onQuickConfirmDeposit,
+  onQuickConfirmBooking,
 }) => {
   return (
     <div className="bg-surface-container-lowest rounded-DEFAULT shadow-[0_4px_24px_-2px_rgba(120,53,15,0.04)] border border-[#eae8e5] overflow-hidden">
@@ -271,12 +271,12 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
                         {isPending && (
                           <button
                             type="button"
-                            onClick={() => onQuickConfirmDeposit(booking)}
+                            onClick={() => onQuickConfirmBooking(booking)}
                             className="px-3.5 py-1.5 rounded-full bg-secondary-fixed text-on-secondary-fixed hover:bg-primary-container hover:text-on-primary font-label-sm text-[12px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                            title="Xác nhận cọc chuyển khoản"
+                            title="Xác nhận booking"
                           >
                             <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                            <span>Xác nhận cọc</span>
+                            <span>Xác nhận booking</span>
                           </button>
                         )}
 

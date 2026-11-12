@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../../context/AuthContext';
 
 interface StaffSidebarProps {
   currentTab?: string;
@@ -6,6 +7,8 @@ interface StaffSidebarProps {
   onNavigateCustomerPortal?: () => void;
   assignedAreas?: Array<{
     areaId: number;
+    hotelId: number;
+    hotelName: string;
     areaName: string;
     areaType: string;
     totalRooms?: number;
@@ -22,6 +25,9 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   activeAreaId,
   onSelectArea,
 }) => {
+  const { session, profile } = useAuth();
+  const staffName = profile?.fullName || session?.fullName || 'Nhân viên';
+  const initials = staffName.trim().split(/\s+/).filter(Boolean).slice(-2).map(part => part[0]).join('').toUpperCase() || 'NV';
   const navItems = [
     { id: 'reservations', label: 'Quản lý Đặt phòng', icon: 'event_available' },
     { id: 'calendar', label: 'Lịch phòng & Khóa bán', icon: 'calendar_month' },
@@ -72,13 +78,13 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
                 >
                   {assignedAreas.map((area) => (
                     <option key={area.areaId} value={area.areaId} className="bg-surface-container-lowest text-on-surface">
-                      {area.areaName}
+                      {area.hotelName} · {area.areaName}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="flex items-center justify-between text-[11px] font-label-sm text-on-surface-variant pt-0.5">
-                <span>{assignedAreas.length} phân khu được giao</span>
+                <span>{currentArea?.hotelName}</span>
                 <span className="text-primary font-semibold">{currentArea?.totalRooms ?? 0} phòng</span>
               </div>
             </div>
@@ -87,13 +93,13 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px] text-primary">explore</span>
                 <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                  {currentArea ? currentArea.areaName : 'Zone A: Royal Pavilion'}
+                  {currentArea ? currentArea.areaName : 'Chưa được phân công'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] font-label-sm text-on-surface-variant pt-0.5">
-                <span>{currentArea?.areaType || 'Tòa A & Tòa B'} · 48 Đơn</span>
+                <span>{currentArea?.hotelName || 'Chưa có khách sạn'}</span>
                 <span className="text-primary font-semibold">
-                  {currentArea?.totalRooms ? `${currentArea.totalRooms} Phòng` : '92% Công suất'}
+                  {currentArea?.totalRooms ? `${currentArea.totalRooms} Phòng` : '0 phòng'}
                 </span>
               </div>
             </>
@@ -155,13 +161,13 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary text-[15px] font-semibold shrink-0">
-              MA
+              {initials}
             </div>
             <div className="leading-tight">
               <div className="font-label-md text-label-md text-on-surface font-semibold">
-                Nguyễn Mai Anh
+                {staffName}
               </div>
-              <div className="font-label-sm text-[11px] text-on-surface-variant">Front Office Lead</div>
+              <div className="font-label-sm text-[11px] text-on-surface-variant">Nhân viên khách sạn</div>
             </div>
           </div>
           <button

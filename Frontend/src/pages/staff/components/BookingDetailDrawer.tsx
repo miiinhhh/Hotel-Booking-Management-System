@@ -568,7 +568,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
               </p>
             </div>
 
-            {/* Interactive Quick Response Toggles */}
+            {onUpdateNotes && <>{/* Interactive Quick Response Toggles */}
             <div className="space-y-2">
               <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">
                 Phản hồi của bộ phận tiền sảnh:
@@ -599,9 +599,9 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                   <span>Từ chối</span>
                 </button>
               </div>
-            </div>
+            </div></>}
 
-            {/* Internal Notes Textarea */}
+            {onUpdateNotes && <>{/* Internal Notes Textarea */}
             <div className="space-y-1.5 pt-1">
               <label
                 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block"
@@ -624,7 +624,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                 <span>Cập nhật lần cuối: {booking.lastUpdated || '08:30 bởi Buồng phòng Trưởng'}</span>
                 <span className="text-primary font-semibold">Đã lưu tự động</span>
               </div>
-            </div>
+            </div></>}
           </article>
         </div>
 

@@ -1,9 +1,5 @@
 export * from './StaffBookingsPage';
 export * from './types';
-export * from './data/mockStaffBookings';
-export * from './data/mockStaffCustomers';
-export * from './data/mockStaffCalendar';
-export * from './data/mockStaffZones';
 export * from './components/StaffSidebar';
 export * from './components/StaffHeader';
 export * from './components/StaffMetrics';
@@ -17,6 +13,5 @@ export * from './components/StaffAddCustomerModal';
 export * from './components/StaffCustomersView';
 export * from './components/EmergencyLockModal';
 export * from './components/StaffCalendarView';
-export * from './components/StaffCampusMap';
 export * from './components/StaffSuitesView';
 export { default } from './StaffBookingsPage';

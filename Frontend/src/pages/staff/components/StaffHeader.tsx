@@ -1,11 +1,13 @@
 import React from 'react';
 import { StaffPortalTab } from '../types';
+import { useAuth } from '../../../context/AuthContext';
 
 interface StaffHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   selectedZone: string;
   onSelectZone: (zone: string) => void;
+  zoneOptions?: string[];
   onOpenNotifications?: () => void;
   onLogout?: () => void;
   loggingOut?: boolean;
@@ -17,11 +19,15 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
   onSearchChange,
   selectedZone,
   onSelectZone,
+  zoneOptions = [],
   onOpenNotifications,
   onLogout,
   loggingOut = false,
   currentTab = 'reservations',
 }) => {
+  const { session, profile } = useAuth();
+  const staffName = profile?.fullName || session?.fullName || 'Nhân viên';
+  const initials = staffName.trim().split(/\s+/).filter(Boolean).slice(-2).map(part => part[0]).join('').toUpperCase() || 'NV';
   const getSearchPlaceholder = () => {
     switch (currentTab) {
       case 'calendar':
@@ -67,9 +73,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             </span>
             <div className="flex items-center gap-1.5 bg-surface-container-low px-3 py-1 rounded-full border border-[#eae8e5]">
               <span className="w-2 h-2 rounded-full bg-primary-container" />
-              <span className="font-label-md text-label-md text-on-surface font-medium">
-                Tòa A &amp; B · Quầy Lễ tân 02
-              </span>
+              <span className="font-label-md text-label-md text-on-surface font-medium">{zoneOptions.length ? zoneOptions.join(', ') : 'Chưa phân công khu vực'}</span>
             </div>
           </div>
         </div>
@@ -89,28 +93,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             >
               Tất cả phân khu
             </button>
-            <button
-              type="button"
-              onClick={() => onSelectZone('Tòa A')}
-              className={`px-3.5 py-1 rounded-full font-label-sm text-label-sm transition-all cursor-pointer ${
-                selectedZone === 'Tòa A'
-                  ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              Tòa A (Villa/Suite)
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelectZone('Tòa B')}
-              className={`px-3.5 py-1 rounded-full font-label-sm text-label-sm transition-all cursor-pointer ${
-                selectedZone === 'Tòa B'
-                  ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              Tòa B (Deluxe)
-            </button>
+            {zoneOptions.map(zone => <button key={zone} type="button" onClick={() => onSelectZone(zone)} className={`px-3.5 py-1 rounded-full font-label-sm text-label-sm transition-all cursor-pointer ${selectedZone === zone ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>{zone}</button>)}
           </div>
 
           {/* Notification Bell */}
@@ -137,7 +120,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
 
           {/* Staff Avatar Dropdown Icon */}
           <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary ml-1 shadow-sm shrink-0 font-semibold text-sm">
-            MA
+            {initials}
           </div>
           <button
             type="button"

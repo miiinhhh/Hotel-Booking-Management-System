@@ -8,6 +8,7 @@ interface StaffFilterBarProps {
   selectedZone: string;
   onZoneChange: (zone: string) => void;
   onResetFilters: () => void;
+  zoneOptions?: string[];
 }
 
 export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
@@ -18,6 +19,7 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
   selectedZone,
   onZoneChange,
   onResetFilters,
+  zoneOptions = [],
 }) => {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
@@ -57,8 +59,7 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
           type="button"
         >
           <span className="material-symbols-outlined text-primary text-[17px]">calendar_today</span>
-          <span>Hôm nay, 24/10/2025</span>
-          <span className="material-symbols-outlined text-[16px] text-outline">arrow_drop_down</span>
+          <span>Hôm nay, {new Date().toLocaleDateString('vi-VN')}</span>
         </button>
 
         {/* Status Dropdown */}
@@ -104,7 +105,7 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
           <span className="material-symbols-outlined text-[16px] text-secondary mr-1.5">apartment</span>
           <span className="font-semibold">
             {selectedZone === 'all'
-              ? 'Tòa A & Tòa B'
+              ? (zoneOptions.length ? zoneOptions.join(', ') : 'Chưa có phân khu')
               : selectedZone}
           </span>
           {selectedZone !== 'all' && (
