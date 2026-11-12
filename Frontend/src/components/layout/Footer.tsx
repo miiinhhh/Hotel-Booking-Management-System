@@ -1,6 +1,10 @@
 import React from 'react';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onNavigate?: (path: string) => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const footerLinks = [
     { label: 'Điều khoản dịch vụ', path: 'dieu-khoan' },
     { label: 'Chính sách bảo mật', path: 'chinh-sach-bao-mat' },
@@ -26,6 +30,11 @@ export const Footer: React.FC = () => {
               className="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors"
               data-path={link.path}
               href={`#${link.path}`}
+              onClick={(event) => {
+                if (!onNavigate) return;
+                event.preventDefault();
+                onNavigate(link.path);
+              }}
             >
               {link.label}
             </a>

@@ -17,6 +17,14 @@ import { CheckoutBookingData } from './pages/checkout/types';
 import { LoginPage, ProfilePage, RegisterPage } from './pages/account';
 import { VnPayReturnPage } from './pages/checkout/VnPayReturnPage';
 import { useAuth } from './context/AuthContext';
+import InformationPage, { InformationPageId } from './pages/information/InformationPage';
+
+const informationTabs: InformationPageId[] = ['dieu-khoan', 'chinh-sach-bao-mat', 'tro-giup', 'lien-he'];
+
+const informationTabFromHash = (): InformationPageId | null => {
+  const hash = window.location.hash.replace(/^#/, '').toLowerCase();
+  return informationTabs.includes(hash as InformationPageId) ? hash as InformationPageId : null;
+};
 
 const portalFromPath = () => {
   const path = window.location.pathname.toLowerCase().replace(/\/$/, '');
@@ -28,7 +36,9 @@ const portalFromPath = () => {
 function App() {
   const { session, hasRole } = useAuth();
   const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef=') || window.location.search.includes('vnp_TxnRef='));
-  const [activeTab, setActiveTab] = useState(isVnPayReturn ? 'vnpay-return' : portalFromPath() || 'tim-kiem');
+  const [activeTab, setActiveTab] = useState(
+    isVnPayReturn ? 'vnpay-return' : portalFromPath() || informationTabFromHash() || 'kham-pha',
+  );
   const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
   const [detailStatus, setDetailStatus] = useState('');
   const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail | null>(null);
@@ -41,9 +51,15 @@ function App() {
   };
 
   useEffect(() => {
-    const onPopState = () => setActiveTab(portalFromPath() || 'tim-kiem');
+    const syncLocation = () => setActiveTab(portalFromPath() || informationTabFromHash() || 'kham-pha');
+    const onPopState = () => syncLocation();
+    const onHashChange = () => syncLocation();
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    window.addEventListener('hashchange', onHashChange);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('hashchange', onHashChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -56,6 +72,21 @@ function App() {
   const handleSearchFromDashboard = (params: DiscoverySelection) => {
     setSearchParams(params);
     setActiveTab('tim-kiem');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateCustomerTab = (tab: string) => {
+    if (window.location.pathname !== '/' || window.location.hash) {
+      window.history.pushState({}, document.title, '/');
+    }
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateInformationPage = (tab: string) => {
+    if (!informationTabs.includes(tab as InformationPageId)) return;
+    window.history.pushState({}, document.title, `/#${tab}`);
+    setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -135,8 +166,7 @@ function App() {
             : activeTab
         }
         onTabChange={(tab) => {
-          setActiveTab(tab);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          navigateCustomerTab(tab);
         }}
       />
 
@@ -167,6 +197,13 @@ function App() {
 
         {activeTab === 'kham-pha' && (
           <Dashboard onNavigateSearch={handleSearchFromDashboard} />
+        )}
+
+        {informationTabs.includes(activeTab as InformationPageId) && (
+          <InformationPage
+            page={activeTab as InformationPageId}
+            onNavigateHome={() => navigateCustomerTab('kham-pha')}
+          />
         )}
 
         {activeTab === 'dat-phong-cua-toi' && (
@@ -216,7 +253,7 @@ function App() {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <Footer onNavigate={navigateInformationPage} />
     </div>
   );
 }
