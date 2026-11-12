@@ -19,6 +19,7 @@ import {
   BookingListDto,
 } from '../../services/bookingApi';
 import { getCurrentUser } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
@@ -27,6 +28,8 @@ interface StaffBookingsPageProps {
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   onNavigateCustomerPortal,
 }) => {
+  const { logout } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
   const [bookings, setBookings] = useState<StaffBooking[]>(MOCK_STAFF_BOOKINGS);
   const [metrics, setMetrics] = useState<StaffMetricsData>(MOCK_STAFF_METRICS);
   const [assignedAreas, setAssignedAreas] = useState<Array<{
@@ -462,6 +465,16 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     showToast('Đang xuất danh sách đơn đặt phòng ra tệp Excel...');
   };
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
     <div className="bg-surface font-body-md text-on-surface antialiased min-h-screen flex selection:bg-secondary-container selection:text-on-secondary-container">
       {/* PERSISTENT LEFT SIDEBAR */}
@@ -494,6 +507,8 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
             setCurrentPage(1);
           }}
           onOpenNotifications={() => showToast('Bạn có 3 thông báo mới về ca trực lễ tân.')}
+          onLogout={() => void handleLogout()}
+          loggingOut={loggingOut}
           currentTab={staffTab}
         />
 

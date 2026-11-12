@@ -7,6 +7,8 @@ interface StaffHeaderProps {
   selectedZone: string;
   onSelectZone: (zone: string) => void;
   onOpenNotifications?: () => void;
+  onLogout?: () => void;
+  loggingOut?: boolean;
   currentTab?: StaffPortalTab;
 }
 
@@ -16,6 +18,8 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
   selectedZone,
   onSelectZone,
   onOpenNotifications,
+  onLogout,
+  loggingOut = false,
   currentTab = 'reservations',
 }) => {
   const getSearchPlaceholder = () => {
@@ -135,6 +139,18 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
           <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary ml-1 shadow-sm shrink-0 font-semibold text-sm">
             MA
           </div>
+          <button
+            type="button"
+            disabled={loggingOut}
+            onClick={onLogout}
+            className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-error hover:bg-error-container disabled:cursor-wait disabled:opacity-60"
+            title="Đăng xuất"
+          >
+            <span className={`material-symbols-outlined text-[20px] ${loggingOut ? 'animate-spin' : ''}`}>
+              {loggingOut ? 'progress_activity' : 'logout'}
+            </span>
+            <span className="hidden 2xl:inline">{loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}</span>
+          </button>
         </div>
       </div>
     </header>
