@@ -28,7 +28,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   onNavigateBack,
   onBookingSuccess,
 }) => {
-  const { profile } = useAuth();
+  const { session, profile } = useAuth();
   const [error, setError] = useState('');
   const [bookingData, setBookingData] = useState<CheckoutBookingData>(initialBookingData);
 
@@ -36,12 +36,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const { calculatePrice, invalidateVoucherCache, isCalculating } = usePriceCalculationQuery();
 
   const [contactInfo, setContactInfo] = useState<CheckoutContactInfo>({
-    fullName: profile?.fullName || '',
+    fullName: profile?.fullName || session?.fullName || '',
     phone: profile?.phone || '',
-    email: profile?.email || '',
+    email: profile?.email || session?.email || '',
     isBookingForOther: false,
     otherGuestName: '',
   });
+
+  useEffect(() => {
+    if (!profile && !session) return;
+    setContactInfo((current) => ({
+      ...current,
+      fullName: current.fullName || profile?.fullName || session?.fullName || '',
+      phone: current.phone || profile?.phone || '',
+      email: current.email || profile?.email || session?.email || '',
+    }));
+  }, [profile, session]);
 
   const [specialRequests, setSpecialRequests] = useState<SpecialRequestOption[]>([
     { id: 'high_floor', label: 'Tầng cao hướng biển', selected: true },

@@ -139,14 +139,14 @@ public sealed class Room
         if (string.IsNullOrWhiteSpace(number) || number.Trim().Length > 20 || number.Any(c => c > 127)) throw new DomainRuleException("Room number must contain 1 to 20 ASCII characters.");
         if (floor < 0 || !Enum.IsDefined(status)) throw new DomainRuleException("Invalid floor or room status.");
         if (description?.Length > 500) throw new DomainRuleException("Description cannot exceed 500 characters.");
-        if (Status == RoomStatus.Occupied && status == RoomStatus.Inactive) throw new DomainRuleException("Cannot deactivate an occupied room.");
-        if (Status == RoomStatus.Occupied && (typeId != RoomTypeId || number.Trim() != RoomNumber || floor != Floor)) throw new DomainRuleException("Cannot change the identity of an occupied room.");
+        if (Status == RoomStatus.Occupied && status == RoomStatus.Inactive) throw new DomainRuleException("Không thể vô hiệu hóa phòng đang có khách lưu trú.");
+        if (Status == RoomStatus.Occupied && (typeId != RoomTypeId || number.Trim() != RoomNumber || floor != Floor)) throw new DomainRuleException("Không thể đổi số phòng, tầng hoặc hạng của phòng đang có khách.");
         RoomTypeId = typeId; RoomNumber = number.Trim(); Floor = floor; Status = status; Description = description;
         IsActive = status != RoomStatus.Inactive; UpdatedAt = DateTime.UtcNow;
     }
     public void Deactivate()
     {
-        if (Status == RoomStatus.Occupied) throw new DomainRuleException("Cannot deactivate an occupied room.");
+        if (Status == RoomStatus.Occupied) throw new DomainRuleException("Không thể vô hiệu hóa phòng đang có khách lưu trú.");
         Status = RoomStatus.Inactive; IsActive = false; UpdatedAt = DateTime.UtcNow;
     }
 }

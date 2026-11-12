@@ -32,6 +32,8 @@ public interface IRoomRepository
     Task<bool> TypeNameExistsAsync(int hotelId, int areaId, string name, int exceptId, CancellationToken ct);
     Task<bool> RoomNumberExistsAsync(int areaId, string number, long exceptId, CancellationToken ct);
     Task<bool> HasActiveRoomsAsync(int typeId, CancellationToken ct);
+    Task<string?> FindBlockingBookingCodeAsync(long roomId, DateOnly today, CancellationToken ct);
+    Task<bool> HasActiveEmergencyLockAsync(long roomId, DateTime utcNow, CancellationToken ct);
     void Add(RoomType type);
     void Add(Room room);
     Task SaveAsync(CancellationToken ct);

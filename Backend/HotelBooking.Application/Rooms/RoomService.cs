@@ -9,26 +9,26 @@ public sealed class RoomService(
 {
     private async Task ValidateArea(int hotelId, int areaId, CancellationToken ct)
     {
-        if (!await repository.IsActiveHotelAsync(hotelId, ct)) throw new NotFoundException("Active hotel not found.");
+        if (!await repository.IsActiveHotelAsync(hotelId, ct)) throw new NotFoundException("Không tìm thấy khách sạn đang hoạt động.");
         var area = await repository.FindAreaAsync(areaId, ct);
-        if (area is null || area.HotelId != hotelId || !area.IsActive) throw new NotFoundException("Active area in this hotel not found.");
+        if (area is null || area.HotelId != hotelId || !area.IsActive) throw new NotFoundException("Không tìm thấy phân khu đang hoạt động trong khách sạn này.");
     }
 
     private async Task<RoomType> Type(int hotelId, int id, CancellationToken ct)
     {
         var type = await repository.FindTypeAsync(id, ct);
-        return type is not null && type.HotelId == hotelId ? type : throw new NotFoundException("Room type not found in this hotel.");
+        return type is not null && type.HotelId == hotelId ? type : throw new NotFoundException("Không tìm thấy hạng phòng trong khách sạn này.");
     }
 
     private async Task<Room> Room(int hotelId, long id, CancellationToken ct)
     {
         var room = await repository.FindRoomAsync(id, ct);
-        return room is not null && room.RoomType.HotelId == hotelId ? room : throw new NotFoundException("Room not found in this hotel.");
+        return room is not null && room.RoomType.HotelId == hotelId ? room : throw new NotFoundException("Không tìm thấy phòng trong khách sạn này.");
     }
 
     public async Task<IReadOnlyList<RoomTypeDto>> ListTypes(int hotelId, CancellationToken ct)
     {
-        if (!await repository.HotelExistsAsync(hotelId, ct)) throw new NotFoundException("Hotel not found.");
+        if (!await repository.HotelExistsAsync(hotelId, ct)) throw new NotFoundException("Không tìm thấy khách sạn.");
         return (await repository.ListTypesAsync(hotelId, ct)).Select(Map).ToList();
     }
 
@@ -62,7 +62,7 @@ public sealed class RoomService(
     {
         var type = await Type(hotelId, id, ct);
         await ValidateArea(hotelId, type.AreaId, ct);
-        if (!type.IsActive) throw new ConflictException("Room type is inactive.");
+        if (!type.IsActive) throw new ConflictException("Hạng phòng đang bị vô hiệu hóa.");
 
         var oldPrice = type.BasePrice;
         var newPrice = request.BasePrice;
@@ -89,13 +89,13 @@ public sealed class RoomService(
 
     private async Task UniqueType(RoomType type, CancellationToken ct)
     {
-        if (await repository.TypeNameExistsAsync(type.HotelId, type.AreaId, type.RoomTypeName, type.RoomTypeId, ct)) throw new ConflictException("Room type name already exists in this area.");
+        if (await repository.TypeNameExistsAsync(type.HotelId, type.AreaId, type.RoomTypeName, type.RoomTypeId, ct)) throw new ConflictException("Tên hạng phòng đã tồn tại trong phân khu này.");
     }
 
     public async Task DeleteType(int hotelId, int id, CancellationToken ct)
     {
         var type = await Type(hotelId, id, ct);
-        if (await repository.HasActiveRoomsAsync(id, ct)) throw new ConflictException("Deactivate rooms before deactivating their type.");
+        if (await repository.HasActiveRoomsAsync(id, ct)) throw new ConflictException("Hãy vô hiệu hóa các phòng vật lý trước khi vô hiệu hóa hạng phòng.");
         type.Deactivate(); await repository.SaveAsync(ct);
     }
 
@@ -115,7 +115,7 @@ public sealed class RoomService(
     {
         await ValidateArea(hotelId, areaId, ct);
         var type = await Type(hotelId, id, ct);
-        if (type.AreaId != areaId || !type.IsActive) throw new ConflictException("Room type must be active and belong to the room area.");
+        if (type.AreaId != areaId || !type.IsActive) throw new ConflictException("Hạng phòng phải đang hoạt động và thuộc đúng phân khu của phòng.");
         return type;
     }
 
@@ -130,18 +130,37 @@ public sealed class RoomService(
     {
         var room = await Room(hotelId, id, ct);
         var type = await ValidType(hotelId, room.AreaId, request.RoomTypeId, ct);
+        if (request.Status == RoomStatus.Inactive && room.IsActive)
+            await EnsureCanDeactivateRoom(room, ct);
         room.Update(request.RoomTypeId, request.RoomNumber, request.Floor, request.Status, request.Description);
         await UniqueRoom(room, ct); await repository.SaveAsync(ct); return Map(room, type);
     }
 
     private async Task UniqueRoom(Room room, CancellationToken ct)
     {
-        if (await repository.RoomNumberExistsAsync(room.AreaId, room.RoomNumber, room.RoomId, ct)) throw new ConflictException("Room number already exists in this area.");
+        if (await repository.RoomNumberExistsAsync(room.AreaId, room.RoomNumber, room.RoomId, ct)) throw new ConflictException("Số phòng đã tồn tại trong phân khu này.");
     }
 
     public async Task DeleteRoom(int hotelId, long id, CancellationToken ct)
     {
-        var room = await Room(hotelId, id, ct); room.Deactivate(); await repository.SaveAsync(ct);
+        var room = await Room(hotelId, id, ct);
+        if (!room.IsActive) return;
+        await EnsureCanDeactivateRoom(room, ct);
+        room.Deactivate();
+        await repository.SaveAsync(ct);
+    }
+
+    private async Task EnsureCanDeactivateRoom(Room room, CancellationToken ct)
+    {
+        if (room.Status == RoomStatus.Occupied)
+            throw new ConflictException($"Phòng {room.RoomNumber} đang có khách lưu trú nên chưa thể vô hiệu hóa.");
+
+        var bookingCode = await repository.FindBlockingBookingCodeAsync(room.RoomId, DateOnly.FromDateTime(DateTime.UtcNow), ct);
+        if (!string.IsNullOrWhiteSpace(bookingCode))
+            throw new ConflictException($"Phòng {room.RoomNumber} đang thuộc booking {bookingCode} nên chưa thể vô hiệu hóa.");
+
+        if (await repository.HasActiveEmergencyLockAsync(room.RoomId, DateTime.UtcNow, ct))
+            throw new ConflictException($"Phòng {room.RoomNumber} đang có lệnh khóa bán chưa kết thúc. Hãy giải phóng khóa trước.");
     }
 
     private static RoomTypeDto Map(RoomType t) => new(t.RoomTypeId, t.HotelId, t.AreaId, t.RoomTypeName, t.Description, t.BasePrice, t.Capacity, t.NumberOfBeds, t.IsActive);

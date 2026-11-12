@@ -20,6 +20,17 @@ import { useAuth } from './context/AuthContext';
 import InformationPage, { InformationPageId } from './pages/information/InformationPage';
 
 const informationTabs: InformationPageId[] = ['dieu-khoan', 'chinh-sach-bao-mat', 'tro-giup', 'lien-he'];
+const PENDING_CHECKOUT_KEY = 'stayluxe.pending-checkout';
+
+const readPendingCheckout = (): CheckoutBookingData | null => {
+  try {
+    const value = sessionStorage.getItem(PENDING_CHECKOUT_KEY);
+    return value ? JSON.parse(value) as CheckoutBookingData : null;
+  } catch {
+    sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+    return null;
+  }
+};
 
 const informationTabFromHash = (): InformationPageId | null => {
   const hash = window.location.hash.replace(/^#/, '').toLowerCase();
@@ -35,15 +46,22 @@ const portalFromPath = () => {
 
 function App() {
   const { session, hasRole } = useAuth();
+  const [initialPendingCheckout] = useState<CheckoutBookingData | null>(() => readPendingCheckout());
   const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef=') || window.location.search.includes('vnp_TxnRef='));
   const [activeTab, setActiveTab] = useState(
-    isVnPayReturn ? 'vnpay-return' : portalFromPath() || informationTabFromHash() || 'kham-pha',
+    isVnPayReturn
+      ? 'vnpay-return'
+      : portalFromPath()
+        || informationTabFromHash()
+        || (initialPendingCheckout ? (session ? 'thanh-toan' : 'dang-nhap') : 'kham-pha'),
   );
   const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
   const [detailStatus, setDetailStatus] = useState('');
   const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail | null>(null);
   const [currentCheckoutData, setCurrentCheckoutData] =
-    useState<CheckoutBookingData>(DEFAULT_CHECKOUT_DATA);
+    useState<CheckoutBookingData>(initialPendingCheckout || DEFAULT_CHECKOUT_DATA);
+  const [pendingCheckoutData, setPendingCheckoutData] =
+    useState<CheckoutBookingData | null>(initialPendingCheckout);
   const leaveInternalPortal = () => {
     window.history.replaceState({}, document.title, '/');
     setActiveTab('kham-pha');
@@ -99,9 +117,10 @@ function App() {
     } catch (error) { setDetailStatus(error instanceof Error ? error.message : 'Không tải được khách sạn.'); }
   };
   const handleNavigateToCheckout = (room?: Room, totalPrice?: number) => {
+    let nextCheckoutData = currentCheckoutData;
     if (room && totalPrice !== undefined) {
       const deposit = Math.round((totalPrice * 30) / 100);
-      setCurrentCheckoutData({
+      nextCheckoutData = {
         ...DEFAULT_CHECKOUT_DATA,
         hotelName: room.hotelName || currentHotelDetail?.name || '',
         location: room.hotelAddress || currentHotelDetail?.address || '',
@@ -125,9 +144,32 @@ function App() {
         depositAmount: deposit,
         remainingAmount: totalPrice - deposit,
         originalPrice: totalPrice,
-      });
+      };
+      setCurrentCheckoutData(nextCheckoutData);
     }
+
+    if (!session) {
+      setPendingCheckoutData(nextCheckoutData);
+      sessionStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify(nextCheckoutData));
+      setActiveTab('dang-nhap');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setActiveTab('thanh-toan');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const continueAfterCustomerAuthentication = () => {
+    const pending = pendingCheckoutData || readPendingCheckout();
+    if (pending) {
+      setCurrentCheckoutData(pending);
+      setPendingCheckoutData(null);
+      sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+      setActiveTab('thanh-toan');
+    } else {
+      setActiveTab('tai-khoan');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -235,8 +277,8 @@ function App() {
           />
         )}
 
-        {activeTab === 'dang-nhap' && <LoginPage portal="customer" onRegister={() => setActiveTab('dang-ky')} onSuccess={() => setActiveTab('tai-khoan')} />}
-        {activeTab === 'dang-ky' && <RegisterPage onLogin={() => setActiveTab('dang-nhap')} onSuccess={() => setActiveTab('tai-khoan')} />}
+        {activeTab === 'dang-nhap' && <LoginPage portal="customer" onRegister={() => setActiveTab('dang-ky')} onSuccess={continueAfterCustomerAuthentication} />}
+        {activeTab === 'dang-ky' && <RegisterPage onLogin={() => setActiveTab('dang-nhap')} onSuccess={continueAfterCustomerAuthentication} />}
         {activeTab === 'tai-khoan' && <ProfilePage onLogin={() => setActiveTab('dang-nhap')} onBookings={() => setActiveTab('dat-phong-cua-toi')} />}
         {activeTab === 'vnpay-return' && (
           <VnPayReturnPage

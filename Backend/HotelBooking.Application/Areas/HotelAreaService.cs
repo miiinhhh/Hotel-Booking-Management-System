@@ -110,13 +110,13 @@ public sealed class HotelAreaService(IHotelAreaRepository repository)
     private async Task EnsureCanDeactivateAsync(int areaId, CancellationToken cancellationToken)
     {
         if (await repository.HasActiveChildrenAsync(areaId, cancellationToken))
-            throw new ConflictException("Deactivate child buildings before deactivating this Zone.");
+            throw new ConflictException("Hãy vô hiệu hóa các Building trực thuộc trước khi vô hiệu hóa Zone.");
         if (await repository.HasActiveRoomTypesAsync(areaId, cancellationToken))
-            throw new ConflictException("Deactivate room types before deactivating this area.");
+            throw new ConflictException("Hãy vô hiệu hóa các hạng phòng trước khi vô hiệu hóa phân khu này.");
         if (await repository.HasActiveRoomsAsync(areaId, cancellationToken))
-            throw new ConflictException("Deactivate rooms before deactivating this area.");
+            throw new ConflictException("Hãy vô hiệu hóa các phòng vật lý trước khi vô hiệu hóa phân khu này.");
         if (await repository.HasActiveStaffAssignmentsAsync(areaId, cancellationToken))
-            throw new ConflictException("Remove active staff assignments before deactivating this area.");
+            throw new ConflictException("Hãy gỡ phân công nhân viên đang hoạt động trước khi vô hiệu hóa phân khu này.");
     }
 
     private async Task EnsureUniqueNameAsync(HotelArea area, CancellationToken cancellationToken)

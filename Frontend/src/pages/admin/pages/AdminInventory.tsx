@@ -1,9 +1,14 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import { HotelAreaDto, HotelAreaInput, HotelAreaType, roomApi, RoomTypeDto, RoomTypeInput } from '../../../services/roomApi';
+import { HotelAreaDto, HotelAreaInput, HotelAreaType, roomApi, RoomDto, RoomStatus, RoomTypeDto, RoomTypeInput } from '../../../services/roomApi';
 import { formatCurrency } from '../data/adminData';
 import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
 
 type AreaEditor = { area?: HotelAreaDto; type: HotelAreaType; parentAreaId?: number } | null;
+type RoomEditor = RoomDto | 'new' | null;
+
+const roomStatusLabel: Record<RoomStatus, string> = {
+  Available: 'Sẵn sàng', Occupied: 'Đang có khách', Maintenance: 'Bảo trì', Inactive: 'Vô hiệu hóa',
+};
 
 const toAreaInput = (area: HotelAreaDto, isActive = area.isActive): HotelAreaInput => ({
   areaName: area.areaName, areaType: area.areaType, parentAreaId: area.parentAreaId,
@@ -16,8 +21,13 @@ export const AdminInventory: React.FC = () => {
   const [areas, setAreas] = useState<HotelAreaDto[]>([]);
   const [selectedArea, setSelectedArea] = useState(0);
   const [types, setTypes] = useState<RoomTypeDto[]>([]);
+  const [rooms, setRooms] = useState<RoomDto[]>([]);
   const [search, setSearch] = useState('');
+  const [roomSearch, setRoomSearch] = useState('');
+  const [roomTypeFilter, setRoomTypeFilter] = useState(0);
+  const [roomStatusFilter, setRoomStatusFilter] = useState<'all' | RoomStatus>('all');
   const [editing, setEditing] = useState<RoomTypeDto | 'new' | null>(null);
+  const [roomEditor, setRoomEditor] = useState<RoomEditor>(null);
   const [areaEditor, setAreaEditor] = useState<AreaEditor>(null);
   const [editorAreaType, setEditorAreaType] = useState<HotelAreaType>('Zone');
   const [loading, setLoading] = useState(true);
@@ -29,12 +39,13 @@ export const AdminInventory: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(''); setEditing(null); setAreaEditor(null);
-    Promise.all([roomApi.areas(hotelId, true), roomApi.types(hotelId)]).then(([areaData, typeData]) => {
+    setLoading(true); setError(''); setEditing(null); setRoomEditor(null); setAreaEditor(null);
+    Promise.all([roomApi.areas(hotelId, true), roomApi.types(hotelId), roomApi.rooms(hotelId)]).then(([areaData, typeData, roomData]) => {
       if (!active) return;
-      setAreas(areaData); setTypes(typeData);
+      setAreas(areaData); setTypes(typeData); setRooms(roomData);
       setSelectedArea(current => areaData.some(area => area.areaId === current && area.isActive)
-        ? current : areaData.find(area => area.isActive)?.areaId ?? 0);
+        ? current : areaData.find(area => area.isActive && area.areaType === 'Building')?.areaId
+          ?? areaData.find(area => area.isActive)?.areaId ?? 0);
     }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Không tải được kho phòng.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -43,7 +54,14 @@ export const AdminInventory: React.FC = () => {
   const zones = useMemo(() => areas.filter(area => area.areaType === 'Zone'), [areas]);
   const activeAreas = useMemo(() => areas.filter(area => area.isActive), [areas]);
   const activeZones = useMemo(() => zones.filter(area => area.isActive), [zones]);
+  const activeBuildings = useMemo(() => areas.filter(area => area.isActive && area.areaType === 'Building'), [areas]);
   const filtered = types.filter(type => type.areaId === selectedArea && type.name.toLowerCase().includes(search.toLowerCase()));
+  const selectedAreaTypes = types.filter(type => type.areaId === selectedArea);
+  const activeSelectedAreaTypes = selectedAreaTypes.filter(type => type.isActive);
+  const filteredRooms = rooms.filter(room => room.areaId === selectedArea
+    && (!roomTypeFilter || room.roomTypeId === roomTypeFilter)
+    && (roomStatusFilter === 'all' || room.status === roomStatusFilter)
+    && room.roomNumber.toLowerCase().includes(roomSearch.trim().toLowerCase()));
   const current = editing && editing !== 'new' ? editing : null;
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(null), 2600); };
@@ -125,11 +143,49 @@ export const AdminInventory: React.FC = () => {
     finally { setSaving(false); }
   };
 
+  const saveRoom = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!roomEditor || saving || !selectedArea) return;
+    const data = new FormData(event.currentTarget);
+    const input = {
+      roomTypeId: Number(data.get('roomTypeId')),
+      roomNumber: String(data.get('roomNumber')).trim(),
+      floor: Number(data.get('floor')),
+      status: String(data.get('status')) as RoomStatus,
+      description: String(data.get('description')).trim() || null,
+    };
+    setSaving(true); setModalError('');
+    try {
+      if (roomEditor === 'new') await roomApi.createRoom(hotelId, selectedArea, input);
+      else await roomApi.updateRoom(hotelId, roomEditor.roomId, input);
+      setRoomEditor(null); setRevision(value => value + 1);
+      notify(roomEditor === 'new' ? 'Đã thêm phòng vật lý.' : 'Đã cập nhật phòng.');
+    } catch (reason) { setModalError(reason instanceof Error ? reason.message : 'Không lưu được phòng.'); }
+    finally { setSaving(false); }
+  };
+
+  const changeRoomActive = async (room: RoomDto) => {
+    if (saving) return;
+    if (room.isActive && !window.confirm(`Vô hiệu hóa phòng ${room.roomNumber}?`)) return;
+    setSaving(true); setError('');
+    try {
+      if (room.isActive) await roomApi.deleteRoom(hotelId, room.roomId);
+      else await roomApi.updateRoom(hotelId, room.roomId, {
+        roomTypeId: room.roomTypeId, roomNumber: room.roomNumber, floor: room.floor,
+        status: 'Available', description: room.description,
+      });
+      setRevision(value => value + 1);
+      notify(room.isActive ? 'Đã vô hiệu hóa phòng.' : 'Đã kích hoạt lại phòng.');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không cập nhật được trạng thái phòng.'); }
+    finally { setSaving(false); }
+  };
+
   return <>
     <PageHeading title="Kho phòng & Phân khu" description="Quản lý Zone, Building và loại phòng theo đúng cấu trúc từng khách sạn." actions={<>
       <button disabled={loading || saving} onClick={() => openAreaEditor('Zone')} className="rounded-full bg-surface-container-high px-5 py-2 disabled:opacity-40">Thêm Zone</button>
       <button disabled={loading || saving || !activeZones.length} onClick={() => openAreaEditor('Building')} className="rounded-full bg-surface-container-high px-5 py-2 disabled:opacity-40">Thêm Building</button>
-      <button disabled={loading || saving || !selectedArea} onClick={() => { setEditing('new'); setModalError(''); }} className="rounded-full bg-primary px-5 py-2 text-on-primary disabled:opacity-40">Thêm loại phòng</button>
+      <button disabled={loading || saving || !activeBuildings.some(area => area.areaId === selectedArea)} onClick={() => { setEditing('new'); setModalError(''); }} className="rounded-full bg-primary px-5 py-2 text-on-primary disabled:opacity-40">Thêm hạng phòng</button>
+      <button disabled={loading || saving || !activeBuildings.some(area => area.areaId === selectedArea) || !activeSelectedAreaTypes.length} onClick={() => { setRoomEditor('new'); setModalError(''); }} className="rounded-full bg-primary px-5 py-2 text-on-primary disabled:opacity-40">Thêm phòng</button>
     </>} />
 
     <form onSubmit={event => { event.preventDefault(); const id = Number(new FormData(event.currentTarget).get('hotel')); if (id > 0 && Number.isSafeInteger(id)) setHotelId(id); }} className="mb-5 flex flex-wrap gap-3">
@@ -157,6 +213,32 @@ export const AdminInventory: React.FC = () => {
       {loading ? <p role="status">Đang tải kho phòng…</p> : !filtered.length ? <p>Chưa có loại phòng phù hợp trong khu vực này.</p> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map(type => <article key={type.roomTypeId} className="rounded-lg border border-outline-variant/30 p-5"><h3 className="text-xl font-semibold">{type.name}</h3><p className="text-sm text-outline">#{type.roomTypeId} · {type.capacity} khách · {type.numberOfBeds} giường</p><p className="my-3">{type.description}</p><strong className="text-primary">{formatCurrency(type.basePrice)} / đêm</strong><div className="mt-5 flex items-center justify-between gap-2"><Toggle checked={type.isActive} disabled={saving} label={`Hoạt động ${type.name}`} onChange={() => void mutateRoomType(type)} /><span>{type.isActive ? 'Hoạt động' : 'Vô hiệu hóa'}</span><button disabled={saving || !type.isActive} onClick={() => { setEditing(type); setModalError(''); }} className="rounded-full bg-surface-container px-3 py-2">Sửa</button><button disabled={saving || !type.isActive} onClick={() => void mutateRoomType(type, true)} className="rounded-full bg-error-container px-3 py-2 text-on-error-container">Xóa</button></div></article>)}</div>}
     </section>
 
+    <section className="mt-6 rounded-lg bg-surface-container-lowest p-5 shadow-sm">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div><h2 className="text-xl font-semibold">Phòng vật lý</h2><p className="text-sm text-on-surface-variant">Quản lý số phòng, tầng, hạng phòng và trạng thái vận hành trong Building đã chọn.</p></div>
+        <span className="rounded-full bg-surface-container px-3 py-1 text-sm">{filteredRooms.length} phòng</span>
+      </div>
+      <div className="mb-5 grid gap-3 md:grid-cols-3">
+        <input aria-label="Tìm số phòng" value={roomSearch} onChange={event => setRoomSearch(event.target.value)} placeholder="Tìm số phòng…" className="rounded-full bg-surface-container-low px-4 py-3" />
+        <select aria-label="Lọc hạng phòng" value={roomTypeFilter} onChange={event => setRoomTypeFilter(Number(event.target.value))} className="rounded-lg bg-surface-container-low p-3">
+          <option value={0}>Tất cả hạng phòng</option>
+          {selectedAreaTypes.map(type => <option key={type.roomTypeId} value={type.roomTypeId}>{type.name}{type.isActive ? '' : ' (đã tắt)'}</option>)}
+        </select>
+        <select aria-label="Lọc trạng thái phòng" value={roomStatusFilter} onChange={event => setRoomStatusFilter(event.target.value as 'all' | RoomStatus)} className="rounded-lg bg-surface-container-low p-3">
+          <option value="all">Tất cả trạng thái</option>
+          {(Object.keys(roomStatusLabel) as RoomStatus[]).map(status => <option key={status} value={status}>{roomStatusLabel[status]}</option>)}
+        </select>
+      </div>
+      {!activeBuildings.some(area => area.areaId === selectedArea)
+        ? <p className="rounded-lg bg-surface-container-low p-4">Hãy chọn một Building đang hoạt động để quản lý phòng vật lý.</p>
+        : loading ? <p role="status">Đang tải phòng…</p>
+        : !filteredRooms.length ? <p className="rounded-lg bg-surface-container-low p-4">Chưa có phòng phù hợp trong Building này.</p>
+        : <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-sm"><thead className="bg-surface-container-low text-xs uppercase text-outline"><tr><th className="px-4 py-3">Số phòng</th><th className="px-4 py-3">Tầng</th><th className="px-4 py-3">Hạng phòng</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Hoạt động</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead><tbody>{filteredRooms.map(room => {
+          const type = types.find(item => item.roomTypeId === room.roomTypeId);
+          return <tr key={room.roomId} className="border-t border-outline-variant/20"><td className="px-4 py-4"><strong>{room.roomNumber}</strong><p className="text-xs text-outline">ID #{room.roomId}</p></td><td className="px-4 py-4">{room.floor}</td><td className="px-4 py-4">{type?.name || `#${room.roomTypeId}`}</td><td className="px-4 py-4"><span className={`rounded-full px-3 py-1 text-xs ${room.status === 'Available' ? 'bg-primary-container text-on-primary-container' : room.status === 'Occupied' ? 'bg-secondary-container text-on-secondary-container' : room.status === 'Maintenance' ? 'bg-tertiary-container text-on-tertiary-container' : 'bg-surface-container-high text-outline'}`}>{roomStatusLabel[room.status]}</span></td><td className="px-4 py-4">{room.isActive ? 'Có' : 'Không'}</td><td className="px-4 py-4"><div className="flex justify-end gap-2"><button disabled={saving} onClick={() => { setRoomEditor(room); setModalError(''); }} className="rounded-full bg-surface-container px-3 py-2">Sửa</button><button disabled={saving} onClick={() => void changeRoomActive(room)} className={`rounded-full px-3 py-2 ${room.isActive ? 'bg-error-container text-on-error-container' : 'bg-primary-container text-on-primary-container'}`}>{room.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}</button></div></td></tr>;
+        })}</tbody></table></div>}
+    </section>
+
     <Modal title={areaEditor?.area ? 'Cập nhật phân khu' : `Thêm ${areaEditor?.type ?? 'phân khu'}`} open={Boolean(areaEditor)} onClose={() => { if (!saving) setAreaEditor(null); }}>
       {areaEditor && <form key={areaEditor.area?.areaId ?? areaEditor.type} onSubmit={saveArea} className="grid gap-4 sm:grid-cols-2">
         {modalError && <p role="alert" className="col-span-full text-error">{modalError}</p>}
@@ -179,6 +261,17 @@ export const AdminInventory: React.FC = () => {
         <label>Số giường<input name="beds" type="number" required min="1" step="1" defaultValue={current?.numberOfBeds ?? 1} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
         <label className="col-span-full">Mô tả<textarea name="description" defaultValue={current?.description ?? ''} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
         <button disabled={saving} className="col-span-full rounded-full bg-primary p-3 text-on-primary disabled:opacity-50">{saving ? 'Đang lưu…' : 'Lưu loại phòng'}</button>
+      </form>}
+    </Modal>
+    <Modal title={roomEditor === 'new' ? 'Thêm phòng vật lý' : 'Cập nhật phòng'} open={Boolean(roomEditor)} onClose={() => { if (!saving) setRoomEditor(null); }}>
+      {roomEditor && <form key={roomEditor === 'new' ? 'new-room' : roomEditor.roomId} onSubmit={saveRoom} className="grid gap-4 sm:grid-cols-2">
+        {modalError && <p role="alert" className="col-span-full text-error">{modalError}</p>}
+        <label>Số phòng<input name="roomNumber" required maxLength={20} pattern="[ -~]+" defaultValue={roomEditor === 'new' ? '' : roomEditor.roomNumber} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <label>Tầng<input name="floor" type="number" required min="0" step="1" defaultValue={roomEditor === 'new' ? 1 : roomEditor.floor} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <label>Hạng phòng<select name="roomTypeId" required defaultValue={roomEditor === 'new' ? activeSelectedAreaTypes[0]?.roomTypeId ?? '' : roomEditor.roomTypeId} className="mt-1 w-full rounded-lg bg-surface-container-low p-3"><option value="">Chọn hạng phòng</option>{activeSelectedAreaTypes.map(type => <option key={type.roomTypeId} value={type.roomTypeId}>{type.name}</option>)}</select></label>
+        <label>Trạng thái<select name="status" defaultValue={roomEditor === 'new' ? 'Available' : roomEditor.status} className="mt-1 w-full rounded-lg bg-surface-container-low p-3">{(Object.keys(roomStatusLabel) as RoomStatus[]).map(status => <option key={status} value={status}>{roomStatusLabel[status]}</option>)}</select></label>
+        <label className="col-span-full">Mô tả<textarea name="description" maxLength={500} defaultValue={roomEditor === 'new' ? '' : roomEditor.description ?? ''} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
+        <button disabled={saving || !activeSelectedAreaTypes.length} className="col-span-full rounded-full bg-primary p-3 text-on-primary disabled:opacity-50">{saving ? 'Đang lưu…' : 'Lưu phòng'}</button>
       </form>}
     </Modal>
     <Toast message={toast} />

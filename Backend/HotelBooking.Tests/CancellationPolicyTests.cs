@@ -245,6 +245,8 @@ public class CancellationPolicyTests
         public Task<bool> TypeNameExistsAsync(int hotelId, int areaId, string name, int exceptId, CancellationToken ct) => Task.FromResult(false);
         public Task<bool> RoomNumberExistsAsync(int areaId, string number, long exceptId, CancellationToken ct) => Task.FromResult(false);
         public Task<bool> HasActiveRoomsAsync(int typeId, CancellationToken ct) => Task.FromResult(false);
+        public Task<string?> FindBlockingBookingCodeAsync(long roomId, DateOnly today, CancellationToken ct) => Task.FromResult<string?>(null);
+        public Task<bool> HasActiveEmergencyLockAsync(long roomId, DateTime utcNow, CancellationToken ct) => Task.FromResult(false);
         public void Add(RoomType type) { }
         public void Add(Room room) { }
         public Task SaveAsync(CancellationToken ct) => Task.CompletedTask;

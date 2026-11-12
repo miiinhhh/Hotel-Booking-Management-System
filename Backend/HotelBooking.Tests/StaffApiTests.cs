@@ -20,6 +20,7 @@ using System.Text;
 using Xunit;
 using HotelDbContext = HotelBooking.Infrastructure.Persistence.HotelDbContext;
 using RoomDbContext = HotelBooking.Infrastructure.Persistence.HotelBookingDbContext;
+using BookingDbContext = HotelBooking.Infrastructure.Data.HotelBookingDBContext;
 
 namespace HotelBooking.Tests;
 
@@ -28,6 +29,7 @@ public class StaffFactory : WebApplicationFactory<Program>
     private readonly string database = Guid.NewGuid().ToString();
     private readonly string hotelDatabase = Guid.NewGuid().ToString();
     private readonly string roomDatabase = Guid.NewGuid().ToString();
+    private readonly string bookingDatabase = Guid.NewGuid().ToString();
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -60,6 +62,10 @@ public class StaffFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<RoomDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<RoomDbContext>>();
             services.AddDbContext<RoomDbContext>(o => o.UseInMemoryDatabase(roomDatabase));
+            services.RemoveAll<BookingDbContext>();
+            services.RemoveAll<DbContextOptions<BookingDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<BookingDbContext>>();
+            services.AddDbContext<BookingDbContext>(o => o.UseInMemoryDatabase(bookingDatabase));
         });
     }
     public async Task Seed()
