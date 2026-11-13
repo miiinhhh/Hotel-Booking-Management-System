@@ -1,31 +1,66 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StaffPortalTab } from '../types';
 import { useAuth } from '../../../context/AuthContext';
 
 interface StaffHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  selectedZone: string;
-  onSelectZone: (zone: string) => void;
-  zoneOptions?: string[];
-  onOpenNotifications?: () => void;
+  notifications?: StaffHeaderNotification[];
   onLogout?: () => void;
   loggingOut?: boolean;
   currentTab?: StaffPortalTab;
 }
 
+export interface StaffHeaderNotification {
+  id: string;
+  title: string;
+  description: string;
+  time?: string;
+  icon: string;
+}
+
 export const StaffHeader: React.FC<StaffHeaderProps> = ({
   searchQuery,
   onSearchChange,
-  selectedZone,
-  onSelectZone,
-  zoneOptions = [],
-  onOpenNotifications,
+  notifications = [],
   onLogout,
   loggingOut = false,
   currentTab = 'reservations',
 }) => {
   const { session, profile } = useAuth();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null);
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
+  const notificationStorageKey = session?.userId ? `stayluxe.staff.notifications.read.${session.userId}` : null;
+  const unreadCount = useMemo(
+    () => notifications.filter(notification => !readNotificationIds.has(notification.id)).length,
+    [notifications, readNotificationIds],
+  );
+
+  useEffect(() => {
+    if (!notificationStorageKey) {
+      setReadNotificationIds(new Set());
+      return;
+    }
+    try {
+      const storedIds = JSON.parse(localStorage.getItem(notificationStorageKey) || '[]') as string[];
+      setReadNotificationIds(new Set(Array.isArray(storedIds) ? storedIds : []));
+    } catch {
+      setReadNotificationIds(new Set());
+    }
+  }, [notificationStorageKey]);
+
+  const markNotificationRead = (notificationId: string) => {
+    setReadNotificationIds(current => {
+      if (current.has(notificationId)) return current;
+      const next = new Set(current);
+      next.add(notificationId);
+      if (notificationStorageKey) {
+        localStorage.setItem(notificationStorageKey, JSON.stringify(Array.from(next).slice(-200)));
+      }
+      return next;
+    });
+  };
   const staffName = profile?.fullName || session?.fullName || 'Nhân viên';
   const initials = staffName.trim().split(/\s+/).filter(Boolean).slice(-2).map(part => part[0]).join('').toUpperCase() || 'NV';
   const getSearchPlaceholder = () => {
@@ -66,57 +101,28 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
             )}
           </div>
 
-          {/* Duty Station Badge */}
-          <div className="hidden 2xl:flex items-center gap-2 shrink-0">
-            <span className="font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider">
-              Bàn trực:
-            </span>
-            <div className="flex items-center gap-1.5 bg-surface-container-low px-3 py-1 rounded-full border border-[#eae8e5]">
-              <span className="w-2 h-2 rounded-full bg-primary-container" />
-              <span className="font-label-md text-label-md text-on-surface font-medium">{zoneOptions.length ? zoneOptions.join(', ') : 'Chưa phân công khu vực'}</span>
-            </div>
-          </div>
         </div>
 
-        {/* Right: Zone Quick Chips & Action Badges */}
+        {/* Right: Notifications, identity and logout */}
         <div className="flex items-center gap-3">
-          {/* Zone Filter Chips */}
-          <div className="hidden xl:flex items-center gap-1 bg-surface-container-low p-1 rounded-full border border-[#eae8e5]">
-            <button
-              type="button"
-              onClick={() => onSelectZone('all')}
-              className={`px-3.5 py-1 rounded-full font-label-sm text-label-sm transition-all cursor-pointer ${
-                selectedZone === 'all'
-                  ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              Tất cả phân khu
-            </button>
-            {zoneOptions.map(zone => <button key={zone} type="button" onClick={() => onSelectZone(zone)} className={`px-3.5 py-1 rounded-full font-label-sm text-label-sm transition-all cursor-pointer ${selectedZone === zone ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>{zone}</button>)}
-          </div>
-
           {/* Notification Bell */}
-          <button
-            type="button"
-            onClick={onOpenNotifications}
-            className="relative w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors border border-[#eae8e5] cursor-pointer"
-            title="Thông báo mới"
-          >
-            <span className="material-symbols-outlined text-[20px]">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary-container text-on-primary font-label-sm text-[10px] leading-none flex items-center justify-center font-bold">
-              3
-            </span>
-          </button>
-
-          {/* Quick Filters Icon */}
-          <button
-            type="button"
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors border border-[#eae8e5] cursor-pointer"
-            title="Tùy biến bộ lọc"
-          >
-            <span className="material-symbols-outlined text-[20px]">tune</span>
-          </button>
+          <div className="relative">
+            <button type="button" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(open => !open)} className="relative w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors border border-[#eae8e5] cursor-pointer" title="Thông báo">
+              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-container px-1 text-[10px] font-bold leading-none text-on-primary">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            </button>
+            {notificationsOpen && <div className="absolute right-0 top-12 z-[80] w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-2xl">
+              <div className="flex items-center justify-between border-b border-outline-variant/20 px-5 py-4"><div><h2 className="font-semibold">Thông báo</h2><p className="text-xs text-outline">{unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Đã đọc tất cả'}</p></div><button type="button" onClick={() => { setNotificationsOpen(false); setExpandedNotificationId(null); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container" aria-label="Đóng thông báo"><span className="material-symbols-outlined text-[18px]">close</span></button></div>
+              <div className="max-h-[420px] overflow-y-auto p-2">{notifications.length === 0 ? <div className="p-8 text-center text-outline"><span className="material-symbols-outlined mb-2 block text-4xl">notifications_off</span>Chưa có thông báo mới.</div> : notifications.map(item => {
+                const expanded = expandedNotificationId === item.id;
+                const isRead = readNotificationIds.has(item.id);
+                return <button key={item.id} type="button" aria-expanded={expanded} onClick={() => { markNotificationRead(item.id); setExpandedNotificationId(current => current === item.id ? null : item.id); }} className={`mb-1 w-full rounded-xl p-3 text-left transition ${expanded ? 'bg-primary-fixed/40' : isRead ? 'hover:bg-surface-container-low' : 'bg-surface-container-low/60 hover:bg-surface-container'}`}>
+                  <div className="flex items-center gap-3"><span className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-[19px] text-primary">{item.icon}</span><h3 className={`min-w-0 flex-1 text-on-surface ${isRead ? 'font-medium' : 'font-semibold'}`}>{item.title}</h3>{isRead ? <span className="text-[11px] text-outline">Đã đọc</span> : <span className="h-2 w-2 shrink-0 rounded-full bg-primary-container" aria-label="Chưa đọc" />}</div>
+                  {expanded && <div className="ml-12 mt-2 border-t border-outline-variant/20 pt-2"><p className="text-sm leading-relaxed text-on-surface-variant">{item.description}</p>{item.time && <p className="mt-1 text-xs text-outline">{item.time}</p>}</div>}
+                </button>;
+              })}</div>
+            </div>}
+          </div>
 
           {/* Staff Avatar Dropdown Icon */}
           <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary ml-1 shadow-sm shrink-0 font-semibold text-sm">

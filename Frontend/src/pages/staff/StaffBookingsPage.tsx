@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
-import { StaffHeader } from './components/StaffHeader';
+import { StaffHeader, StaffHeaderNotification } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
 import { StaffFilterBar } from './components/StaffFilterBar';
 import { StaffBookingTable } from './components/StaffBookingTable';
@@ -16,12 +16,21 @@ import {
   cancelBooking,
 } from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
-import { getStaffDashboard, StaffPortalBookingDto } from '../../services/staffPortalApi';
+import { getStaffDashboard, getStaffNotifications, StaffPortalBookingDto, StaffPortalNotificationDto } from '../../services/staffPortalApi';
 import { roomApi } from '../../services/roomApi';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
 }
+
+const mapStaffNotifications = (notifications: StaffPortalNotificationDto[]): StaffHeaderNotification[] =>
+  notifications.map((notification) => ({
+    id: notification.id,
+    icon: notification.icon,
+    title: notification.title,
+    description: notification.description,
+    time: new Date(notification.occurredAt).toLocaleString('vi-VN'),
+  }));
 
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   onNavigateCustomerPortal,
@@ -36,6 +45,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   });
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [bookingError, setBookingError] = useState('');
+  const [staffNotifications, setStaffNotifications] = useState<StaffHeaderNotification[]>([]);
   const [assignedAreas, setAssignedAreas] = useState<Array<{
     areaId: number;
     hotelId: number;
@@ -100,7 +110,10 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     setLoadingBookings(true);
     setBookingError('');
     try {
-      const dashboard = await getStaffDashboard();
+      const [dashboard, notificationData] = await Promise.all([
+        getStaffDashboard(),
+        getStaffNotifications().catch(() => []),
+      ]);
       const apiBookings: StaffBooking[] = dashboard.bookings.map((b: StaffPortalBookingDto) => {
         const mappedSt = mapBackendStatus(b.bookingStatus);
         const mappedDep = mapBackendPayment(b.paymentStatus, b.paidAmount);
@@ -148,6 +161,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
       });
       setBookings(apiBookings);
       setMetrics(dashboard.metrics);
+      setStaffNotifications(mapStaffNotifications(notificationData));
     } catch (reason) {
       setBookings([]);
       setBookingError(reason instanceof Error ? reason.message : 'Không tải được dữ liệu đặt phòng.');
@@ -177,6 +191,18 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
     fetchBookings();
   }, [fetchBookings]);
+
+  useEffect(() => {
+    const refreshNotifications = async () => {
+      try {
+        setStaffNotifications(mapStaffNotifications(await getStaffNotifications()));
+      } catch {
+        // Keep the current list when a background refresh temporarily fails.
+      }
+    };
+    const intervalId = window.setInterval(() => void refreshNotifications(), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   // Filtered bookings
   const filteredBookings = useMemo(() => {
@@ -215,7 +241,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     () => Array.from(new Set(bookings.flatMap(booking => booking.zone.split(', ').filter(Boolean)))),
     [bookings],
   );
-
   // Reset filters
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -420,13 +445,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
             setSearchQuery(q);
             setCurrentPage(1);
           }}
-          selectedZone={selectedZone}
-          zoneOptions={zoneOptions}
-          onSelectZone={(zone) => {
-            setSelectedZone(zone);
-            setCurrentPage(1);
-          }}
-          onOpenNotifications={() => showToast('Bạn có 3 thông báo mới về ca trực lễ tân.')}
+          notifications={staffNotifications}
           onLogout={() => void handleLogout()}
           loggingOut={loggingOut}
           currentTab={staffTab}

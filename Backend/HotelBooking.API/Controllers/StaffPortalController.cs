@@ -26,6 +26,14 @@ public class StaffPortalController(
     PersistenceDbContext roomDb,
     BookingDataDbContext bookingDb) : ControllerBase
 {
+    private sealed record StaffNotificationDto(
+        string Id,
+        string Type,
+        string Title,
+        string Description,
+        string Icon,
+        DateTime OccurredAt);
+
     private long ActorId
     {
         get
@@ -69,6 +77,110 @@ public class StaffPortalController(
                 .Select(x => x.RoomId)
                 .ToListAsync(ct))
             .ToHashSet();
+    }
+
+    [HttpGet("notifications")]
+    public async Task<IActionResult> GetNotifications(CancellationToken ct)
+    {
+        var since = DateTime.UtcNow.AddDays(-30);
+        var allowedAreaIds = await GetAllowedAreaIdsAsync(ct);
+        var allowedRoomIds = await GetAllowedRoomIdsAsync(ct);
+        if (!IsAdmin && (allowedAreaIds is null || allowedAreaIds.Count == 0))
+            return Ok(new { success = true, data = Array.Empty<StaffNotificationDto>() });
+
+        var notifications = new List<StaffNotificationDto>();
+
+        var bookingQuery = bookingDb.Bookings
+            .AsNoTracking()
+            .Where(booking => booking.CreatedAt >= since);
+        if (allowedRoomIds is not null)
+            bookingQuery = bookingQuery.Where(booking => booking.BookingDetails.Any(detail => allowedRoomIds.Contains(detail.RoomId)));
+
+        var recentBookings = await bookingQuery
+            .OrderByDescending(booking => booking.CreatedAt)
+            .Take(20)
+            .Select(booking => new
+            {
+                booking.BookingId,
+                booking.BookingCode,
+                booking.CustomerId,
+                booking.TotalAmount,
+                booking.CreatedAt,
+                RoomIds = booking.BookingDetails.Select(detail => detail.RoomId).ToList()
+            })
+            .ToListAsync(ct);
+        var customerIds = recentBookings.Select(booking => booking.CustomerId).Distinct().ToList();
+        var customerNames = await roomDb.Users.AsNoTracking()
+            .Where(user => customerIds.Contains(user.UserId))
+            .ToDictionaryAsync(user => user.UserId, user => user.FullName, ct);
+        var bookingRoomIds = recentBookings.SelectMany(booking => booking.RoomIds).Distinct().ToList();
+        var roomNumbers = await roomDb.Rooms.AsNoTracking()
+            .Where(room => bookingRoomIds.Contains(room.RoomId))
+            .ToDictionaryAsync(room => room.RoomId, room => room.RoomNumber, ct);
+
+        notifications.AddRange(recentBookings.Select(booking =>
+        {
+            var rooms = booking.RoomIds
+                .Where(roomId => allowedRoomIds is null || allowedRoomIds.Contains(roomId))
+                .Select(roomId => roomNumbers.GetValueOrDefault(roomId))
+                .Where(number => !string.IsNullOrWhiteSpace(number));
+            var customerName = customerNames.GetValueOrDefault(booking.CustomerId) ?? $"Khách hàng #{booking.CustomerId}";
+            return new StaffNotificationDto(
+                $"booking-{booking.BookingId}",
+                "BookingCreated",
+                "Booking mới",
+                $"{booking.BookingCode} · {customerName} · Phòng {string.Join(", ", rooms)} · {booking.TotalAmount:N0} ₫",
+                "event_available",
+                booking.CreatedAt);
+        }));
+
+        if (!IsAdmin)
+        {
+            var assignmentEvents = await roomDb.StaffAreaAssignments
+                .AsNoTracking()
+                .Include(assignment => assignment.Area)
+                .Where(assignment => assignment.UserId == ActorId && assignment.IsActive && assignment.AssignedAt >= since)
+                .OrderByDescending(assignment => assignment.AssignedAt)
+                .Take(20)
+                .ToListAsync(ct);
+            notifications.AddRange(assignmentEvents.Select(assignment => new StaffNotificationDto(
+                $"assignment-{assignment.AssignmentId}-{assignment.AssignedAt.Ticks}",
+                "AreaAssignmentChanged",
+                "Phân công khu vực thay đổi",
+                $"Bạn được phân công {assignment.Area?.AreaName ?? $"khu vực #{assignment.AreaId}"} tại khách sạn #{assignment.Area?.HotelId}.",
+                "assignment_ind",
+                assignment.AssignedAt)));
+        }
+
+        var roomTypeQuery = roomDb.RoomTypes.AsNoTracking();
+        if (allowedAreaIds is not null)
+            roomTypeQuery = roomTypeQuery.Where(roomType => allowedAreaIds.Contains(roomType.AreaId));
+        var roomTypes = await roomTypeQuery
+            .Select(roomType => new { roomType.RoomTypeId, roomType.RoomTypeName })
+            .ToDictionaryAsync(roomType => roomType.RoomTypeId, roomType => roomType.RoomTypeName, ct);
+        var roomTypeIds = roomTypes.Keys.ToList();
+        var priceEvents = await bookingDb.RoomPriceHistories
+            .AsNoTracking()
+            .Where(history => roomTypeIds.Contains(history.RoomTypeId) && history.CreatedAt >= since)
+            .OrderByDescending(history => history.CreatedAt)
+            .Take(20)
+            .ToListAsync(ct);
+        notifications.AddRange(priceEvents.Select(history => new StaffNotificationDto(
+            $"price-{history.PriceHistoryId}",
+            "RoomPriceChanged",
+            "Giá phòng thay đổi",
+            $"{roomTypes.GetValueOrDefault(history.RoomTypeId) ?? $"Hạng phòng #{history.RoomTypeId}"} · {history.Price:N0} ₫ · Hiệu lực {history.EffectiveFrom:dd/MM/yyyy}",
+            "sell",
+            history.CreatedAt)));
+
+        return Ok(new
+        {
+            success = true,
+            data = notifications
+                .OrderByDescending(notification => notification.OccurredAt)
+                .Take(30)
+                .ToList()
+        });
     }
 
     [HttpGet("bookings"), RequirePermission(SystemPermissions.BookingView)]

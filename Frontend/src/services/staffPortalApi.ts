@@ -30,6 +30,15 @@ export interface StaffPortalDashboard {
   metrics: StaffMetricsData;
 }
 
+export interface StaffPortalNotificationDto {
+  id: string;
+  type: 'BookingCreated' | 'AreaAssignmentChanged' | 'RoomPriceChanged' | string;
+  title: string;
+  description: string;
+  icon: string;
+  occurredAt: string;
+}
+
 const requireData = <T>(response: ApiResponse<T>, fallbackMessage: string): T => {
   if (!response.success || response.data === undefined) {
     throw new Error(response.message || fallbackMessage);
@@ -41,6 +50,13 @@ export async function getStaffDashboard(): Promise<StaffPortalDashboard> {
   return requireData(
     await apiClient<StaffPortalDashboard>('/api/staff/portal/bookings'),
     'Không tải được dữ liệu đặt phòng của nhân viên.',
+  );
+}
+
+export async function getStaffNotifications(): Promise<StaffPortalNotificationDto[]> {
+  return requireData(
+    await apiClient<StaffPortalNotificationDto[]>('/api/staff/portal/notifications'),
+    'Không tải được thông báo công việc.',
   );
 }
 
