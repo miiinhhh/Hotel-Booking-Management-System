@@ -40,6 +40,39 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         await Hotel(hotelId, ct);
         return await AvailabilityQuery(hotelId, checkIn, checkOut).OrderBy(r => r.RoomId).ToListAsync(ct);
     }
+    public async Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        await Hotel(hotelId, ct);
+        if (!await Stock().AnyAsync(room => room.HotelId == hotelId && room.RoomId == roomId, ct))
+            throw new NotFoundException("Active room not found in this hotel.");
+
+        var now = DateTime.UtcNow;
+        var toExclusive = to.AddDays(1);
+        var bookingRanges = await db.BookingDetails.AsNoTracking()
+            .Where(detail => detail.RoomId == roomId && detail.Booking.CheckInDate < toExclusive && detail.Booking.CheckOutDate > from &&
+                (detail.Booking.BookingStatus == BookingStatus.Confirmed || detail.Booking.BookingStatus == BookingStatus.CheckedIn ||
+                 (detail.Booking.BookingStatus == BookingStatus.Pending && (detail.Booking.HoldExpiresAt == null || detail.Booking.HoldExpiresAt > now))))
+            .Select(detail => new { detail.Booking.CheckInDate, detail.Booking.CheckOutDate })
+            .ToListAsync(ct);
+
+        var windowStart = from.ToDateTime(TimeOnly.MinValue);
+        var windowEnd = toExclusive.ToDateTime(TimeOnly.MinValue);
+        var lockRanges = await db.Set<RoomEmergencyLock>().AsNoTracking()
+            .Where(roomLock => roomLock.RoomId == roomId && !roomLock.IsReleased && roomLock.StartsAt < windowEnd && roomLock.EndsAt > windowStart)
+            .Select(roomLock => new { roomLock.StartsAt, roomLock.EndsAt })
+            .ToListAsync(ct);
+
+        var unavailable = new List<DateOnly>();
+        for (var day = from; day <= to; day = day.AddDays(1))
+        {
+            var dayStart = day.ToDateTime(TimeOnly.MinValue);
+            var dayEnd = day.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            if (bookingRanges.Any(range => range.CheckInDate <= day && range.CheckOutDate > day) ||
+                lockRanges.Any(range => range.StartsAt < dayEnd && range.EndsAt > dayStart))
+                unavailable.Add(day);
+        }
+        return unavailable;
+    }
     internal IQueryable<AvailableRoom> AvailabilityQuery(int hotelId, DateOnly checkIn, DateOnly checkOut)
         => AllAvailabilityQuery(checkIn, checkOut).Where(r => r.HotelId == hotelId);
 

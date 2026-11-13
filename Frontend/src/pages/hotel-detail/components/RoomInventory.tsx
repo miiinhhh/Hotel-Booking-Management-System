@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Room } from '../types';
 import { RoomCard } from './RoomCard';
+import { RoomDateRangePicker } from './RoomDateRangePicker';
 import { roomApi, AvailableRoom, localDate } from '../../../services/roomApi';
 
 interface RoomInventoryProps {
@@ -19,6 +20,7 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [calendarRequest, setCalendarRequest] = useState<{ room: Room; packageId?: string } | null>(null);
   useEffect(() => { setHotelInput(hotelId ? String(hotelId) : ''); setChecked(null); setAvailable([]); }, [hotelId]);
   const validSelection = checked && checked.hotel === Number(hotelInput) && checked.checkIn === checkIn && checked.checkOut === checkOut;
   const nights = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86400000);
@@ -31,14 +33,26 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Không kiểm tra được phòng trống.'); }
     finally { setLoading(false); }
   };
-  const book = async (room: Room, packageId?: string, price?: number) => {
-    if (!validSelection || pending) return; setPending(true); setError('');
+  const confirmRoomDates = async (selectedCheckIn: string, selectedCheckOut: string) => {
+    if (!calendarRequest || pending) return;
+    const hotel = Number(calendarRequest.room.hotelId || hotelInput);
+    setPending(true);
+    setError('');
     try {
-      const result = await roomApi.availability(checked.hotel, checked.checkIn, checked.checkOut);
+      const result = await roomApi.availability(hotel, selectedCheckIn, selectedCheckOut);
       setAvailable(result.rooms);
-      if (!result.rooms.some(r => r.roomId === Number(room.id))) throw new Error('Phòng vừa được đặt hoặc khóa. Vui lòng chọn phòng khác.');
-      onBookRoom?.(room, packageId, price);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không xác nhận được phòng trống.'); }
+      if (!result.rooms.some(room => room.roomId === Number(calendarRequest.room.id)))
+        throw new Error('Phòng vừa được đặt hoặc khóa bán. Vui lòng chọn khoảng ngày khác.');
+      const nightsCount = Math.max(1, Math.round((Date.parse(selectedCheckOut) - Date.parse(selectedCheckIn)) / 86_400_000));
+      const selectedPackage = calendarRequest.room.packages?.find(item => item.id === calendarRequest.packageId) || calendarRequest.room.packages?.[0];
+      const pricePerNight = selectedPackage?.pricePerNight || calendarRequest.room.allInclusiveDetail?.pricePerNight || 0;
+      onBookRoom?.({ ...calendarRequest.room, checkIn: selectedCheckIn, checkOut: selectedCheckOut }, calendarRequest.packageId, pricePerNight * nightsCount);
+      setCalendarRequest(null);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Không xác nhận được phòng trống.';
+      setError(message);
+      throw new Error(message);
+    }
     finally { setPending(false); }
   };
   useEffect(() => { if (hotelId && initialCheckIn) void search(); }, [hotelId, initialCheckIn]);
@@ -48,7 +62,7 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     packages: [{ id: 'base', name: 'Giá cơ bản', description: 'Giá cuối cùng được backend tính khi đặt phòng.', pricePerNight: r.price }],
     cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || 'Liên hệ khách sạn để biết chính sách hủy.',
   })) : [];
-  return <section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">Kiểm tra phòng trống</h2>
+  return <><section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">Kiểm tra phòng trống</h2>
     <form onSubmit={e => { e.preventDefault(); void search(); }} className="flex flex-wrap items-end gap-3"><fieldset disabled={loading || pending} className="flex flex-wrap gap-3">
       {!hotelId && <label>Khách sạn<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>}
       <label>Nhận phòng<input type="date" required min={localDate()} value={checkIn} onChange={e => setCheckIn(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
@@ -60,7 +74,8 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     {pending && <p role="status">Đang xác nhận lại phòng trống…</p>}
     {validSelection && !loading && !cards.length && <p>Không còn phòng trống cho khoảng ngày này.</p>}
     {!validSelection && !loading && <p className="text-outline">Chọn khách sạn và ngày lưu trú để xem phòng còn trống.</p>}
-    <div aria-busy={pending} className={pending ? 'pointer-events-none space-y-5 opacity-60' : 'space-y-5'}>{cards.map(room => <RoomCard key={`${room.id}-${checkIn}-${checkOut}`} room={room} durationNights={nights} onBookRoom={(...args) => void book(...args)} onViewRoomDetail={onViewRoomDetail} />)}</div>
-  </section>;
+    <div aria-busy={pending} className={pending ? 'pointer-events-none space-y-5 opacity-60' : 'space-y-5'}>{cards.map(room => <RoomCard key={`${room.id}-${checkIn}-${checkOut}`} room={room} durationNights={nights} onBookRoom={(selectedRoom, packageId) => setCalendarRequest({ room: selectedRoom, packageId })} onViewRoomDetail={onViewRoomDetail} />)}</div>
+  </section>
+  {calendarRequest && <RoomDateRangePicker room={calendarRequest.room} hotelId={Number(calendarRequest.room.hotelId || hotelInput)} initialCheckIn={calendarRequest.room.checkIn} initialCheckOut={calendarRequest.room.checkOut} onClose={() => setCalendarRequest(null)} onConfirm={confirmRoomDates} />}</>;
 };
 export default RoomInventory;

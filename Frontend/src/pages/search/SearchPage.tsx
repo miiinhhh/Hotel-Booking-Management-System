@@ -7,7 +7,7 @@ import { defaultSelection, discoveryApi, DiscoveryPage, DiscoverySelection, Hote
 interface SearchPageProps { initialLocation?: string; initialDates?: string; initialGuests?: string; initialSelection?: DiscoverySelection; initialShowSaved?: boolean; onNavigateHome?: () => void; onSelectHotel?: (hotel: Hotel, selection?: DiscoverySelection) => void }
 export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initialShowSaved = false, onSelectHotel }) => {
   const { session } = useAuth();
-  const [selection, setSelection] = useState(initialSelection || defaultSelection);
+  const [selection, setSelection] = useState<DiscoverySelection>(() => ({ ...(initialSelection || defaultSelection()), location: '' }));
   const [filters, setFilters] = useState({ minPrice: '', maxPrice: '', roomTypeName: '', amenityId: '', sort: 'price_asc' });
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<DiscoveryPage | null>(null);
@@ -15,7 +15,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
   const [saved, setSaved] = useState<HotelCardData[]>([]); const [showSaved, setShowSaved] = useState(false);
   useEffect(() => setShowSaved(initialShowSaved), [initialShowSaved]);
   const [amenities, setAmenities] = useState<{ amenityId: number; name: string }[]>([]);
-  useEffect(() => { if (initialSelection) { setSelection(initialSelection); setPage(1); } }, [initialSelection]);
+  useEffect(() => { if (initialSelection) { setSelection({ ...initialSelection, location: '' }); setPage(1); } }, [initialSelection]);
   useEffect(() => { let alive = true; discoveryApi.amenities().then(v => { if (alive) setAmenities(v); }).catch(() => {}); return () => { alive = false; }; }, []);
   useEffect(() => { let alive = true; setSaved([]); if (session) discoveryApi.wishlist().then(v => { if (alive) setSaved(v); }).catch(e => { if (alive) setNotice(e.message); }); return () => { alive = false; }; }, [session?.userId]);
   useEffect(() => {

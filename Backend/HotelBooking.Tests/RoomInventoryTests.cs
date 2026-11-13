@@ -64,6 +64,22 @@ public sealed class RoomInventoryTests
         Assert.Contains(await new RoomInventoryRepository(db).Available(1, Day.AddDays(2), Day.AddDays(3), default), r => r.RoomId == 1);
     }
     [Fact]
+    public async Task CustomerCalendarMarksBookedAndLockedNightsButNotCheckoutDay()
+    {
+        using var db = Database();
+        var repo = new RoomInventoryRepository(db);
+        db.Bookings.Add(Booking(1));
+        await db.SaveChangesAsync();
+        await repo.CreateLocks(1, Lock(2), 10, true, default);
+
+        var booked = await repo.UnavailableDates(1, 1, Day.AddDays(-1), Day.AddDays(3), default);
+        var locked = await repo.UnavailableDates(1, 2, Day.AddDays(-1), Day.AddDays(3), default);
+
+        Assert.Equal([Day, Day.AddDays(1)], booked);
+        Assert.Equal([Day, Day.AddDays(1)], locked);
+        Assert.DoesNotContain(Day.AddDays(2), booked);
+    }
+    [Fact]
     public async Task LockReleasePreservesAuditAndRestoresAvailability()
     {
         using var db = Database(); var repo = new RoomInventoryRepository(db);

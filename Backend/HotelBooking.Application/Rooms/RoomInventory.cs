@@ -16,12 +16,14 @@ public sealed record AvailableRoom
     public int Capacity { get; init; }
 }
 public sealed record AvailabilityResult(DateOnly CheckIn, DateOnly CheckOut, IReadOnlyList<AvailableRoom> Rooms);
+public sealed record RoomAvailabilityCalendar(long RoomId, DateOnly From, DateOnly To, IReadOnlyList<DateOnly> UnavailableDates);
 public sealed record CreateRoomLockRequest([Required, MinLength(1), MaxLength(100)] long[] RoomIds, DateTimeOffset StartsAt, DateTimeOffset EndsAt, [Required, StringLength(500)] string Reason);
 public sealed record RoomLockDto(long LockId, Guid BatchId, int HotelId, long RoomId, DateTime StartsAt, DateTime EndsAt, string Reason, long CreatedByUserId, DateTime CreatedAt, string Status, DateTime? ReleasedAt, long? ReleasedByUserId);
 public sealed class InventoryAccessException() : Exception("The room is outside your assigned area.");
 public interface IRoomInventoryRepository
 {
     Task<IReadOnlyList<AvailableRoom>> Available(int hotelId, DateOnly checkIn, DateOnly checkOut, CancellationToken ct);
+    Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct);
     Task<IReadOnlyList<RoomLockDto>> CreateLocks(int hotelId, CreateRoomLockRequest request, long actorId, bool isAdmin, CancellationToken ct);
     Task<IReadOnlyList<RoomLockDto>> ListLocks(int hotelId, long actorId, bool isAdmin, CancellationToken ct);
     Task<RoomLockDto> Release(int hotelId, long lockId, long actorId, bool isAdmin, CancellationToken ct);
@@ -33,6 +35,13 @@ public sealed class RoomInventoryService(IRoomInventoryRepository repository)
         if (hotelId <= 0 || request.CheckIn < DateOnly.FromDateTime(DateTime.UtcNow) || request.CheckOut <= request.CheckIn)
             throw new DomainRuleException("Check-in must be today or later and check-out must follow check-in.");
         return new(request.CheckIn, request.CheckOut, await repository.Available(hotelId, request.CheckIn, request.CheckOut, ct));
+    }
+    public async Task<RoomAvailabilityCalendar> Calendar(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (hotelId <= 0 || roomId <= 0 || from < today || to < from || to.DayNumber - from.DayNumber > 180)
+            throw new DomainRuleException("Calendar range must start today or later and contain at most 181 days.");
+        return new(roomId, from, to, await repository.UnavailableDates(hotelId, roomId, from, to, ct));
     }
     public Task<IReadOnlyList<RoomLockDto>> CreateLocks(int hotelId, CreateRoomLockRequest request, long actorId, bool isAdmin, CancellationToken ct)
     {

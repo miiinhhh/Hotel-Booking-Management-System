@@ -34,6 +34,7 @@ export interface HotelAreaInput {
 export interface RoomDto { roomId: number; hotelId: number; areaId: number; roomTypeId: number; roomNumber: string; floor: number; status: RoomStatus; description: string | null; isActive: boolean; price: number; capacity: number }
 export interface AvailableRoom { roomId: number; hotelId: number; areaId: number; roomTypeId: number; roomTypeName: string; roomNumber: string; floor: number; price: number; capacity: number }
 export interface Availability { checkIn: string; checkOut: string; rooms: AvailableRoom[] }
+export interface RoomAvailabilityCalendar { roomId: number; from: string; to: string; unavailableDates: string[] }
 export interface RoomLock { lockId: number; batchId: string; hotelId: number; roomId: number; startsAt: string; endsAt: string; reason: string; createdByUserId: number; createdAt: string; status: 'Scheduled' | 'Active' | 'Expired' | 'Released' }
 export interface LockInput { roomIds: number[]; startsAt: string; endsAt: string; reason: string }
 
@@ -70,6 +71,7 @@ export const roomApi = {
   updateRoom: (id: number, roomId: number, input: Omit<RoomDto, 'roomId' | 'hotelId' | 'areaId' | 'price' | 'capacity' | 'isActive'>) => request<RoomDto>(`${hotel(id)}/rooms/${roomId}`, 'PUT', input),
   deleteRoom: (id: number, roomId: number) => request<void>(`${hotel(id)}/rooms/${roomId}`, 'DELETE'),
   availability: (id: number, checkIn: string, checkOut: string) => request<Availability>(`${hotel(id)}/rooms/availability?${new URLSearchParams({ checkIn, checkOut })}`),
+  calendar: (id: number, roomId: number, from: string, to: string) => request<RoomAvailabilityCalendar>(`${hotel(id)}/rooms/${roomId}/calendar?${new URLSearchParams({ from, to })}`),
   locks: (id: number) => request<RoomLock[]>(`${hotel(id)}/rooms/emergency-locks`),
   lock: (id: number, input: LockInput) => request<RoomLock[]>(`${hotel(id)}/rooms/emergency-locks`, 'POST', input),
   release: (id: number, lockId: number) => request<RoomLock>(`${hotel(id)}/rooms/emergency-locks/${lockId}/release`, 'PATCH'),

@@ -230,7 +230,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             onClick={handleBook}
             className="w-full py-3.5 px-6 rounded-full bg-primary-container hover:bg-tertiary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 group cursor-pointer border-0"
           >
-            <span>Đặt ngay</span>
+            <span>Chọn ngày &amp; đặt</span>
             <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">
               arrow_forward
             </span>

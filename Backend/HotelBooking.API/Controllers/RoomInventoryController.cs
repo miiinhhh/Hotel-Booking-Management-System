@@ -12,6 +12,9 @@ public sealed class RoomInventoryController(RoomInventoryService service) : Cont
 {
     [HttpGet("availability"), AllowAnonymous]
     public async Task<ActionResult<AvailabilityResult>> Available(int hotelId, [FromQuery] AvailabilityRequest request, CancellationToken ct) => Ok(await service.Available(hotelId, request, ct));
+    [HttpGet("{roomId:long:min(1)}/calendar"), AllowAnonymous]
+    public async Task<ActionResult<RoomAvailabilityCalendar>> Calendar(int hotelId, long roomId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, CancellationToken ct) =>
+        Ok(await service.Calendar(hotelId, roomId, from, to, ct));
     [HttpPost("emergency-locks"), RequirePermission(SystemPermissions.InventoryManage)]
     public async Task<ActionResult<IReadOnlyList<RoomLockDto>>> Create(int hotelId, CreateRoomLockRequest request, CancellationToken ct) => StatusCode(201, await service.CreateLocks(hotelId, request, Actor, User.IsInRole(SystemRoles.Admin), ct));
     [HttpGet("emergency-locks"), RequirePermission(SystemPermissions.InventoryView)]
