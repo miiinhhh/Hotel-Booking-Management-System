@@ -250,6 +250,45 @@ public sealed class StaffAreaAssignmentTests
     }
 
     [Fact]
+    public async Task SyncStaffAreas_ForThirdHotel_ReturnsFailureAndPreservesExistingAssignments()
+    {
+        using var db = CreateDatabase();
+        var (firstHotel, firstArea, _, staff, _) = SeedData(db);
+
+        var secondHotel = new Hotel();
+        var thirdHotel = new Hotel();
+        db.Hotels.AddRange(secondHotel, thirdHotel);
+        db.Entry(secondHotel).Property(x => x.HotelId).CurrentValue = 2;
+        db.Entry(secondHotel).Property(x => x.IsActive).CurrentValue = true;
+        db.Entry(thirdHotel).Property(x => x.HotelId).CurrentValue = 3;
+        db.Entry(thirdHotel).Property(x => x.IsActive).CurrentValue = true;
+        var secondArea = new HotelArea { AreaId = 3, HotelId = 2, AreaName = "Second Hotel Zone", AreaType = "Zone", IsActive = true };
+        var thirdArea = new HotelArea { AreaId = 4, HotelId = 3, AreaName = "Third Hotel Zone", AreaType = "Zone", IsActive = true };
+        db.HotelAreas.AddRange(secondArea, thirdArea);
+        await db.SaveChangesAsync(Ct);
+
+        var repository = new StaffAreaAssignmentRepository(db);
+        var service = new StaffAreaAssignmentService(repository);
+        await service.SyncStaffAreasAsync(firstHotel.HotelId,
+            new AssignStaffAreasRequest { UserId = staff.UserId, AreaIds = new List<int> { firstArea.AreaId } }, 1, Ct);
+        await service.SyncStaffAreasAsync(secondHotel.HotelId,
+            new AssignStaffAreasRequest { UserId = staff.UserId, AreaIds = new List<int> { secondArea.AreaId } }, 1, Ct);
+
+        var result = await service.SyncStaffAreasAsync(thirdHotel.HotelId,
+            new AssignStaffAreasRequest { UserId = staff.UserId, AreaIds = new List<int> { thirdArea.AreaId } }, 1, Ct);
+
+        Assert.False(result.Success);
+        Assert.Contains("tối đa 2 khách sạn", result.Message);
+        var activeHotelIds = await db.StaffAreaAssignments
+            .Where(assignment => assignment.UserId == staff.UserId && assignment.IsActive)
+            .Join(db.HotelAreas, assignment => assignment.AreaId, area => area.AreaId, (_, area) => area.HotelId)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToListAsync(Ct);
+        Assert.Equal(new[] { 1, 2 }, activeHotelIds);
+    }
+
+    [Fact]
     public async Task SyncStaffAreas_WhenInvalidAreaId_ReturnsFailure()
     {
         using var db = CreateDatabase();

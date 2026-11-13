@@ -362,17 +362,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
   const handleSelectStaffTab = (tab: string) => {
     setStaffTab(tab as StaffPortalTab);
-    if (tab !== 'reservations') {
-      showToast(
-        `Chuyển sang phân hệ: ${
-          tab === 'calendar'
-            ? 'Lịch phòng & Khóa bán'
-            : tab === 'suites'
-            ? 'Suites & Phân khu'
-            : 'Hồ sơ Khách hàng'
-        }`
-      );
-    }
   };
 
   const handleExportExcel = () => {

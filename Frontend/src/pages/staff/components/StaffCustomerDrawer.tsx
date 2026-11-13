@@ -22,15 +22,7 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
   const [newNoteInput, setNewNoteInput] = useState('');
 
   if (!customer) {
-    return (
-      <aside className="lg:col-span-5 xl:col-span-5 bg-surface-container-lowest rounded-lg p-8 shadow-md flex flex-col items-center justify-center text-center text-on-surface-variant min-h-[400px]">
-        <span className="material-symbols-outlined text-[48px] text-outline mb-2">person_search</span>
-        <p className="font-label-lg font-semibold text-on-surface">Chưa chọn khách hàng</p>
-        <p className="font-body-md text-sm mt-1">
-          Nhấp vào một khách hàng trong danh sách bên trái để xem hồ sơ và lịch sử chi tiết.
-        </p>
-      </aside>
-    );
+    return null;
   }
 
   const handleSaveNote = (e: React.FormEvent) => {
@@ -76,7 +68,9 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
   };
 
   return (
-    <aside className="lg:col-span-5 xl:col-span-5 bg-surface-container-lowest rounded-lg p-6 shadow-md flex flex-col gap-6 sticky top-28 border border-[#eae8e5]">
+    <>
+    <button type="button" aria-label="Đóng hồ sơ khách hàng" onClick={onClose} className="fixed inset-0 z-[60] bg-inverse-surface/25 backdrop-blur-[1px]" />
+    <aside role="dialog" aria-modal="true" aria-label={`Hồ sơ khách hàng ${customer.name}`} className="fixed bottom-0 right-0 top-20 z-[70] flex w-full max-w-[480px] flex-col gap-6 overflow-y-auto rounded-l-2xl border-l border-[#eae8e5] bg-surface-container-lowest p-6 shadow-2xl">
       {/* Drawer Top Bar & Profile Identity Card */}
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between">
@@ -321,5 +315,6 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
         </button>
       </div>
     </aside>
+    </>
   );
 };

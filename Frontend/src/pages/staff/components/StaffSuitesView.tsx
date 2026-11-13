@@ -31,6 +31,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
   const [hotelAddresses, setHotelAddresses] = useState<Record<number, string>>({});
   const [selectedClusterKey, setSelectedClusterKey] = useState('');
   const [selectedMapAreaId, setSelectedMapAreaId] = useState<number | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -120,17 +121,18 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
     ? [selectedZone, ...zoneBuildings].filter((area): area is HotelAreaDto => Boolean(area))
     : zoneBuildings;
   const selectedMapArea = selectableAreas.find(area => area.areaId === selectedMapAreaId) || selectableAreas[0];
-  const visibleAreaIds = selectedMapArea?.areaType === 'Building'
-    ? [selectedMapArea.areaId]
-    : selectedCluster?.areaIds || [];
-  const clusterRooms = selectedCluster
-    ? rooms.filter(room => room.hotelId === selectedCluster.hotelId && visibleAreaIds.includes(room.areaId))
+  const selectedAreaRooms = selectedCluster && selectedMapArea
+    ? rooms.filter(room => room.hotelId === selectedCluster.hotelId &&
+      (selectedMapArea.areaType === 'Building'
+        ? room.areaId === selectedMapArea.areaId
+        : selectedCluster.areaIds.includes(room.areaId)))
     : [];
+  const clusterRooms = selectedMapArea?.areaType === 'Building' ? selectedAreaRooms : [];
   const areaRoomSummary = selectedMapArea ? {
-    total: clusterRooms.length,
-    available: clusterRooms.filter(room => room.status === 'Available').length,
-    occupied: clusterRooms.filter(room => room.status === 'Occupied').length,
-    maintenance: clusterRooms.filter(room => room.status === 'Maintenance').length,
+    total: selectedAreaRooms.length,
+    available: selectedAreaRooms.filter(room => room.status === 'Available').length,
+    occupied: selectedAreaRooms.filter(room => room.status === 'Occupied').length,
+    maintenance: selectedAreaRooms.filter(room => room.status === 'Maintenance').length,
   } : { total: 0, available: 0, occupied: 0, maintenance: 0 };
   const filteredRooms = clusterRooms.filter(room =>
     room.roomNumber.toLowerCase().includes(search.trim().toLowerCase()) &&
@@ -156,7 +158,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
           {clusters.map(cluster => {
             const selected = cluster.key === selectedClusterKey;
             return <button key={cluster.key} type="button" aria-pressed={selected}
-              onClick={() => { setSelectedClusterKey(cluster.key); setSearch(''); setStatus('all'); }}
+              onClick={() => { setSelectedClusterKey(cluster.key); setSearch(''); setStatus('all'); setDetailsOpen(false); }}
               className={`rounded-2xl border p-4 text-left transition ${selected ? 'border-primary bg-primary-container text-on-primary-container shadow-sm' : 'border-outline-variant/40 bg-surface-container-lowest hover:border-primary/60'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div><span className="text-xs font-semibold uppercase tracking-wide opacity-70">{cluster.hotelName}</span><h3 className="mt-1 text-lg font-semibold">{cluster.areaType === 'Zone' ? cluster.name : cluster.parentName || 'Zone chưa xác định'}</h3><p className="mt-1 text-sm opacity-75">{cluster.areaType === 'Zone' ? `Zone · ${areas.filter(area => area.parentAreaId === cluster.areaId).length} Building` : `Building · ${cluster.name}`}</p></div>
@@ -167,7 +169,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
         </div>
       </section>
 
-      {selectedCluster && <section className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]" aria-label="Sơ đồ phân khu">
+      {selectedCluster && <section className="space-y-4" aria-label="Sơ đồ phân khu">
         <div className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/20 px-5 py-4">
             <div><h2 className="text-xl font-semibold">Cấu trúc khu vực được giao</h2><p className="text-sm text-outline">Khách sạn → Zone → Building → Phòng</p></div>
@@ -182,7 +184,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
 
               <div className="rounded-2xl border border-primary/30 bg-primary-fixed/20 p-4">
                 <button type="button" disabled={selectedCluster.areaType !== 'Zone'}
-                  onClick={() => { if (selectedZone) { setSelectedMapAreaId(selectedZone.areaId); setSearch(''); setStatus('all'); } }}
+                  onClick={() => { if (selectedZone) { setSelectedMapAreaId(selectedZone.areaId); setSearch(''); setStatus('all'); setDetailsOpen(false); } }}
                   className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${selectedMapArea?.areaType === 'Zone' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-lowest'} disabled:cursor-default`}>
                   <span className="material-symbols-outlined">location_on</span>
                   <div><span className="text-xs font-semibold uppercase opacity-70">Zone</span><h3 className="font-semibold">{selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</h3><p className="text-sm opacity-75">{selectedZone?.locationDescription || selectedZone?.description || 'Khu vực chứa các tòa nhà được giao'}</p></div>
@@ -194,7 +196,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
                     {zoneBuildings.map(building => {
                       const active = building.areaId === selectedMapArea?.areaId;
                       const buildingRoomCount = rooms.filter(room => room.hotelId === building.hotelId && room.areaId === building.areaId).length;
-                      return <button key={building.areaId} type="button" onClick={() => { setSelectedMapAreaId(building.areaId); setSearch(''); setStatus('all'); }}
+                      return <button key={building.areaId} type="button" onClick={() => { setSelectedMapAreaId(building.areaId); setSearch(''); setStatus('all'); setDetailsOpen(false); }}
                         className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 ${active ? 'border-primary bg-primary-container text-on-primary-container shadow-sm' : 'border-outline-variant/40 bg-surface-container-lowest'}`}>
                         <div className="flex items-center gap-2"><span className="material-symbols-outlined">apartment</span><div><span className="text-xs uppercase opacity-70">Building</span><h4 className="font-semibold">{building.areaName}</h4></div></div>
                         <p className="mt-2 text-sm opacity-75">{building.locationDescription || building.description || 'Chưa cập nhật vị trí trong Zone.'}</p>
@@ -209,31 +211,29 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
           </div>
         </div>
 
-        <aside className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-primary">Khu vực đang chọn</span>
-          <h2 className="mt-1 text-2xl font-semibold">{selectedMapArea?.areaName || selectedCluster.name}</h2>
-          <p className="mt-1 text-sm text-outline">{selectedCluster.hotelName} · Zone {selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</p>
-          <dl className="mt-5 space-y-3 text-sm">
-            <div><dt className="text-outline">Vị trí nội bộ</dt><dd className="font-medium">{selectedMapArea?.locationDescription || 'Chưa cập nhật'}</dd></div>
-            <div><dt className="text-outline">Mô tả</dt><dd className="font-medium">{selectedMapArea?.description || 'Chưa cập nhật'}</dd></div>
-            <div><dt className="text-outline">Số tầng</dt><dd className="font-medium">{selectedMapArea?.floorCount || 'Chưa cập nhật'}</dd></div>
-          </dl>
-          <div className="mt-5 grid grid-cols-2 gap-2 text-center text-sm">
-            <div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-lg">{areaRoomSummary.total}</strong> Tổng phòng</div>
-            <div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-lg text-primary">{areaRoomSummary.available}</strong> Khả dụng</div>
-            <div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-lg">{areaRoomSummary.occupied}</strong> Có khách</div>
-            <div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-lg">{areaRoomSummary.maintenance}</strong> Bảo trì</div>
-          </div>
-          <button type="button" onClick={() => {
-            const query = [selectedCluster.hotelName, selectedCluster.hotelAddress, selectedMapArea?.areaName, selectedMapArea?.locationDescription].filter(Boolean).join(', ');
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
-          }} className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 font-semibold text-on-primary">
-            <span className="material-symbols-outlined text-[19px]">directions</span> Mở chỉ đường
-          </button>
-        </aside>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface-container-lowest p-4 shadow-sm">
+          <div className="flex items-center gap-3"><span className="material-symbols-outlined rounded-full bg-primary-container p-2 text-on-primary-container">{selectedMapArea?.areaType === 'Building' ? 'apartment' : 'location_on'}</span><div><span className="text-xs font-semibold uppercase text-primary">Khu vực đang chọn</span><h2 className="font-semibold">{selectedMapArea?.areaName || selectedCluster.name}</h2><p className="text-sm text-outline">{selectedCluster.hotelName} · Zone {selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</p></div></div>
+          <div className="flex flex-wrap items-center gap-2 text-sm"><span className="rounded-full bg-surface-container px-3 py-1">{areaRoomSummary.total} phòng</span><span className="rounded-full bg-primary-fixed px-3 py-1 text-primary">{areaRoomSummary.available} khả dụng</span><button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 font-semibold text-on-primary"><span className="material-symbols-outlined text-[18px]">info</span>Thông tin & chỉ đường</button></div>
+        </div>
+
+        {detailsOpen && selectedMapArea && <>
+          <button type="button" aria-label="Đóng thông tin khu vực" onClick={() => setDetailsOpen(false)} className="fixed inset-0 z-[60] bg-inverse-surface/25 backdrop-blur-[1px]" />
+          <aside role="dialog" aria-modal="true" aria-label={`Thông tin khu vực ${selectedMapArea.areaName}`} className="fixed bottom-0 right-0 top-20 z-[70] w-full max-w-[460px] overflow-y-auto rounded-l-2xl border-l border-outline-variant/30 bg-surface-container-lowest p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3"><div><span className="text-xs font-semibold uppercase tracking-wide text-primary">{selectedMapArea.areaType === 'Zone' ? 'Zone' : 'Building'}</span><h2 className="mt-1 text-2xl font-semibold">{selectedMapArea.areaName}</h2><p className="mt-1 text-sm text-outline">{selectedCluster.hotelName} · {selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</p></div><button type="button" onClick={() => setDetailsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container" aria-label="Đóng"><span className="material-symbols-outlined">close</span></button></div>
+            <dl className="mt-6 space-y-4 text-sm"><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Địa chỉ khách sạn</dt><dd className="mt-1 font-medium">{selectedCluster.hotelAddress || 'Chưa cập nhật'}</dd></div><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Vị trí nội bộ</dt><dd className="mt-1 font-medium">{selectedMapArea.locationDescription || 'Chưa cập nhật'}</dd></div><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Mô tả</dt><dd className="mt-1 font-medium">{selectedMapArea.description || 'Chưa cập nhật'}</dd></div><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Số tầng</dt><dd className="mt-1 font-medium">{selectedMapArea.floorCount || 'Chưa cập nhật'}</dd></div></dl>
+            <div className="mt-6 grid grid-cols-2 gap-3 text-center text-sm"><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl">{areaRoomSummary.total}</strong>Tổng phòng</div><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl text-primary">{areaRoomSummary.available}</strong>Khả dụng</div><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl">{areaRoomSummary.occupied}</strong>Có khách</div><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl">{areaRoomSummary.maintenance}</strong>Bảo trì</div></div>
+            <button type="button" onClick={() => { const query = [selectedCluster.hotelName, selectedCluster.hotelAddress, selectedMapArea.areaName, selectedMapArea.locationDescription].filter(Boolean).join(', '); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer'); }} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 font-semibold text-on-primary"><span className="material-symbols-outlined text-[19px]">directions</span>Mở chỉ đường</button>
+          </aside>
+        </>}
       </section>}
 
-      <div className="flex flex-wrap gap-3 rounded-xl bg-surface-container-low p-4">
+      {selectedMapArea?.areaType !== 'Building' ? <div className="rounded-2xl border border-dashed border-primary/40 bg-primary-fixed/20 p-8 text-center">
+        <span className="material-symbols-outlined mb-2 text-4xl text-primary">apartment</span>
+        <h2 className="text-xl font-semibold">Chọn một Building để xem phòng</h2>
+        <p className="mt-1 text-outline">Zone {selectedZone?.areaName || selectedCluster?.name} chỉ hiển thị tổng quan. Danh sách phòng được tách theo từng tòa nhà.</p>
+      </div> : <>
+      <div className="sticky top-24 z-20 flex flex-wrap items-center gap-3 rounded-xl bg-surface-container-low/95 p-4 shadow-sm backdrop-blur">
+        <div className="mr-auto min-w-48"><span className="text-xs font-semibold uppercase text-primary">Danh sách phòng</span><h2 className="font-semibold">{selectedMapArea?.areaName || selectedCluster?.name}</h2><p className="text-xs text-outline">{filteredRooms.length}/{clusterRooms.length} phòng phù hợp</p></div>
         <input aria-label="Số phòng" placeholder="Tìm số phòng…" value={search} onChange={event => setSearch(event.target.value)} className="min-w-52 flex-1 rounded-lg bg-surface-container-lowest p-3" />
         <select aria-label="Trạng thái phòng" value={status} onChange={event => setStatus(event.target.value)} className="rounded-lg bg-surface-container-lowest p-3">
           <option value="all">Mọi trạng thái</option><option value="Available">Available</option><option value="Occupied">Occupied</option><option value="Maintenance">Maintenance</option><option value="Inactive">Inactive</option>
@@ -247,6 +247,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
           <p>{room.status} · {room.capacity} khách</p><p className="mt-2 text-primary">{room.price.toLocaleString('vi-VN')} ₫ / đêm</p>
         </article>)}
       </div>}
+      </>}
     </>}
   </section>;
 };

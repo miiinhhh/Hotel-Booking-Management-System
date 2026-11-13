@@ -289,21 +289,29 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
       </section>
 
       {/* Main Content Workspace (Split Layout: 65% Table / Cards + 35% Guest Drawer) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="flex min-w-0 flex-col gap-6">
         {/* Left Column: Master Guest Directory Table (65% / 7 columns) */}
-        <div className="lg:col-span-7 xl:col-span-7 flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="bg-surface-container-lowest rounded-lg shadow-sm overflow-hidden border border-[#eae8e5]">
             {/* Table Scroller */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[960px] table-fixed text-left border-collapse">
+                <colgroup>
+                  <col className="w-[20%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[11%]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-[11px] uppercase tracking-wider">
-                    <th className="py-3.5 pl-6 pr-3">Khách hàng</th>
-                    <th className="py-3.5 px-3">Liên lạc</th>
-                    <th className="py-3.5 px-3">Lần nghỉ gần nhất</th>
-                    <th className="py-3.5 px-3">Tổng đơn / Chi tiêu</th>
-                    <th className="py-3.5 px-3">Ghi chú phục vụ</th>
-                    <th className="py-3.5 pr-6 pl-3 text-right">Thao tác</th>
+                    <th className="py-3.5 pl-6 pr-3 whitespace-nowrap">Khách hàng</th>
+                    <th className="py-3.5 px-3 whitespace-nowrap">Liên lạc</th>
+                    <th className="py-3.5 px-3 whitespace-nowrap">Lần nghỉ gần nhất</th>
+                    <th className="py-3.5 px-3 whitespace-nowrap">Tổng đơn / Chi tiêu</th>
+                    <th className="py-3.5 px-3 whitespace-nowrap">Ghi chú phục vụ</th>
+                    <th className="py-3.5 pr-6 pl-3 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f2f0ed] text-on-surface font-body-md text-body-md">
@@ -343,9 +351,9 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
                                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-600 ring-2 ring-surface-container-lowest" />
                                 )}
                               </div>
-                              <div>
-                                <div className="flex items-center gap-1.5 font-label-lg text-label-lg font-bold text-on-surface">
-                                  <span>{cust.name}</span>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5 font-label-lg text-label-lg font-bold text-on-surface">
+                                  <span className="leading-snug">{cust.name}</span>
                                   {cust.tier === 'PLATINUM' && (
                                     <span className="bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded-full text-[10px] font-label-sm font-bold">
                                       💎 PLATINUM
@@ -371,23 +379,23 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
                           </td>
 
                           <td className="py-4 px-3">
-                            <div className="flex flex-col text-[13px] leading-tight">
-                              <span className="font-semibold text-on-surface">{cust.phone}</span>
-                              <span className="text-on-surface-variant text-[12px] truncate max-w-[130px]">
+                            <div className="flex min-w-0 flex-col gap-1 text-[13px] leading-tight">
+                              <span className="font-semibold text-on-surface whitespace-nowrap">{cust.phone}</span>
+                              <span className="text-on-surface-variant text-[12px] truncate" title={cust.email}>
                                 {cust.email}
                               </span>
                             </div>
                           </td>
 
                           <td className="py-4 px-3">
-                            <div className="flex flex-col">
+                            <div className="flex min-w-0 flex-col gap-1">
                               {cust.isStaying && cust.currentRoom ? (
                                 <>
                                   <span className="inline-flex items-center gap-1 text-emerald-800 font-semibold text-[12px] bg-emerald-100/70 px-2 py-0.5 rounded-full w-max">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                                     {cust.currentRoom}
                                   </span>
-                                  <span className="text-on-surface-variant text-[11px] mt-0.5">
+                                  <span className="truncate text-on-surface-variant text-[11px]" title={cust.lastStayInfo}>
                                     {cust.lastStayInfo}
                                   </span>
                                 </>
@@ -407,8 +415,8 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
                           </td>
 
                           <td className="py-4 px-3">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-primary text-[13px]">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-bold text-primary text-[13px] whitespace-nowrap">
                                 {cust.totalSpendFormatted}
                               </span>
                               <span className="text-on-surface-variant text-[11px]">
@@ -418,21 +426,12 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
                           </td>
 
                           <td className="py-4 px-3">
-                            <div className="flex flex-wrap gap-1 max-w-[180px]">
-                              {cust.serviceNotesTags.map((tag, tIdx) => (
-                                <span
-                                  key={tIdx}
-                                  className="bg-surface-container text-on-surface-variant text-[10px] font-label-sm px-1.5 py-0.5 rounded"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
+                            {cust.serviceNotesTags.length ? <p className="line-clamp-3 text-[12px] leading-relaxed text-on-surface-variant" title={cust.serviceNotesTags.join('; ')}>{cust.serviceNotesTags.join('; ')}</p> : <span className="text-[12px] text-outline">Không có ghi chú</span>}
                           </td>
 
                           <td className="py-4 pr-6 pl-3 text-right">
                             {isSelected ? (
-                              <span className="inline-flex items-center gap-1 bg-primary-container text-on-primary font-label-sm text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-sm">
+                              <span className="inline-flex items-center gap-1 whitespace-nowrap bg-primary-container text-on-primary font-label-sm text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-sm">
                                 <span className="material-symbols-outlined text-[14px]">visibility</span>
                                 Đang xem
                               </span>
@@ -443,7 +442,7 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
                                   e.stopPropagation();
                                   handleSelectCustomer(cust);
                                 }}
-                                className="text-secondary hover:text-primary font-label-sm text-[11px] font-semibold px-2.5 py-1 rounded-full hover:bg-surface-container transition-all cursor-pointer"
+                                className="whitespace-nowrap text-secondary hover:text-primary font-label-sm text-[11px] font-semibold px-2.5 py-1 rounded-full hover:bg-surface-container transition-all cursor-pointer"
                               >
                                 Xem hồ sơ
                               </button>
@@ -526,12 +525,13 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
         </div>
 
         {/* Right Column: Guest Profile Detail Drawer (35% / 5 columns) */}
-        <StaffCustomerDrawer
+        {selectedCustomer && <StaffCustomerDrawer
           customer={selectedCustomer}
+          onClose={() => setSelectedCustomer(null)}
           onOpenZaloChat={(phone) => onShowToast?.(`Đang mở cổng trò chuyện Zalo OA với số điện thoại ${phone}...`)}
           onEditCustomer={(c) => onShowToast?.(`Mở biểu mẫu chỉnh sửa hồ sơ khách hàng ${c.name}...`)}
           onViewAllBookings={(id) => onShowToast?.(`Chuyển hướng sang danh sách đầy đủ các booking của khách #${id}...`)}
-        />
+        />}
       </div>
 
     </div>

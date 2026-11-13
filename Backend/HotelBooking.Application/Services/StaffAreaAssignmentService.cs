@@ -101,6 +101,19 @@ public class StaffAreaAssignmentService : IStaffAreaAssignmentService
         }
 
         // Thực hiện đồng bộ phân công
+        var activeAssignments = await _repository.GetAssignedAreasForUserAsync(request.UserId, null, ct);
+        var projectedHotelIds = activeAssignments.Select(area => area.HotelId).ToHashSet();
+        if (cleanAreaIds.Count == 0)
+            projectedHotelIds.Remove(hotelId);
+        else
+            projectedHotelIds.Add(hotelId);
+
+        if (projectedHotelIds.Count > 2)
+        {
+            return ApiResponse<IReadOnlyList<StaffAssignedAreaDto>>.FailureResult(
+                "Mỗi nhân viên chỉ được quản lý tối đa 2 khách sạn. Vui lòng bỏ toàn bộ phân công tại một khách sạn cũ trước khi thêm khách sạn mới.");
+        }
+
         await _repository.SyncAssignmentsForUserAsync(request.UserId, hotelId, cleanAreaIds, assignedByUserId, ct);
         await _repository.SaveChangesAsync(ct);
 
