@@ -23,7 +23,7 @@ using ContentDb = HotelBooking.Infrastructure.Persistence.HotelBookingDbContext;
 
 namespace HotelBooking.Tests;
 
-public sealed class PropertyContentFactory : WebApplicationFactory<Program>
+public class PropertyContentFactory : WebApplicationFactory<Program>
 {
     private readonly string authDatabase = Guid.NewGuid().ToString();
     public string ImageRoot { get; } = Path.Combine(Path.GetTempPath(), "hotel-image-tests-" + Guid.NewGuid().ToString("N"));

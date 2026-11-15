@@ -44,3 +44,18 @@ test('detail maps real policies, amenities, image order and selected dates', () 
   assert.equal(result.galleryImages.hero.url, '/primary'); assert.equal(result.durationNights, 2);
   assert.equal(result.resortAmenities[0].title, 'Pool'); assert.match(result.cancelPolicySummary, /chưa công bố/); assert.equal(result.checkIn, '2026-11-01');
 });
+
+test('hotel description is preserved and rating consumes the existing Review API with cancellation', async () => {
+  const old = globalThis.fetch;
+  const controller = new AbortController();
+  try {
+    globalThis.fetch = async (url, init) => {
+      assert.equal(url, 'http://api.test/api/hotels/5/rating');
+      assert.equal(init.signal, controller.signal);
+      return Response.json({ hotelId: 5, totalReviews: 2, averageRating: 4.5 });
+    };
+    assert.equal((await discoveryApi.rating(5, controller.signal)).averageRating, 4.5);
+    const detail = toHotelDetail({ hotelId: 5, name: 'Hotel', address: 'A', city: 'Hue', description: 'Hotel overview', checkIn: '2026-11-01', checkOut: '2026-11-03', policies: {}, images: [], amenities: [], rooms: [] }, { adults: 2, children: 0, rooms: 1 });
+    assert.equal(detail.description, 'Hotel overview');
+  } finally { globalThis.fetch = old; }
+});

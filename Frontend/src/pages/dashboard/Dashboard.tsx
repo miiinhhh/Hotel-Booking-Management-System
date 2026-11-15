@@ -29,10 +29,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch }) => {
     }
   };
 
-  const handleFilterChange = (_filterId: string) => {
-    // filter handled
-  };
-
   return (
     <main className="w-full pt-20 bg-background min-h-screen">
       <div className="flex flex-col w-full relative">
@@ -43,7 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch }) => {
         <SearchCard onSearch={handleSearch} />
 
         {/* QUICK FILTERS PILLS */}
-        <QuickFilters onFilterChange={handleFilterChange} />
+        <QuickFilters locations={[...new Set(suggestions.map(h => h.city).filter(Boolean))]} onLocationSelect={location => onNavigateSearch?.({ ...defaultSelection(), location })} />
 
         {/* POPULAR DESTINATIONS */}
         <section className="mx-auto my-12 w-full max-w-[1440px] px-5"><h2 className="mb-5 text-3xl font-semibold">Khách sạn còn phòng hôm nay</h2>
@@ -52,7 +48,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch }) => {
           <div className="grid gap-5 md:grid-cols-3">{suggestions.map(h => <button key={h.hotelId} className="overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm" onClick={() => onNavigateSearch?.({ ...defaultSelection(), location: h.city })}><img src={mediaUrl(h.imageUrl)} alt={h.name} className="h-48 w-full object-cover" /><div className="p-5"><h3 className="text-xl font-semibold">{h.name}</h3><p>{h.city}</p><p className="mt-3 font-semibold">Từ {h.pricePerNight.toLocaleString('vi-VN')} ₫ / đêm</p><p>{h.availableRooms} phòng khả dụng</p></div></button>)}</div></section>
 
         {/* CURATED PRIVILEGES BANNER */}
-        <PrivilegeBanner />
+        <PrivilegeBanner onExplore={() => onNavigateSearch?.(defaultSelection())} />
       </div>
     </main>
   );

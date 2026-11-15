@@ -52,6 +52,7 @@ export interface ResortAmenity {
 }
 
 export interface HotelDetail {
+  description?: string | null;
   checkIn?: string;
   checkOut?: string;
   guestsPerRoom?: number;

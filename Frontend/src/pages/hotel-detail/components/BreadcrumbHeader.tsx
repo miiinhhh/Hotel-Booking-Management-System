@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { discoveryApi } from '../../../services/discoveryApi';
+import React, { useState } from 'react';
+import { useHotelWishlist } from '../../../hooks/useHotelWishlist';
 
 interface BreadcrumbHeaderProps {
   hotelName: string;
@@ -14,17 +14,19 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
   hotelId,
   onNavigateHome,
   onNavigateSearch,
-  isInitiallyFavorited = false,
 }) => {
-  const [isFavorited, setIsFavorited] = useState(isInitiallyFavorited);
+  const wishlist = useHotelWishlist();
+  const isFavorited = wishlist.items.some(item => item.hotelId === hotelId);
+  const [savingFavorite, setSavingFavorite] = useState(false);
   const [shareText, setShareText] = useState('Chia sẻ');
-  useEffect(() => { let alive = true; discoveryApi.wishlist().then(items => { if (alive) setIsFavorited(items.some(item => item.hotelId === hotelId)); }).catch(() => {}); return () => { alive = false; }; }, [hotelId]);
 
   const [favoriteError, setFavoriteError] = useState('');
   const handleFavoriteClick = async () => {
-    if (!hotelId) return;
-    try { await discoveryApi.save(hotelId, !isFavorited); setIsFavorited(!isFavorited); setFavoriteError(''); }
+    if (!hotelId || savingFavorite) return;
+    setSavingFavorite(true);
+    try { await wishlist.save(hotelId, !isFavorited); setFavoriteError(''); }
     catch (error) { setFavoriteError(error instanceof Error ? error.message : 'Không lưu được.'); }
+    finally { setSavingFavorite(false); }
   };
 
   const handleShareClick = async () => {
@@ -95,6 +97,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
 
       {/* Action Buttons: Share & Favorite */}
       {favoriteError && <p role="alert">{favoriteError}</p>}
+      {wishlist.error && <p role="alert">{wishlist.error} <button onClick={wishlist.reload}>Tải lại yêu thích</button></p>}
       <div className="flex items-center gap-space-xs self-end sm:self-auto">
         {onNavigateSearch && (
           <button
@@ -121,6 +124,8 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
         <button
           type="button"
           onClick={handleFavoriteClick}
+          disabled={wishlist.loading || savingFavorite}
+          aria-pressed={isFavorited}
           className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-lowest shadow-sm hover:bg-surface-container-low transition-all text-on-surface-variant hover:text-primary active:scale-95 group cursor-pointer border-0"
         >
           <span

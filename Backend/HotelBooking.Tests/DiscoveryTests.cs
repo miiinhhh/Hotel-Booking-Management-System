@@ -134,6 +134,74 @@ public sealed class DiscoveryTests
             await Assert.ThrowsAsync<DomainRuleException>(() => f.Service.SearchAsync(request, default));
         await Assert.ThrowsAsync<DomainRuleException>(() => f.Service.ReportAsync(1, new(f.Start, f.Start, null), default));
     }
+
+    [Fact]
+    public async Task Search_sorts_before_paging_and_keeps_totals_on_a_page_beyond_the_last()
+    {
+        using var f = new Fixture();
+        var descending = await f.Service.SearchAsync(new() { CheckIn = f.Start, CheckOut = f.Start.AddDays(1), Sort = "price_desc", PageSize = 1, Page = 2 }, default);
+        Assert.Equal(3, descending.TotalCount); Assert.Equal(3, descending.TotalPages);
+        Assert.Equal(2, Assert.Single(descending.Items).HotelId);
+        var beyond = await f.Service.SearchAsync(new() { CheckIn = f.Start, CheckOut = f.Start.AddDays(1), PageSize = 1, Page = 4 }, default);
+        Assert.Empty(beyond.Items); Assert.Equal(3, beyond.TotalCount); Assert.Equal(3, beyond.TotalPages);
+        var exactPrice = await f.Service.SearchAsync(new() { CheckIn = f.Start, CheckOut = f.Start.AddDays(1), MinPrice = 200, MaxPrice = 200 }, default);
+        Assert.Equal(2, Assert.Single(exactPrice.Items).HotelId);
+    }
+
+    [Fact]
+    public async Task Search_combines_active_hotel_amenity_with_location_and_never_pools_different_room_types()
+    {
+        using var f = new Fixture();
+        var amenity = new Amenity("Pool", null); f.Content.Add(amenity); await f.Content.SaveChangesAsync();
+        f.Content.HotelAmenities.Add(new() { HotelId = 2, AmenityId = amenity.AmenityId }); await f.Content.SaveChangesAsync();
+        var request = new HotelDiscoveryRequest { Location = "Da Nang", CheckIn = f.Start, CheckOut = f.Start.AddDays(1), AmenityId = amenity.AmenityId };
+        Assert.Equal(2, Assert.Single((await f.Service.SearchAsync(request, default)).Items).HotelId);
+        amenity.Deactivate(); await f.Content.SaveChangesAsync();
+        Assert.Empty((await f.Service.SearchAsync(request, default)).Items);
+        f.Bookings.Add(new InventoryType { RoomTypeId = 4, HotelId = 1, AreaId = 1, RoomTypeName = "Suite", Capacity = 2, BasePrice = 50, IsActive = true });
+        (await f.Bookings.Set<InventoryRoom>().SingleAsync(x => x.RoomId == 12)).RoomTypeId = 4;
+        await f.Bookings.SaveChangesAsync();
+        var twoRooms = await f.Service.SearchAsync(new() { Location = "Hotel 1", CheckIn = f.Start, CheckOut = f.Start.AddDays(1), Rooms = 2, Adults = 4 }, default);
+        Assert.Empty(twoRooms.Items);
+    }
+
+    [Fact]
+    public async Task Sold_out_hotel_detail_still_returns_its_information_and_an_empty_room_list()
+    {
+        using var f = new Fixture(); f.AddBooking(1, [11, 12], BookingStatus.Confirmed);
+        var detail = await f.Service.DetailAsync(1, f.Request, default);
+        Assert.Equal("Hotel 1", detail.Name); Assert.Empty(detail.Rooms);
+        await Assert.ThrowsAsync<HotelBooking.Application.Rooms.NotFoundException>(() => f.Service.DetailAsync(99, f.Request, default));
+    }
+
+    [Fact]
+    public void Report_half_open_boundaries_refunds_cancellations_and_locks_reconcile()
+    {
+        var day = new DateOnly(2026, 11, 1); var start = day.ToDateTime(TimeOnly.MinValue); var end = start.AddDays(2);
+        var source = new ReportSource([1, 2],
+            [new(start, false), new(start.AddDays(1), true), new(end, true)],
+            [new(start, 100.5m), new(start.AddDays(1), -20.25m), new(end, 999)],
+            [new(1, day, day.AddDays(2)), new(1, day, day.AddDays(2))],
+            [new(1, start, end), new(2, start, start.AddDays(1)), new(2, start, start.AddDays(1))]);
+        var report = BusinessReportCalculator.Calculate(new(day, day.AddDays(2), 1), source);
+        Assert.Equal(80.25m, report.Revenue); Assert.Equal(2, report.BookingCount);
+        Assert.Equal(1, report.CancelledBookings); Assert.Equal(50, report.CancellationRate);
+        Assert.Equal(2, report.OccupiedRoomNights); Assert.Equal(3, report.AvailableRoomNights); Assert.Equal(66.67m, report.OccupancyRate);
+        Assert.Equal(report.Revenue, report.Days.Sum(x => x.Revenue));
+        Assert.Equal(report.BookingCount, report.Days.Sum(x => x.Bookings));
+    }
+
+    [Fact]
+    public async Task Reports_ignore_failed_receipts_include_completed_stays_and_reject_unknown_hotel()
+    {
+        using var f = new Fixture(); f.AddBooking(1, [11], BookingStatus.Completed); f.AddBooking(2, [12], BookingStatus.Cancelled);
+        f.Bookings.AddRange(new ReportPayment { PaymentId = 1, BookingId = 1, Amount = 80, PaymentType = "Payment", Status = "Failed", PaidAt = f.Start.ToDateTime(new(10, 0)) },
+            new ReportPayment { PaymentId = 2, BookingId = 1, Amount = 20, PaymentType = "Refund", Status = "Refunded", PaidAt = f.Start.ToDateTime(new(11, 0)) });
+        await f.Bookings.SaveChangesAsync();
+        var report = await f.Service.ReportAsync(1, new(f.Start, f.Start.AddDays(1), 1), default);
+        Assert.Equal(-20, report.Revenue); Assert.Equal(50, report.OccupancyRate); Assert.Equal(50, report.CancellationRate);
+        await Assert.ThrowsAsync<HotelBooking.Application.Rooms.NotFoundException>(() => f.Service.ReportAsync(1, new(f.Start, f.Start.AddDays(1), 99), default));
+    }
     [Fact]
     public void Empty_report_and_duplicate_stays_do_not_divide_by_zero_or_exceed_capacity()
     {

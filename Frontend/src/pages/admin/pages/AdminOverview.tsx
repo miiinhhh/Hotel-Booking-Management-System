@@ -18,7 +18,7 @@ export const AdminOverview: React.FC = () => {
     <form className="mb-6 flex flex-wrap gap-4 rounded-xl bg-surface-container-low p-4" onSubmit={e => e.preventDefault()}>
       <label>Từ ngày<input type="date" required value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} className="mt-1 block rounded-lg border p-2" /></label>
       <label>Đến trước ngày<input type="date" required min={filters.from} value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} className="mt-1 block rounded-lg border p-2" /></label>
-      <label>Khách sạn<select className="mt-1 block rounded-lg border p-2" value={filters.hotelId} onChange={e => { setFilters({ ...filters, hotelId: e.target.value }); setPolicyNotice(''); setPolicy(''); }}><option value="">Toàn hệ thống</option>{hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.hotelName}</option>)}</select></label>
+      <label>Khách sạn<select aria-label="Khách sạn" className="mt-1 block rounded-lg border p-2" value={filters.hotelId} onChange={e => { setFilters({ ...filters, hotelId: e.target.value }); setPolicyNotice(''); setPolicy(''); }}><option value="">Toàn hệ thống</option>{hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.hotelName}</option>)}</select></label>
     </form>
     {loading && <p role="status">Đang tải báo cáo…</p>}{error && <p role="alert" className="mb-5 rounded-xl bg-error-container p-4">{error}</p>}
     {report && <>

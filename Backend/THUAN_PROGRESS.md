@@ -1,83 +1,98 @@
-# Phần việc của Thuận — kiểm tra ngày 26/10/2026
+# Bàn giao phần Thuận — 15/11/2026
 
-Đối chiếu sheet **Thuận**, các dòng 17–33 trong `Bảng tiến độ.xlsx` người dùng cung cấp. Không sửa trạng thái trong workbook gốc. Source làm trên `feature/hotel-management`; đã merge `origin/main` tại `b8aad7f`, giải quyết conflict DI, exception handler và request mẫu bằng cách giữ cả hai module.
+## Nhánh và phạm vi
 
-| Dòng / tuần | Công việc | Kết quả trong source |
+- Repository local: `Hotel-Booking-Management-System`, nhánh `feature/hotel-management`.
+- Clone nhánh tại `d514f5d`, merge `origin/main` tại `fd88af7` bằng fast-forward. Không có conflict Git hoặc conflict marker cần xử lý. Main đã chứa các commit Hotel trước đó.
+- Phạm vi Thuận theo bảng tiến độ được cung cấp: Hotel CRUD/Discovery, Dashboard/Search/Hotel Detail, Amenities/Media, Wishlist, Admin Overview/báo cáo và kiểm thử/tài liệu các phần này.
+- Không chỉnh schema, SQL, migration, entity hoặc DbContext. Không chạy script nâng cấp, seed hoặc ứng dụng backend với database thật. Database và mapping giữ nguyên theo main.
+- Không sửa logic Auth/Account, Room/RoomType/Inventory, Booking, Payment, Pricing, Voucher, Cancellation, Staff Assignment/Portal hoặc Review. Trang chi tiết chỉ đọc API rating công khai có sẵn của Review.
+- Không sửa workbook gốc. Các chỉ dẫn trong tài liệu/README cũ về nâng cấp hoặc seed database không được thực hiện trong lượt này vì yêu cầu giữ nguyên database.
+
+## Đối chiếu công việc
+
+Đối chiếu sheet Thuận (sheet thứ 6), các dòng 8–33 trong workbook người dùng cung cấp. Đây là trạng thái source đã kiểm tra, không phải cập nhật các ô trạng thái của workbook.
+
+| Tuần / dòng | Nội dung | Kết quả |
 | --- | --- | --- |
-| 17 / 5 | Chỉ trả phòng hiển thị, còn khả dụng, đúng phạm vi | Đã kiểm chứng và bổ sung tìm kiếm theo ngày, loại trừ booking/hold/khóa phòng bằng inventory của main. |
-| 18–19 / 6 | Tiện ích, ảnh, ảnh chính, sắp xếp, kiểm tra tệp | Code từ nhánh Hotel giữ lại sau merge; test hồi quy bao gồm các thao tác này. |
-| 22 / 8 | Kết nối Discovery theo khu vực/ngày/khách/phòng | Đã làm API và nối Dashboard → Search → Hotel Detail. Các ngày và số khách là input có kiểu, không parse chuỗi ngày hiển thị. |
-| 23 / 8 | Amenities/Media, chính sách, loading/error | Chi tiết đọc tiện ích/ảnh thật; có loading/error/rỗng. Thêm chính sách hủy hiển thị do Admin cập nhật, không thay công thức hoàn tiền. |
-| 24–25 / 9 | Tổng quan, biểu đồ doanh thu/công suất/booking | Đã làm API Admin có quyền, tính toán ở Application, UI dữ liệu thật, biểu đồ và bảng theo ngày. |
-| 26 / 10 | Test tìm kiếm/bộ lọc/phân trang/hết phòng | Test Application, repository, API, frontend adapter và SQL Server thực tế đã chạy. |
-| 27 / 10 | Wishlist và kiểm thử giao diện | Lưu/gỡ trên database theo tài khoản hiện tại; có màn hình Yêu thích, nút lưu trên card/chi tiết; không nhận UserId từ client. |
-| 28–29 / 11 | Báo cáo doanh thu/công suất/lượt đặt, lọc và export | Đã làm lọc thời gian/khách sạn, xuất CSV có quyền; đã đối chiếu CSV với giao dịch demo SQL Server. |
-| 30 / 12 | Hướng dẫn giao diện và báo cáo test | Tài liệu này, hướng dẫn dưới đây, request mẫu `Discovery.http`, bộ test và kết quả kiểm tra. |
-| 31 / 12 | Dữ liệu, ảnh và kịch bản demo toàn hệ thống | Có seed Hotel/Area/RoomType/Rooms/Amenities/Policy chạy lại được trên database demo, dùng placeholder có sẵn khi chưa có ảnh. Cần ảnh thật hợp lệ qua upload và dữ liệu các module khác cho buổi demo toàn hệ thống. |
-| 32 / 13 | Hồi quy Discovery/Dashboard/Admin Overview | Backend, frontend build/test và kiểm tra trình duyệt với SQL Server tạm đã thực hiện cho phạm vi thay đổi. |
-| 33 / 13 | Demo, sửa cuối, bàn giao sản phẩm | Source/tài liệu sẵn để review. Nghiệm thu nhóm, triển khai và bàn giao thực tế vẫn do nhóm thực hiện. |
+| 1–3 / 8–13 | Phân tích, Git, clone/build | Đã đọc yêu cầu, clone/merge và kiểm tra build. Không thay quy trình chung của nhóm. |
+| 4 / 14–15 | Hotel entity/repository/service/CRUD | Giữ code của main; kiểm thử hồi quy toàn backend thành công. |
+| 5 / 16–17 | Tên/giá/phân trang, phòng hiển thị và khả dụng | Tái sử dụng inventory hiện có; bổ sung test tổ hợp bộ lọc, giá biên, thứ tự, trang vượt cuối, nhiều phòng cùng loại, hết phòng. |
+| 6 / 18–19 | Amenities, upload, ảnh chính, thứ tự, kiểm tra tệp | Giữ API của main và test hiện có; sửa nút Làm mới Admin Content để tải lại thư viện ảnh. |
+| 7 / 20–21 | Dashboard/Search/Detail/Overview, responsive | Sửa mất khu vực tìm kiếm; bỏ bộ lọc và đăng ký ưu đãi giả lập; hiển thị mô tả thật; sửa biểu đồ tràn mobile. |
+| 8 / 22–23 | Discovery khu vực/ngày/khách/phòng, media/policy, loading/error | Giữ đủ tiêu chí từ Dashboard sang Search và qua phân trang. Xử lý lỗi bộ lọc tiện ích và Wishlist rõ ràng. Rating chi tiết đọc API Review có sẵn. |
+| 9 / 24–25 | Dữ liệu kinh doanh và biểu đồ | Giữ API/biểu đồ có sẵn, kiểm tra hợp đồng dữ liệu và nhóm ngày/tuần/tháng. |
+| 10 / 26 | Kiểm thử Search/lọc/phân trang/hết phòng | Đã thực hiện backend, adapter frontend và kiểm tra trình duyệt. |
+| 10 / 27 | Wishlist và kiểm thử giao diện | Lưu/gỡ/đọc từ API theo tài khoản hiện tại; chặn ghi lặp đang chờ, hủy đọc khi đổi phiên, không áp kết quả của phiên cũ. Sửa test IDOR dùng hai Customer riêng; Staff vẫn bị 403. |
+| 11 / 28–29 | Báo cáo, lọc thời gian/hotel, xuất dữ liệu | Kiểm tra JSON/CSV, tiền thu trừ hoàn tiền, không nhân giao dịch theo số phòng; sửa lock giao nhau không làm mất đêm lưu trú đã có. |
+| 12 / 30 | Hướng dẫn sử dụng và báo cáo kiểm thử | Tài liệu này và bộ test có thể chạy lại. |
+| 12 / 31 | Dữ liệu/ảnh/kịch bản demo | Có fixture kiểm thử cô lập và kịch bản dưới đây; không seed database hoặc bịa ảnh/booking/thanh toán thật. Demo toàn hệ thống cần nhóm cung cấp dữ liệu và ảnh hợp lệ trong database hiện có. |
+| 13 / 32–33 | Hồi quy, sửa cuối, bàn giao | Hồi quy code đã qua; bàn giao source trên nhánh `feature/hotel-management`. Nghiệm thu/demo trực tiếp/triển khai là bước thực tế còn lại của nhóm. |
 
-## Chạy và nâng cấp
+## Thay đổi đáng chú ý
 
-1. Giữ connection string database hiện có trong cấu hình local. Không dùng database test cho dữ liệu thật.
-2. Chạy các script additive còn thiếu, theo thứ tự, trên database đã có schema: `Database&Docs/RoomEmergencyLocks.sql`, `Backend/HotelBooking.Infrastructure/Persistence/Scripts/PropertyContent.sql`, `Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscovery.sql`.
-3. Chạy SQL Server script với UTF-8, ví dụ: `sqlcmd -S 'localhost\SQLEXPRESS02' -d HotelBookingDB -E -C -I -b -f 65001 -i Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelDiscovery.sql`. Đổi server/database theo môi trường. Không tự chạy script nâng cấp trên database ứng dụng trong lượt làm việc này.
-4. Chạy `dotnet run --project Backend/HotelBooking.API --launch-profile http`. Frontend dùng proxy `/api` → `http://localhost:5131`; ngoài dev cần đặt `VITE_API_URL`/reverse proxy phù hợp.
-5. Cài frontend theo package-lock của nhóm và chạy `npm run dev`. Build: `npm run build`.
+1. SearchCard cho nhập khu vực/tên khách sạn và giữ khu vực khi đổi ngày, chuyển trang hoặc lọc. Dashboard gợi ý khu vực từ danh sách API thay các nút lọc không có tác dụng.
+2. Dashboard không còn nhận email rồi báo đã gửi ưu đãi khi chưa có API. Banner hiện chuyển đến tìm phòng thật.
+3. Hotel Detail hiển thị Description, tiện ích/chính sách/ảnh có sẵn và rating từ `GET /api/hotels/{id}/rating`. Không trình bày điểm 0 là đánh giá thật hoặc gán sẵn khách sạn 5 sao. Nút bản đồ chỉ xuất hiện khi có thao tác hỗ trợ.
+4. Wishlist có trạng thái đang tải/lỗi/tải lại, chỉ gọi khi có `wishlist.self.manage`, bỏ kết quả bất đồng bộ từ phiên cũ và chỉ xác nhận sau ghi/đọc API thành công.
+5. Admin Content làm mới lại cả amenities và ảnh. Admin Overview/BusinessCharts dùng kích thước vùng hiển thị, giữ cuộn nội bộ khi nhiều điểm dữ liệu, tránh làm rộng toàn trang.
+6. Báo cáo đếm mỗi phòng/đêm một lần. Nếu dữ liệu lock và stay cũ giao nhau, stay vẫn được đếm; chỉ trừ nguồn phòng do lock khi phòng chưa có stay hôm đó. Không sửa lock hoặc booking gốc.
 
-Không thêm thư mục source mới. DTO/interface/service/entity/repository/controller tiếp tục nằm trong các thư mục sẵn có. `Program.cs` không có business logic mới.
+## Sử dụng và ý nghĩa dữ liệu
 
-## API mới
+- Tại Dashboard, nhập khu vực (thành phố/địa chỉ/tên khách sạn), ngày, người lớn/trẻ em và số phòng. Search hỗ trợ tên loại phòng, khoảng giá, tiện ích, sắp xếp giá/tên và phân trang API.
+- Stay là `[checkIn, checkOut)`, từ ngày hiện tại tại Asia/Bangkok, tối đa 90 đêm. Người lớn 1–100, trẻ em 0–100, số phòng 1–20. Tổng khách phải vừa số phòng **cùng loại** khả dụng; trẻ em tính vào sức chứa hiện có.
+- Giá Discovery là `RoomType.BasePrice` tham khảo. Pricing/Booking của nhóm vẫn xác nhận giá cuối và tồn kho. Bộ lọc giá hiện lọc giá tham khảo này.
+- Khách sạn hết phòng trả danh sách rỗng; lỗi máy chủ/thiếu quyền hiển thị lỗi, không thay bằng kết quả thành công giả.
+- Customer lưu bằng nút trái tim, xem Yêu thích, tải lại trang và gỡ. Backend dùng identity của token, không nhận UserId tùy ý từ client. Tài khoản thiếu quyền không được cấp quyền mới bởi thay đổi này.
+- Admin Overview chọn khoảng `[from, to)` từ 1–366 ngày và khách sạn hoặc toàn hệ thống. Có bảng theo ngày, nhóm biểu đồ ngày/tuần/tháng và Xuất CSV.
+- Thu tiền ròng: Payment/Paid trừ Refund/Paid hoặc Refunded theo `PaidAt` UTC, không lấy tổng booking để thay tiền thực thu. Có thể âm do hoàn tiền. Đây là dòng tiền, chưa phải doanh thu kế toán phân bổ theo đêm.
+- Booking tạo mới đếm theo `CreatedAt` UTC. Tỷ lệ hủy là các booking tạo trong kỳ đang có trạng thái Cancelled / tổng booking tạo trong kỳ.
+- Công suất dựa trên room-night Confirmed/CheckedIn/CheckedOut/Completed và nguồn phòng đang active/serviceable. Không tính Pending hold là đêm đã bán. Nguồn cung là trạng thái hiện tại, không tái tạo lịch sử mở/đóng phòng.
+- Policy hiển thị chỉ là nội dung công bố. Cancellation/Payment của nhóm quyết định phí và số tiền hoàn.
 
-| Method | URL | Quyền / ý nghĩa |
-| --- | --- | --- |
-| GET | /api/discovery/hotels | Công khai; checkIn, checkOut, location, adults, children, rooms, roomTypeName, minPrice, maxPrice, amenityId, sort, page, pageSize |
-| GET | /api/discovery/hotels/{hotelId} | Chi tiết công khai theo ngày: chính sách, ảnh, tiện ích và phòng khả dụng |
-| PUT | /api/hotels/{hotelId}/policy | Admin; JSON cancellationPolicy, tối đa 2000 ký tự |
-| GET / PUT / DELETE | /api/me/wishlist[/{hotelId}] | Tài khoản đăng nhập; danh sách / lưu / gỡ của chính mình |
-| GET | /api/admin/reports/overview | Admin; from, to, hotelId tùy chọn |
-| GET | /api/admin/reports/export | Admin; cùng bộ lọc, CSV theo ngày |
+## Kiểm thử ngày 15/11/2026
 
-Ngày lưu trú là `[checkIn, checkOut)`, 1–90 đêm, check-in từ ngày hiện tại tại Asia/Bangkok. Adults 1–100, children 0–100, rooms 1–20. Trẻ em được tính vào sức chứa một cách bảo thủ vì chưa có cấu hình độ tuổi. Mỗi lựa chọn phải đủ số phòng **cùng loại** với sức chứa mỗi phòng nhân số phòng đáp ứng tổng khách. Đây là tìm kiếm nhiều phòng; checkout hiện tại vẫn chọn/đặt từng phòng theo module Booking của nhóm.
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Toàn bộ backend `dotnet test` | 215 pass, 0 fail, 5 SQL opt-in skip, tổng 220 |
+| Riêng Discovery (nằm trong số trên) | 22 pass, 0 fail, 1 SQL opt-in skip |
+| Frontend Node tests | 19 pass, 0 fail |
+| TypeScript `tsc` | Pass |
+| Vite production build | Pass; cảnh báo bundle > 500 kB còn tồn tại |
+| Chrome headless, desktop 1440 và mobile 390 | 24 kiểm tra pass; API được chặn bằng fixture, không truy cập database thật |
+| Diff schema/SQL/entity/DbContext so với main | Không thay đổi |
 
-Lọc tên/khu vực không phân biệt hoa/thường; dấu tiếng Việt theo collation SQL Server. Khu vực tìm trong tên khách sạn/địa chỉ/thành phố. Giá sử dụng **RoomType.BasePrice tham khảo**, chưa tính mùa vụ/RoomPriceHistory hoặc phụ thu trẻ em. Không công bố sao/điểm review giả khi dữ liệu chưa có. Filter giá áp dụng trước khi đếm/phân trang. Sort: price_asc, price_desc hoặc name; ID là khóa phụ ổn định. Không có kết quả trả 200 với items rỗng và lời nhắc đổi tiêu chí.
+Backend dùng InMemory/SQLite của test để kiểm tra service/API. Năm test SQL chỉ chạy khi bật cấu hình riêng; không bật hoặc chạy chúng trong lượt này. Không khẳng định đã kiểm tra SQL Server thật hoặc giao dịch thật. Không dùng kết quả mock trình duyệt để khẳng định hệ thống đã nghiệm thu với dữ liệu triển khai.
 
-Discovery dùng lại truy vấn inventory của main: Hotel/Area/RoomType/Room phải active, quan hệ cùng phạm vi và trạng thái room Available. Loại booking Confirmed/CheckedIn; Pending còn hold hoặc chưa có thời điểm hết hạn; loại khóa khẩn cấp chưa release giao nhau. Cancelled/Expired và hold đã hết hạn không chặn kết quả. Xác nhận lại khi bấm đặt và ở backend Booking vẫn cần thiết.
+Phạm vi kiểm thử mới: lọc trước phân trang, giá biên, kết quả rỗng, tổng số trang/trang vượt cuối, không gộp hai room type thành số phòng yêu cầu, public detail, policy/media/amenities hiện có, ownership Wishlist và quyền Staff, JSON/CSV khớp tiền thu/hoàn, ngày cuối loại trừ, booking hủy, stay trùng, lock trùng/giao nhau, responsive biểu đồ và refresh thư viện ảnh. Trình duyệt còn kiểm tra lưu/gỡ yêu thích, giữ trạng thái sau reload, lỗi ghi/đọc, API tìm kiếm lỗi và export bị khóa khi báo cáo lỗi.
 
-## Ý nghĩa báo cáo
-
-- Khoảng báo cáo `[from, to)`, 1–366 ngày, theo ngày UTC; không gộp ngày cuối. HotelId lọc theo Room → RoomType.HotelId, BookingDetails chỉ dùng để xác định phạm vi, không nhân bản khoản tiền.
-- Thu tiền ròng = Payments Type Payment, Status Paid trừ Type Refund, Status Paid/Refunded, theo PaidAt. Không dùng tổng giá booking thay thế tiền thu, không tính Pending/Failed. Đây là dòng tiền, chưa phải doanh thu kế toán phân bổ theo đêm.
-- Lượt đặt là số Booking tạo trong kỳ. Tỷ lệ hủy là các booking trong nhóm này có trạng thái hiện tại Cancelled chia tổng booking trong kỳ; không có booking thì 0.
-- Công suất đặt phòng = đêm phòng Confirmed/CheckedIn/CheckedOut/Completed chia đêm có thể bán; mỗi room/day chỉ đếm một lần. Loại các room-night bị khóa; không tính Pending hold là đã bán. Nguồn phòng lấy trạng thái active/serviceable hiện tại, không tái tạo lịch sử mở/đóng phòng. Không dùng chỉ số này thay báo cáo công suất thực tế theo lịch sử nguồn cung.
-- CSV chứa Date, Revenue, Bookings, OccupiedRoomNights, AvailableRoomNights. Thu tiền âm do hoàn tiền được giữ nguyên. Không có dữ liệu vẫn có dòng ngày với giá trị 0.
-- Nội dung chính sách hủy ở Hotel Detail là thông tin công bố; backend payment/cancellation giữ quyền quyết định phí và hoàn tiền.
-
-## Kịch bản demo phần Thuận
-
-1. Dùng database riêng có tên Demo/Test/Preview; áp dụng schema và script nâng cấp. Chạy `HotelDiscoveryDemo.sql` với `-f 65001`. Script bị chặn trên database ngoài các tên này, không tạo tài khoản/mật khẩu và không sửa booking/thanh toán thật.
-2. Trang Khám phá hiển thị khách sạn còn phòng hôm nay từ API. Tìm khu vực **Huế**, ngày tương lai, 4 khách/2 phòng → có Deluxe Demo; tăng lên 5 khách/2 phòng → không có kết quả.
-3. Lọc Wi-Fi Demo, giá 500000–500000; đổi tên loại không khớp hoặc khoảng giá sai; kiểm tra thông báo rỗng/400. Phân trang khi có nhiều khách sạn, không giữ số trang/tổng kết quả mock.
-4. Mở chi tiết: tên/địa chỉ/check-in/check-out/chính sách/tiện ích đúng database. Khi chưa có ảnh, hiện thông báo/placeholder. Admin có thể dùng API upload JPEG/PNG/WebP thật theo AMENITIES_IMAGES.md, rồi tải lại để thấy ảnh.
-5. Đăng nhập tài khoản nhóm đã tạo, lưu khách sạn, mở Yêu thích, refresh, gỡ. Dùng tài khoản khác thấy danh sách riêng. Khách chưa đăng nhập được nhắc đăng nhập.
-6. Tạo booking hoặc khóa một phòng bằng module của nhóm; tìm lại 2 phòng cùng ngày không đủ. Hủy/hold hết hạn/mở khóa thì phòng xuất hiện lại theo quy tắc inventory.
-7. Vào Admin Overview: chọn ngày/khách sạn, xem số liệu và CSV; so tiền với Payments, so số booking bằng BookingId distinct, so công suất theo room-night. Customer/Staff không vào API báo cáo Admin được.
-
-## Kiểm thử đã thực hiện
-
-- Sau merge: 100 pass, 3 test SQL opt-in bỏ qua khi chưa bật biến môi trường.
-- Sau chức năng mới: **120 backend test pass, không skip**, khi bật HOTEL_SQL_TEST_CONNECTION và HOTEL_INVENTORY_SQLSERVER trỏ LocalDB; mỗi test SQL tạo/xóa database tạm riêng.
-- **14 frontend test pass**: discoveryApi, roomApi, staffPagination. TypeScript và Vite production build pass. Vite cảnh báo bundle lớn hơn 500 kB, chưa chặn build.
-- Trình duyệt: Search → Hotel Detail giữ ngày/khách sạn; ảnh/tiện ích/chính sách đọc API; Admin Overview tải dữ liệu và đổi theo giao dịch demo thật trong database tạm. CSV trả 200/text-csv, số tiền khớp giao dịch.
-- Migration chạy lại được; đã sửa SET options để tạo filtered index bằng cả SQL client và sqlcmd. Database ứng dụng thật không bị chỉnh sửa.
-
-Lệnh test:
+Lệnh chạy lại từ thư mục repository:
 
 ```powershell
-$env:HOTEL_SQL_TEST_CONNECTION = 'Server=(localdb)\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=true'
-$env:HOTEL_INVENTORY_SQLSERVER = $env:HOTEL_SQL_TEST_CONNECTION
-dotnet test Backend/HotelBookingManagementSystem.slnx
-node --test Frontend/tests/discoveryApi.test.mjs Frontend/tests/roomApi.test.mjs Frontend/tests/staffPagination.test.mjs
+dotnet test Backend/HotelBooking.Tests/HotelBooking.Tests.csproj
+node --test Frontend/tests/*.test.mjs
 ```
 
-Chưa push, chưa tự cập nhật workbook, chưa triển khai hoặc xác nhận nghiệm thu thay nhóm. Chưa có review/ratings thật, giá theo mùa vụ/độ tuổi hoặc phòng bán theo inventory lịch sử để thay các giới hạn đã nêu.
+Frontend: cài dependency bằng `npm ci` theo package-lock của main, sau đó `npm run dev` / `npm run build`. Máy thực hiện lượt này không có npm trên PATH nên dùng pnpm từ runtime để cài cục bộ, rồi gọi trực tiếp `node node_modules/typescript/bin/tsc` và `node node_modules/vite/bin/vite.js build`; không thay package.json hoặc package-lock. Các file vendor/build tracked được trả lại đúng main sau kiểm tra.
+
+Smoke UI chạy với Vite tại `http://127.0.0.1:5177` và Playwright có Chromium/Chrome. `PLAYWRIGHT_MODULE` có thể trỏ đến package Playwright đã cài riêng; `PLAYWRIGHT_EXECUTABLE` có thể trỏ đến Chrome; `DISCOVERY_UI_URL` đổi URL Vite. Không cần chạy backend cho smoke UI.
+
+```powershell
+# Terminal 1: trong Frontend
+node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5177 --strictPort
+# Terminal 2: trong Frontend, sau khi có Playwright và browser
+node tests/discoveryUi.smoke.mjs
+```
+
+## Kịch bản demo và các phần còn phụ thuộc
+
+1. Dùng database hiện có của nhóm đã hoạt động theo main. Không chạy script SQL/seed từ tài liệu cũ. Cần có hotel/area/type/room active, vài booking/payment/refund mẫu hợp lệ do nhóm chuẩn bị, hai Customer và một Admin.
+2. Tìm khu vực có hotel thật, chọn ngày tương lai, tăng số khách/phòng tới ngưỡng, kiểm tra hết phòng. Kết hợp tên/giá/tiện ích, đổi sort, phân trang.
+3. Mở detail, kiểm tra mô tả, check-in/out, policy, ảnh, amenities và rating đã duyệt. Nếu chưa có ảnh thì dùng placeholder đúng trạng thái; nhóm có thể upload ảnh được phép sử dụng qua giao diện sẵn có.
+4. Với Customer A lưu/gỡ và reload Wishlist. Đổi Customer B phải có danh sách riêng. Guest được nhắc đăng nhập; Staff không được dùng quyền Customer này.
+5. Dùng các module có sẵn tạo booking/lock, tìm lại rồi so kết quả. Không sửa module của người khác để phục vụ demo.
+6. Admin đổi thời gian/hotel, đối chiếu tiền thu/hoàn, số booking và room-night, xuất CSV. Với mobile kiểm tra biểu đồ, bảng và thao tác cuộn.
+7. Admin Content: thêm/gán tiện ích, upload/chọn ảnh chính/sắp xếp, làm mới và kiểm tra dữ liệu từ API. Các thao tác demo ghi dữ liệu chỉ do nhóm thực hiện sau khi chọn đúng dữ liệu thử.
+
+Các giới hạn giữ nguyên để không vượt phạm vi: checkout/booking nhiều phòng đồng thời còn theo UI Booking của nhóm; schema chưa có dữ liệu đủ cho sao chuẩn khách sạn, loại hình lưu trú, tọa độ bản đồ, chính sách theo độ tuổi hoặc lịch sử nguồn cung. Không thêm cột/bảng để bù các phần này. Chưa nối giá Discovery với tính giá theo mùa của Pricing dù module đó đã có trên main; đang ghi rõ là giá tham khảo và giữ hợp đồng giá cuối hiện có. Bộ lọc/sắp xếp nâng cao theo rating hoặc độ phổ biến trong đặc tả chưa được triển khai trong Discovery hiện tại. Video và nghiệm thu/demo toàn hệ thống với dữ liệu thật chưa được xác nhận. Không ghi các phần này là hoàn tất.

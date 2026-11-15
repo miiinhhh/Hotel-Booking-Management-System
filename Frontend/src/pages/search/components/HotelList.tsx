@@ -34,7 +34,7 @@ export const HotelList: React.FC<HotelListProps> = ({
             Không tìm thấy nơi nghỉ phù hợp
           </h3>
           <p className="font-body-md text-body-md text-on-surface-variant max-w-md">
-            Hãy thử điều chỉnh lại bộ lọc giá, hạng sao hoặc tiện ích để xem thêm
+            Hãy thử đổi khu vực, ngày, số khách/phòng, giá hoặc tiện ích để xem thêm
             kết quả.
           </p>
         </div>

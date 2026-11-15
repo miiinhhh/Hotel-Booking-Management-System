@@ -19,13 +19,10 @@ export const ResortAmenities: React.FC<ResortAmenitiesProps> = ({
             Tiện ích khách sạn
           </h2>
         </div>
-        <span className="font-body-md text-body-md text-on-surface-variant max-w-md">
-          Mọi không gian được chăm chút tối giản tinh tế, hòa hợp giữa thiên
-          nhiên nguyên sơ và dịch vụ đẳng cấp thế giới.
-        </span>
       </div>
 
       {/* Amenity Pills Grid */}
+      {!amenities.length && <p>Khách sạn chưa công bố tiện ích.</p>}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
         {amenities.map((item, idx) => (
           <div

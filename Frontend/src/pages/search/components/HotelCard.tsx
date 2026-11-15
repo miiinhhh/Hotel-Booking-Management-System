@@ -144,15 +144,15 @@ export const HotelCard: React.FC<HotelCardProps> = ({
               {hotel.featuredRoomType}
             </span>
             <div className="flex items-center gap-space-xs mt-1">
-              <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold">
+              {hotel.reviewCount > 0 && <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold">
                 {hotel.ratingScore.toFixed(1)}
-              </span>
+              </span>}
               <span className="font-label-sm text-label-sm text-primary font-semibold">
                 {hotel.ratingText}
               </span>
-              <span className="font-label-sm text-label-sm text-outline">
+              {hotel.reviewCount > 0 && <span className="font-label-sm text-label-sm text-outline">
                 ({hotel.reviewCount.toLocaleString('vi-VN')} đánh giá)
-              </span>
+              </span>}
             </div>
           </div>
 

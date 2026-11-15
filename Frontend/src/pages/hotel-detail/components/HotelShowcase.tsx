@@ -6,21 +6,21 @@ interface HotelShowcaseProps {
   starRating?: number;
   address?: string;
   distanceToBeach?: string;
-  ratingScore?: number;
+  ratingScore?: number | null;
   ratingText?: string;
-  reviewCount?: number;
+  reviewCount?: number | null;
   onOpenMap?: () => void;
 }
 
 export const HotelShowcase: React.FC<HotelShowcaseProps> = ({
   name,
-  categoryTag = 'Khu Nghỉ Dưỡng Sanctuary',
-  starRating = 5,
-  address = 'Bãi Bắc, Bán đảo Sơn Trà, TP. Đà Nẵng',
-  distanceToBeach = 'Cách biển riêng 50m',
-  ratingScore = 9.6,
-  ratingText = 'Xuất sắc',
-  reviewCount = 1420,
+  categoryTag = 'Khách sạn',
+  starRating = 0,
+  address = '',
+  distanceToBeach = '',
+  ratingScore = null,
+  ratingText = 'Chưa có dữ liệu đánh giá',
+  reviewCount = null,
   onOpenMap,
 }) => {
   return (
@@ -62,14 +62,14 @@ export const HotelShowcase: React.FC<HotelShowcaseProps> = ({
 
           <span className="text-tertiary font-medium">{distanceToBeach}</span>
 
-          <button
+          {onOpenMap && <button
             type="button"
             onClick={onOpenMap}
             className="flex items-center gap-1 text-primary hover:text-tertiary-container font-label-md text-label-md font-semibold underline underline-offset-4 decoration-primary/40 hover:decoration-primary transition-colors cursor-pointer border-0 bg-transparent p-0"
           >
             Xem trên bản đồ
             <span className="material-symbols-outlined text-[16px]">map</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -80,11 +80,11 @@ export const HotelShowcase: React.FC<HotelShowcaseProps> = ({
             {ratingText}
           </span>
           <span className="font-label-sm text-label-sm text-on-surface-variant">
-            {reviewCount.toLocaleString('vi-VN')} đánh giá thực tế
+            {reviewCount === null ? 'Đánh giá sau lưu trú' : `${reviewCount.toLocaleString('vi-VN')} đánh giá thực tế`}
           </span>
         </div>
         <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary flex items-center justify-center font-headline-sm text-headline-sm font-bold shadow-md shadow-primary/20">
-          {ratingScore.toFixed(1)}
+          {ratingScore === null ? '—' : ratingScore.toFixed(1)}
         </div>
       </div>
     </header>

@@ -11,8 +11,10 @@ public static class BusinessReportCalculator
         for (var date = filter.From; date < filter.To; date = date.AddDays(1))
         {
             var start = date.ToDateTime(TimeOnly.MinValue); var end = start.AddDays(1);
-            var blocked = source.Locks.Where(x => rooms.Contains(x.RoomId) && x.StartsAt < end && x.EndsAt > start).Select(x => x.RoomId).ToHashSet();
-            var occupied = source.Stays.Where(x => rooms.Contains(x.RoomId) && x.CheckIn <= date && x.CheckOut > date && !blocked.Contains(x.RoomId)).Select(x => x.RoomId).Distinct().Count();
+            var occupiedRooms = source.Stays.Where(x => rooms.Contains(x.RoomId) && x.CheckIn <= date && x.CheckOut > date).Select(x => x.RoomId).ToHashSet();
+            // A lock must not erase an existing stay from a historical report.
+            var blocked = source.Locks.Where(x => rooms.Contains(x.RoomId) && !occupiedRooms.Contains(x.RoomId) && x.StartsAt < end && x.EndsAt > start).Select(x => x.RoomId).ToHashSet();
+            var occupied = occupiedRooms.Count;
             days.Add(new(date, source.Receipts.Where(p => p.PaidAt >= start && p.PaidAt < end).Sum(p => p.SignedAmount),
                 source.Bookings.Count(b => b.CreatedAt >= start && b.CreatedAt < end), occupied, rooms.Count - blocked.Count));
         }

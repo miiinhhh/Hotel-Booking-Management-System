@@ -77,7 +77,7 @@ export const AdminContent: React.FC = () => {
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [scope]);
+  }, [scope, revision]);
 
   const saveAmenity = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

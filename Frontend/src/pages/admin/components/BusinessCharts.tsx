@@ -1,9 +1,23 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BusinessReport } from '../../../services/discoveryApi';
 
 type Grouping = 'day' | 'week' | 'month';
 type Day = BusinessReport['days'][number];
 type Point = Day & { key: string; label: string; occupancy: number };
+
+function useChartViewport() {
+  const viewport = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(680);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return;
+    const resize = () => setWidth(Math.max(240, element.clientWidth));
+    resize();
+    const observer = new ResizeObserver(resize); observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return { viewport, width };
+}
 
 const money = (value: number) => value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 const compactMoney = (value: number) => new Intl.NumberFormat('vi-VN', {
@@ -73,7 +87,8 @@ const XLabels: React.FC<{ points: Point[]; left: number; top: number; plotWidth:
 
 const RevenueChart: React.FC<{ points: Point[] }> = ({ points }) => {
   const [hovered, setHovered] = useState<number | null>(null);
-  const width = Math.max(680, points.length * 52 + 90); const height = 310;
+  const { viewport, width: viewportWidth } = useChartViewport();
+  const width = Math.max(viewportWidth, points.length * 52 + 90); const height = 310;
   const left = 76; const right = 20; const top = 20; const bottom = 52;
   const plotWidth = width - left - right; const plotHeight = height - top - bottom;
   let minimum = Math.min(0, ...points.map(point => point.revenue));
@@ -83,11 +98,11 @@ const RevenueChart: React.FC<{ points: Point[] }> = ({ points }) => {
   const y = (value: number) => top + (maximum - value) * plotHeight / range;
   const zeroY = y(0); const slot = plotWidth / Math.max(1, points.length);
   const barWidth = Math.min(30, Math.max(10, slot * 0.62));
-  return <article className="rounded-xl bg-surface-container-lowest p-5 shadow-sm">
+  return <article className="min-w-0 rounded-xl bg-surface-container-lowest p-5 shadow-sm">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Doanh thu ròng</h2><p className="text-sm text-on-surface-variant">Thanh toán thành công trừ khoản hoàn thành công.</p></div><div className="flex gap-4 text-xs"><span className="flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-primary-container" />Dương</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-error" />Âm</span></div></div>
     <HoverSummary point={hovered === null ? undefined : points[hovered]} />
     {!points.some(point => point.revenue !== 0) && <p className="mt-3 text-sm text-outline">Chưa có giao dịch thành công trong khoảng này.</p>}
-    <div className="mt-3 overflow-x-auto"><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Biểu đồ cột doanh thu ròng">
+    <div ref={viewport} className="mt-3 overflow-x-auto"><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Biểu đồ cột doanh thu ròng">
       {[0, 1, 2, 3, 4].map(index => { const value = maximum - range * index / 4; const lineY = y(value); return <g key={index}><line x1={left} x2={width - right} y1={lineY} y2={lineY} className="stroke-outline-variant/40" /><text x={left - 10} y={lineY + 4} textAnchor="end" className="fill-on-surface-variant text-[11px]">{compactMoney(value)}</text></g>; })}
       <line x1={left} x2={width - right} y1={zeroY} y2={zeroY} className="stroke-on-surface-variant" />
       {points.map((point, index) => { const x = left + index * slot + (slot - barWidth) / 2; const valueY = y(point.revenue); const rectY = Math.min(zeroY, valueY); const rectHeight = Math.max(1, Math.abs(zeroY - valueY)); return <rect key={point.key} tabIndex={0} role="graphics-symbol" aria-label={`${point.label}: ${money(point.revenue)}`} x={x} y={rectY} width={barWidth} height={rectHeight} rx={4} className={`${point.revenue < 0 ? 'fill-error' : 'fill-primary-container'} cursor-pointer outline-none opacity-90 hover:opacity-100 focus:stroke-on-surface focus:stroke-2`} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} onFocus={() => setHovered(index)} onBlur={() => setHovered(null)}><title>{point.label}: {money(point.revenue)}</title></rect>; })}
@@ -98,7 +113,8 @@ const RevenueChart: React.FC<{ points: Point[] }> = ({ points }) => {
 
 const LineChart: React.FC<{ points: Point[]; type: 'bookings' | 'occupancy' }> = ({ points, type }) => {
   const [hovered, setHovered] = useState<number | null>(null);
-  const width = Math.max(680, points.length * 52 + 90); const height = 310;
+  const { viewport, width: viewportWidth } = useChartViewport();
+  const width = Math.max(viewportWidth, points.length * 52 + 90); const height = 310;
   const left = 58; const right = 20; const top = 24; const bottom = 52;
   const plotWidth = width - left - right; const plotHeight = height - top - bottom;
   const maximum = type === 'occupancy' ? 100 : Math.max(1, ...points.map(point => point.bookings));
@@ -109,10 +125,10 @@ const LineChart: React.FC<{ points: Point[]; type: 'bookings' | 'occupancy' }> =
   const title = type === 'occupancy' ? 'Công suất phòng' : 'Booking tạo mới';
   const description = type === 'occupancy' ? 'Tỷ lệ đêm phòng đã sử dụng trên số đêm có thể bán.' : 'Số booking được tạo trong từng kỳ.';
   const line = points.map((point, index) => `${x(index)},${y(value(point))}`).join(' ');
-  return <article className="rounded-xl bg-surface-container-lowest p-5 shadow-sm">
+  return <article className="min-w-0 rounded-xl bg-surface-container-lowest p-5 shadow-sm">
     <div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">{title}</h2><p className="text-sm text-on-surface-variant">{description}</p></div><span className={`flex items-center gap-2 text-xs ${color}`}><i className="h-1 w-8 rounded bg-current" />{type === 'occupancy' ? '%' : 'Booking'}</span></div>
     <HoverSummary point={hovered === null ? undefined : points[hovered]} />
-    <div className="mt-3 overflow-x-auto"><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Biểu đồ đường ${title.toLowerCase()}`}>
+    <div ref={viewport} className="mt-3 overflow-x-auto"><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Biểu đồ đường ${title.toLowerCase()}`}>
       {[0, 1, 2, 3, 4].map(index => { const tick = maximum - maximum * index / 4; const lineY = y(tick); return <g key={index}><line x1={left} x2={width - right} y1={lineY} y2={lineY} className="stroke-outline-variant/40" /><text x={left - 9} y={lineY + 4} textAnchor="end" className="fill-on-surface-variant text-[11px]">{type === 'occupancy' ? `${tick.toFixed(0)}%` : tick.toFixed(tick < 4 ? 1 : 0)}</text></g>; })}
       <polyline fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className={color} points={line} />
       {points.map((point, index) => <circle key={point.key} tabIndex={0} role="graphics-symbol" aria-label={`${point.label}: ${value(point).toFixed(type === 'occupancy' ? 1 : 0)}${type === 'occupancy' ? '%' : ' booking'}`} cx={x(index)} cy={y(value(point))} r={hovered === index ? 7 : 4.5} className={`${color} cursor-pointer fill-surface stroke-current stroke-[3] outline-none`} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} onFocus={() => setHovered(index)} onBlur={() => setHovered(null)}><title>{point.label}: {value(point).toFixed(type === 'occupancy' ? 1 : 0)}{type === 'occupancy' ? '%' : ' booking'}</title></circle>)}
@@ -128,6 +144,6 @@ export const BusinessCharts: React.FC<{ report: BusinessReport }> = ({ report })
   return <section className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-semibold">Phân tích theo thời gian</h2><p className="text-sm text-on-surface-variant">Từ {report.from} đến trước {report.to} · {points.length} điểm dữ liệu</p></div><GroupingControl value={grouping} onChange={setGrouping} /></div>
     <RevenueChart points={points} />
-    <div className="grid gap-5 xl:grid-cols-2"><LineChart points={points} type="bookings" /><LineChart points={points} type="occupancy" /></div>
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2"><LineChart points={points} type="bookings" /><LineChart points={points} type="occupancy" /></div>
   </section>;
 };

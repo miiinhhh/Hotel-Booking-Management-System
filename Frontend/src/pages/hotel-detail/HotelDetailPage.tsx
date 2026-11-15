@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { discoveryApi, HotelRating } from '../../services/discoveryApi';
 import { BreadcrumbHeader } from './components/BreadcrumbHeader';
 import { HotelShowcase } from './components/HotelShowcase';
 import { PhotoGallery } from './components/PhotoGallery';
@@ -22,6 +23,16 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
   onNavigateSearch,
   onNavigateCheckout,
 }) => {
+  const [rating, setRating] = useState<HotelRating | null>(null);
+  const [ratingError, setRatingError] = useState('');
+  useEffect(() => {
+    const controller = new AbortController(); setRating(null); setRatingError('');
+    discoveryApi.rating(Number(hotelData.id), controller.signal)
+      .then(value => { if (!controller.signal.aborted) setRating(value); })
+      .catch(error => { if (!controller.signal.aborted) setRatingError(error instanceof Error ? error.message : 'Không tải được đánh giá.'); });
+    return () => controller.abort();
+  }, [hotelData.id]);
+  const currentRating = rating?.hotelId === Number(hotelData.id) ? rating : null;
   const [selectedRoomForModal, setSelectedRoomForModal] = useState<Room | null>(
     null
   );
@@ -94,10 +105,11 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
               starRating={hotelData.starRating}
               address={hotelData.address}
               distanceToBeach={hotelData.distanceToBeach}
-              ratingScore={hotelData.ratingScore}
-              ratingText={hotelData.ratingText}
-              reviewCount={hotelData.reviewCount}
+              ratingScore={currentRating?.averageRating ?? null}
+              ratingText={ratingError ? 'Chưa tải được đánh giá' : !currentRating ? 'Đang tải đánh giá…' : currentRating.totalReviews ? 'Điểm đánh giá / 5' : 'Chưa có đánh giá'}
+              reviewCount={currentRating?.totalReviews ?? null}
             />
+            {ratingError && <p role="alert">{ratingError}</p>}
 
             {/* Mosaic Photo Gallery */}
             <PhotoGallery gallery={hotelData.galleryImages} />
@@ -111,6 +123,7 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
             />
 
             {/* Highlight Overview & Signature Resort Amenities */}
+            {hotelData.description && <section className="rounded-2xl bg-surface-container-low p-6"><h2 className="mb-3 text-2xl font-semibold">Giới thiệu khách sạn</h2><p className="whitespace-pre-line">{hotelData.description}</p></section>}
             <ResortAmenities amenities={hotelData.resortAmenities} />
 
             {/* Room Types Inventory */}
