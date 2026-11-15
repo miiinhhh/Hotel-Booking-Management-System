@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Room } from '../types';
 import { RoomCard } from './RoomCard';
 import { RoomDateRangePicker } from './RoomDateRangePicker';
 import { roomApi, AvailableRoom, localDate } from '../../../services/roomApi';
+import { resolveRoomSelection } from '../../../services/roomSelection';
 
 interface RoomInventoryProps {
   rooms: Room[]; hotelId?: number; datesText?: string; durationNights?: number; guestsText?: string;
@@ -21,45 +22,67 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [calendarRequest, setCalendarRequest] = useState<{ room: Room; packageId?: string } | null>(null);
-  useEffect(() => { setHotelInput(hotelId ? String(hotelId) : ''); setChecked(null); setAvailable([]); }, [hotelId]);
+  const requestVersion = useRef(0);
+  const confirmationVersion = useRef(0);
   const validSelection = checked && checked.hotel === Number(hotelInput) && checked.checkIn === checkIn && checked.checkOut === checkOut;
   const nights = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86400000);
-  const search = async () => {
-    if (loading || pending) return;
-    const hotel = Number(hotelInput); setError(''); setChecked(null); setAvailable([]);
-    if (!Number.isSafeInteger(hotel) || hotel <= 0 || !checkIn || !checkOut || checkOut <= checkIn) { setError('Chọn khách sạn và khoảng ngày hợp lệ.'); return; }
+  const loadAvailability = useCallback(async (hotel: number, arrival: string, departure: string) => {
+    const version = ++requestVersion.current;
+    setError(''); setChecked(null); setAvailable([]);
+    if (!Number.isSafeInteger(hotel) || hotel <= 0 || !arrival || !departure || departure <= arrival) {
+      setLoading(false); setError('Chọn khách sạn và khoảng ngày hợp lệ.'); return;
+    }
     setLoading(true);
-    try { const [result, info] = await Promise.all([roomApi.availability(hotel, checkIn, checkOut), roomApi.hotel(hotel)]); setAvailable(result.rooms); setChecked({ hotel, hotelName: info.hotelName, hotelAddress: info.address, checkIn, checkOut }); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Không kiểm tra được phòng trống.'); }
-    finally { setLoading(false); }
+    try {
+      const [result, info] = await Promise.all([roomApi.availability(hotel, arrival, departure), roomApi.hotel(hotel)]);
+      if (version !== requestVersion.current) return;
+      setAvailable(result.rooms);
+      setChecked({ hotel, hotelName: info.hotelName, hotelAddress: info.address, checkIn: arrival, checkOut: departure });
+    }
+    catch (reason) { if (version === requestVersion.current) setError(reason instanceof Error ? reason.message : 'Không kiểm tra được phòng trống.'); }
+    finally { if (version === requestVersion.current) setLoading(false); }
+  }, []);
+  useEffect(() => {
+    requestVersion.current++;
+    confirmationVersion.current++;
+    const arrival = initialCheckIn || localDate();
+    const departure = initialCheckOut || localDate(1);
+    setHotelInput(hotelId ? String(hotelId) : '');
+    setCheckIn(arrival); setCheckOut(departure); setGuests(initialGuests || 1);
+    setChecked(null); setAvailable([]); setCalendarRequest(null); setError(''); setPending(false);
+    if (hotelId && initialCheckIn) void loadAvailability(hotelId, arrival, departure);
+    else setLoading(false);
+    return () => { requestVersion.current++; confirmationVersion.current++; };
+  }, [hotelId, initialCheckIn, initialCheckOut, initialGuests, loadAvailability]);
+  const search = async () => {
+    if (!loading && !pending) await loadAvailability(Number(hotelInput), checkIn, checkOut);
   };
   const confirmRoomDates = async (selectedCheckIn: string, selectedCheckOut: string) => {
     if (!calendarRequest || pending) return;
     const hotel = Number(calendarRequest.room.hotelId || hotelInput);
+    const version = ++confirmationVersion.current;
     setPending(true);
     setError('');
     try {
       const result = await roomApi.availability(hotel, selectedCheckIn, selectedCheckOut);
-      setAvailable(result.rooms);
-      if (!result.rooms.some(room => room.roomId === Number(calendarRequest.room.id)))
-        throw new Error('Phòng vừa được đặt hoặc khóa bán. Vui lòng chọn khoảng ngày khác.');
-      const nightsCount = Math.max(1, Math.round((Date.parse(selectedCheckOut) - Date.parse(selectedCheckIn)) / 86_400_000));
-      const selectedPackage = calendarRequest.room.packages?.find(item => item.id === calendarRequest.packageId) || calendarRequest.room.packages?.[0];
-      const pricePerNight = selectedPackage?.pricePerNight || calendarRequest.room.allInclusiveDetail?.pricePerNight || 0;
-      onBookRoom?.({ ...calendarRequest.room, checkIn: selectedCheckIn, checkOut: selectedCheckOut }, calendarRequest.packageId, pricePerNight * nightsCount);
+      if (version !== confirmationVersion.current) return;
+      const latest = result.rooms.find(room => room.roomId === Number(calendarRequest.room.id));
+      const selection = resolveRoomSelection(calendarRequest.room, latest, hotel, selectedCheckIn, selectedCheckOut, guests);
+      onBookRoom?.(selection.room, calendarRequest.packageId, selection.totalPrice);
       setCalendarRequest(null);
     } catch (reason) {
+      if (version !== confirmationVersion.current) return;
+      setChecked(null); setAvailable([]);
       const message = reason instanceof Error ? reason.message : 'Không xác nhận được phòng trống.';
       setError(message);
       throw new Error(message);
     }
-    finally { setPending(false); }
+    finally { if (version === confirmationVersion.current) setPending(false); }
   };
-  useEffect(() => { if (hotelId && initialCheckIn) void search(); }, [hotelId, initialCheckIn]);
   const cards: Room[] = validSelection ? available.filter(r => r.capacity >= guests).map(r => ({ id: String(r.roomId), roomId: r.roomId, hotelId: r.hotelId, hotelName: checked.hotelName, hotelAddress: checked.hotelAddress, requestedGuests: guests, checkIn, checkOut,
     name: `${r.roomTypeName} · Phòng ${r.roomNumber}`, tag: 'Phòng trống', floor: `Tầng ${r.floor}`, remainingRooms: 1,
     image: rooms.find(room => room.roomId === r.roomId)?.image || '/room-placeholder.svg', specs: [{ icon: 'person', text: `${r.capacity} khách` }], features: rooms.find(room => room.roomId === r.roomId)?.features || [],
-    packages: [{ id: 'base', name: 'Giá cơ bản', description: 'Giá cuối cùng được backend tính khi đặt phòng.', pricePerNight: r.price }],
+    packages: [{ id: 'base', name: 'Giá trung bình mỗi đêm', description: 'Đã tính giá theo ngày và phụ thu mùa vụ; tổng thanh toán được xác nhận tại checkout.', pricePerNight: r.price }],
     cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || 'Liên hệ khách sạn để biết chính sách hủy.',
   })) : [];
   return <><section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">Kiểm tra phòng trống</h2>
@@ -76,6 +99,6 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     {!validSelection && !loading && <p className="text-outline">Chọn khách sạn và ngày lưu trú để xem phòng còn trống.</p>}
     <div aria-busy={pending} className={pending ? 'pointer-events-none space-y-5 opacity-60' : 'space-y-5'}>{cards.map(room => <RoomCard key={`${room.id}-${checkIn}-${checkOut}`} room={room} durationNights={nights} onBookRoom={(selectedRoom, packageId) => setCalendarRequest({ room: selectedRoom, packageId })} onViewRoomDetail={onViewRoomDetail} />)}</div>
   </section>
-  {calendarRequest && <RoomDateRangePicker room={calendarRequest.room} hotelId={Number(calendarRequest.room.hotelId || hotelInput)} initialCheckIn={calendarRequest.room.checkIn} initialCheckOut={calendarRequest.room.checkOut} onClose={() => setCalendarRequest(null)} onConfirm={confirmRoomDates} />}</>;
+  {calendarRequest && <RoomDateRangePicker room={calendarRequest.room} hotelId={Number(calendarRequest.room.hotelId || hotelInput)} initialCheckIn={calendarRequest.room.checkIn} initialCheckOut={calendarRequest.room.checkOut} onClose={() => { confirmationVersion.current++; setPending(false); setCalendarRequest(null); }} onConfirm={confirmRoomDates} />}</>;
 };
 export default RoomInventory;

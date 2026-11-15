@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using HotelBooking.Application.DTOs.Pricing;
 using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Services;
@@ -662,5 +663,33 @@ public class PricingServiceTests
         };
 
         await Assert.ThrowsAsync<ArgumentException>(() => _service.CalculateStayPriceAsync(request));
+    }
+
+    [Fact]
+    public async Task InventoryAndCheckoutAgreeAcrossHistoryAndSurgeChanges()
+    {
+        var start = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(5);
+        using var db = new HotelBooking.Infrastructure.Data.HotelBookingDBContext(
+            new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<HotelBooking.Infrastructure.Data.HotelBookingDBContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        db.Add(new HotelBooking.Infrastructure.Data.InventoryHotel { HotelId = 1, IsActive = true });
+        db.Add(new HotelBooking.Infrastructure.Data.InventoryArea { AreaId = 1, HotelId = 1, IsActive = true });
+        db.Add(new HotelBooking.Infrastructure.Data.InventoryType { RoomTypeId = 101, HotelId = 1, AreaId = 1,
+            RoomTypeName = "Deluxe Ocean View", BasePrice = 1000000, Capacity = 2, IsActive = true });
+        db.Add(new HotelBooking.Infrastructure.Data.InventoryRoom { RoomId = 1001, RoomTypeId = 101, AreaId = 1,
+            RoomNumber = "101", Status = "Available", IsActive = true });
+        var history = new RoomPriceHistory { RoomTypeId = 101, Price = 1200000,
+            EffectiveFrom = start.ToDateTime(TimeOnly.MinValue), EffectiveTo = start.ToDateTime(TimeOnly.MinValue) };
+        var rule = new PriceSurgeRule { HotelId = 1, RoomTypeId = 101, RuleName = "Peak", StartDate = start,
+            EndDate = start, AdjustmentValue = 25 };
+        _historyRepo.Histories.Add(history); _surgeRepo.Rules.Add(rule);
+        db.Add(history); db.Add(rule); await db.SaveChangesAsync();
+        var checkout = await _service.CalculateStayPriceAsync(new() { HotelId = 1, RoomIds = [1001],
+            CheckInDate = start, CheckOutDate = start.AddDays(2) });
+        var available = Assert.Single(await new HotelBooking.Infrastructure.Repositories.RoomInventoryRepository(db)
+            .Available(1, start, start.AddDays(2), default));
+        Assert.Equal(2500000m, checkout.SubTotal);
+        Assert.Equal(1250000m, available.Price);
+        Assert.Equal(checkout.SubTotal / 2, available.Price);
     }
 }

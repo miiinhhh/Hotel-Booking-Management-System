@@ -128,10 +128,19 @@ public class BookingPricingService : IBookingPricingService
                     CheckOutDate = checkOut
                 }, ct);
             }
-            catch
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                dynamicPricingResult = null;
+                throw;
             }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Không thể xác nhận giá theo ngày. Vui lòng thử lại sau.", ex);
+            }
+
+            if (dynamicPricingResult is null || dynamicPricingResult.RoomSummaries.Count != roomIds.Distinct().Count() ||
+                roomIds.Any(id => dynamicPricingResult.RoomSummaries.Count(s => s.RoomId == id) != 1) ||
+                dynamicPricingResult.RoomSummaries.Sum(s => s.SubTotal) != dynamicPricingResult.SubTotal)
+                throw new InvalidOperationException("Báo giá không đầy đủ. Vui lòng thử lại sau.");
         }
 
         if (dynamicPricingResult != null && dynamicPricingResult.RoomSummaries.Count > 0)

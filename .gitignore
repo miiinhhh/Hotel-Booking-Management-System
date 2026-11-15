@@ -42,3 +42,4 @@ Thumbs.db
 !Backend/HotelBooking.Infrastructure/Persistence/Scripts/HotelAreas.sql
 !Database&Docs/AdvancedAuth.sql
 !Database&Docs/DynamicAuthorization.sql
+!Database&Docs/CreateMissingBaseTables.sql

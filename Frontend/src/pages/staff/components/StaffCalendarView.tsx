@@ -19,18 +19,43 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
   const [hotelNames, setHotelNames] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    const daysCount = periodFilter === 'month' ? 30 : (periodFilter === '14days' ? 14 : 7);
-    setLoading(true);
-    setError('');
-    getStaffCalendar(daysCount).then(async (data) => {
-      const hotelIds = Array.from(new Set(data.map(item => item.hotelId)));
-      const hotels = await Promise.all(hotelIds.map(id => roomApi.hotel(id)));
-      setHotelNames(Object.fromEntries(hotels.map(hotel => [hotel.hotelId, hotel.hotelName])));
-      setSchedules(data);
-    }).catch((reason) => {
-      setSchedules([]);
-      setError(reason instanceof Error ? reason.message : 'Không tải được lịch phòng.');
-    }).finally(() => setLoading(false));
+    const daysCount = periodFilter === 'month' ? 30 : periodFilter === '14days' ? 14 : 7;
+    let disposed = false;
+    let inFlight = false;
+    const refresh = async (initial = false) => {
+      if (inFlight || (!initial && document.visibilityState === 'hidden')) return;
+      inFlight = true;
+      if (initial) setLoading(true);
+      try {
+        const data = await getStaffCalendar(daysCount);
+        const hotelIds = Array.from(new Set(data.map(item => item.hotelId)));
+        const hotels = await Promise.all(hotelIds.map(id => roomApi.hotel(id)));
+        if (!disposed) {
+          setHotelNames(Object.fromEntries(hotels.map(hotel => [hotel.hotelId, hotel.hotelName])));
+          setSchedules(data);
+          setError('');
+        }
+      } catch (reason) {
+        if (!disposed) {
+          setSchedules([]);
+          setError(reason instanceof Error ? reason.message : 'Không tải được lịch phòng.');
+        }
+      } finally {
+        inFlight = false;
+        if (!disposed && initial) setLoading(false);
+      }
+    };
+    void refresh(true);
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    const onFocus = () => void refresh();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [periodFilter, revision]);
   const [lockModalTarget, setLockModalTarget] = useState<{
     category: string;

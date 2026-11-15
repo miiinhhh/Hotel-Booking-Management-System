@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddScoped<IBookingService, BookingServices>();
         services.AddScoped<HotelBooking.Application.Reviews.ReviewService>();
         services.AddScoped<RoomInventoryService>();
+        services.AddScoped<StaffCalendarService>();
         services.AddScoped<HotelBooking.Application.Staff.StaffService>();
         services.AddScoped<IBookingPricingService, BookingPricingService>();
         services.AddScoped<IStaffAreaAssignmentService, StaffAreaAssignmentService>();
