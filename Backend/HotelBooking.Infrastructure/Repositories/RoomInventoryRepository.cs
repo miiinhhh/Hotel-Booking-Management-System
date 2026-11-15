@@ -38,7 +38,23 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
     public async Task<IReadOnlyList<AvailableRoom>> Available(int hotelId, DateOnly checkIn, DateOnly checkOut, CancellationToken ct)
     {
         await Hotel(hotelId, ct);
-        return await AvailabilityQuery(hotelId, checkIn, checkOut).OrderBy(r => r.RoomId).ToListAsync(ct);
+        var rooms = await AvailabilityQuery(hotelId, checkIn, checkOut).OrderBy(r => r.RoomId).ToListAsync(ct);
+        return await PriceRooms(rooms, checkIn, checkOut, ct);
+    }
+    internal async Task<IReadOnlyList<AvailableRoom>> PriceRooms(IReadOnlyList<AvailableRoom> rooms, DateOnly checkIn, DateOnly checkOut, CancellationToken ct)
+    {
+        var nights = checkOut.DayNumber - checkIn.DayNumber;
+        if (nights <= 0) throw new DomainRuleException("Check-out must follow check-in.");
+        if (rooms.Count == 0) return rooms;
+        var typeIds = rooms.Select(r => r.RoomTypeId).Distinct().ToArray();
+        var hotelIds = rooms.Select(r => r.HotelId).Distinct().ToArray();
+        var start = checkIn.ToDateTime(TimeOnly.MinValue);
+        var end = checkOut.ToDateTime(TimeOnly.MinValue);
+        var histories = await db.RoomPriceHistories.AsNoTracking().Where(h => typeIds.Contains(h.RoomTypeId) &&
+            h.EffectiveFrom < end && (h.EffectiveTo == null || h.EffectiveTo >= start)).ToListAsync(ct);
+        var rules = await db.PriceSurgeRules.AsNoTracking().Where(r => hotelIds.Contains(r.HotelId) && r.IsActive &&
+            (r.RoomTypeId == null || typeIds.Contains(r.RoomTypeId.Value)) && r.StartDate < checkOut && r.EndDate >= checkIn).ToListAsync(ct);
+        return NightlyRateCalculator.PriceRooms(rooms, checkIn, checkOut, histories, rules);
     }
     public async Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct)
     {

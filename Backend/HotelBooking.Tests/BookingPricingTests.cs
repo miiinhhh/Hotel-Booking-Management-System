@@ -14,6 +14,45 @@ namespace HotelBooking.Tests;
 
 public sealed class BookingPricingTests
 {
+    public class PricingProxy : System.Reflection.DispatchProxy
+    {
+        public Func<Task<HotelBooking.Application.DTOs.Pricing.PriceCalculationResultDto>> Reply { get; set; } = null!;
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args) => Reply();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConfiguredPricingFailureOrMissingRoomsCannotFallBackToBasePrice(bool missingRooms)
+    {
+        var (roomDb, bookingDb) = CreateDatabases();
+        using var roomScope = roomDb; using var bookingScope = bookingDb;
+        var room = SeedRoom(roomDb);
+        var pricing = System.Reflection.DispatchProxy.Create<HotelBooking.Application.Interfaces.IPricingService, PricingProxy>();
+        ((PricingProxy)(object)pricing).Reply = () => missingRooms
+            ? Task.FromResult(new HotelBooking.Application.DTOs.Pricing.PriceCalculationResultDto())
+            : Task.FromException<HotelBooking.Application.DTOs.Pricing.PriceCalculationResultDto>(new Exception("Unavailable pricing database"));
+        var service = new BookingPricingService(new RoomRepository(roomDb), new VoucherRepository(bookingDb), pricing);
+        var day = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CalculateAuthoritativePriceAsync(day, day.AddDays(1), [room.RoomId], null, "Cash"));
+        var response = await service.CalculatePriceAsync(new() { CheckInDate = day, CheckOutDate = day.AddDays(1), RoomIds = [room.RoomId] });
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task PricingCancellationIsPropagatedInsteadOfReturningACheaperQuote()
+    {
+        var (roomDb, bookingDb) = CreateDatabases();
+        using var roomScope = roomDb; using var bookingScope = bookingDb;
+        var room = SeedRoom(roomDb);
+        using var cancel = new CancellationTokenSource(); cancel.Cancel();
+        var pricing = System.Reflection.DispatchProxy.Create<HotelBooking.Application.Interfaces.IPricingService, PricingProxy>();
+        ((PricingProxy)(object)pricing).Reply = () => Task.FromCanceled<HotelBooking.Application.DTOs.Pricing.PriceCalculationResultDto>(cancel.Token);
+        var service = new BookingPricingService(new RoomRepository(roomDb), new VoucherRepository(bookingDb), pricing);
+        var day = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CalculateAuthoritativePriceAsync(day, day.AddDays(1), [room.RoomId], null, "Cash", cancel.Token));
+    }
+
     private static readonly CancellationToken Ct = CancellationToken.None;
 
     private static (RoomDbContext RoomDb, BookingDbContext BookingDb) CreateDatabases()

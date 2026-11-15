@@ -32,8 +32,8 @@ public sealed class RoomInventoryService(IRoomInventoryRepository repository)
 {
     public async Task<AvailabilityResult> Available(int hotelId, AvailabilityRequest request, CancellationToken ct)
     {
-        if (hotelId <= 0 || request.CheckIn < DateOnly.FromDateTime(DateTime.UtcNow) || request.CheckOut <= request.CheckIn)
-            throw new DomainRuleException("Check-in must be today or later and check-out must follow check-in.");
+        if (hotelId <= 0 || request.CheckIn < DateOnly.FromDateTime(DateTime.UtcNow) || request.CheckOut <= request.CheckIn || request.CheckOut.DayNumber - request.CheckIn.DayNumber > 90)
+            throw new DomainRuleException("Check-in must be today or later; select a stay of 1–90 nights.");
         return new(request.CheckIn, request.CheckOut, await repository.Available(hotelId, request.CheckIn, request.CheckOut, ct));
     }
     public async Task<RoomAvailabilityCalendar> Calendar(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct)

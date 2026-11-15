@@ -143,4 +143,40 @@ public sealed class DiscoveryTests
         var empty = BusinessReportCalculator.Calculate(new(start, start.AddDays(1), null), new([], [], [], [], []));
         Assert.Equal(0, empty.OccupancyRate); Assert.Equal(0, empty.CancellationRate);
     }
+
+    [Fact]
+    public async Task DatedSearchDetailAndAvailabilityUseHistorySurgePriceBeforeFiltering()
+    {
+        using var f = new Fixture();
+        f.Bookings.RoomPriceHistories.Add(new RoomPriceHistory { RoomTypeId = 1, Price = 300,
+            EffectiveFrom = f.Start.ToDateTime(TimeOnly.MinValue), EffectiveTo = f.Start.ToDateTime(TimeOnly.MinValue) });
+        f.Bookings.PriceSurgeRules.Add(new PriceSurgeRule { HotelId = 1, RoomTypeId = 1,
+            RuleName = "Weekend", StartDate = f.Start, EndDate = f.Start, AdjustmentValue = 50 });
+        await f.Bookings.SaveChangesAsync();
+        // Night 1: history 300 + 50% = 450. Night 2: base 100. Average = 275.
+        var request = new HotelDiscoveryRequest { CheckIn = f.Start, CheckOut = f.Start.AddDays(2), Adults = 2, MinPrice = 270, MaxPrice = 280 };
+        var card = Assert.Single((await f.Service.SearchAsync(request, default)).Items);
+        Assert.Equal(1, card.HotelId);
+        Assert.Equal(275m, card.PricePerNight);
+        var detail = await f.Repository.DetailAsync(1, f.Request, default);
+        var available = await new RoomInventoryRepository(f.Bookings).Available(1, f.Start, f.Start.AddDays(2), default);
+        Assert.All(available, r => Assert.Equal(card.PricePerNight, r.Price));
+        Assert.All(detail.Rooms, r => Assert.Equal(275m, r.PricePerNight));
+    }
+
+    [Fact]
+    public async Task RenamedAndInactiveTypesAreImmediatelyReflectedInSearch()
+    {
+        using var f = new Fixture();
+        var type = await f.Bookings.Set<InventoryType>().SingleAsync(t => t.RoomTypeId == 1);
+        type.RoomTypeName = "Executive"; await f.Bookings.SaveChangesAsync();
+        HotelDiscoveryRequest Request(string name) => new() { CheckIn = f.Start, CheckOut = f.Start.AddDays(2), Adults = 2, RoomTypeName = name };
+        var request = Request("Executive");
+        Assert.Single((await f.Service.SearchAsync(request, default)).Items);
+        request = Request("Deluxe");
+        Assert.DoesNotContain((await f.Service.SearchAsync(request, default)).Items, h => h.HotelId == 1);
+        type.IsActive = false; await f.Bookings.SaveChangesAsync();
+        request = Request("Executive");
+        Assert.Empty((await f.Service.SearchAsync(request, default)).Items);
+    }
 }

@@ -43,9 +43,9 @@ public sealed class DiscoveryRepository(HotelDb hotels, ContentDb content, Hotel
             var name = request.RoomTypeName.Trim().ToUpperInvariant();
             availableQuery = availableQuery.Where(r => r.RoomTypeName.ToUpper().Contains(name));
         }
-        if (request.MinPrice is { } min) availableQuery = availableQuery.Where(r => r.Price >= min);
-        if (request.MaxPrice is { } max) availableQuery = availableQuery.Where(r => r.Price <= max);
-        var available = await availableQuery.ToListAsync(ct);
+        var priced = await new RoomInventoryRepository(bookings).PriceRooms(await availableQuery.ToListAsync(ct), request.CheckIn, request.CheckOut, ct);
+        var available = priced.Where(r => (!request.MinPrice.HasValue || r.Price >= request.MinPrice.Value) &&
+            (!request.MaxPrice.HasValue || r.Price <= request.MaxPrice.Value)).ToList();
         var groups = available.GroupBy(r => new { r.HotelId, r.RoomTypeId })
             .Where(g => g.Count() >= request.Rooms && (long)g.First().Capacity * request.Rooms >= request.Adults + request.Children)
             .Select(g => new { Room = g.First(), Count = g.Count() }).ToList();

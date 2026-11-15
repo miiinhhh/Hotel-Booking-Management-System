@@ -28,12 +28,22 @@ public sealed class DiscoverySqlTests
         {
             var root = new DirectoryInfo(AppContext.BaseDirectory);
             while (root is not null && !File.Exists(Path.Combine(root.FullName, "Database&Docs", "Hotel_Booking_Database_Updated.sql"))) root = root.Parent;
+            if (root is null)
+            {
+                root = new DirectoryInfo(Path.GetDirectoryName(SourceFile())!);
+                while (root is not null && !File.Exists(Path.Combine(root.FullName, "Database&Docs", "Hotel_Booking_Database_Updated.sql"))) root = root.Parent;
+            }
             Assert.NotNull(root);
             var schema = await File.ReadAllTextAsync(Path.Combine(root.FullName, "Database&Docs", "Hotel_Booking_Database_Updated.sql"));
             await content.Database.ExecuteSqlRawAsync(schema[..schema.IndexOf("CREATE TABLE Bookings", StringComparison.Ordinal)]);
             foreach (var file in new[] { "PropertyContent.sql", "HotelDiscovery.sql", "HotelDiscovery.sql" })
                 await content.Database.ExecuteSqlRawAsync(await File.ReadAllTextAsync(Path.Combine(root.FullName, "Backend", "HotelBooking.Infrastructure", "Persistence", "Scripts", file)));
             await content.Database.ExecuteSqlRawAsync(await File.ReadAllTextAsync(Path.Combine(root.FullName, "Database&Docs", "RoomEmergencyLocks.sql")));
+            // Provision pricing in this isolated test database; omit the script's USE HotelBooking header.
+            var surgeSchema = await File.ReadAllTextAsync(Path.Combine(root.FullName, "Database&Docs", "db_price_surge_rules.sql"));
+            surgeSchema = surgeSchema[surgeSchema.IndexOf("IF OBJECT_ID", StringComparison.Ordinal)..];
+            surgeSchema = System.Text.RegularExpressions.Regex.Replace(surgeSchema, @"(?m)^GO\s*$", "");
+            await content.Database.ExecuteSqlRawAsync(surgeSchema);
             // Minimal booking/payment contract consumed by this read module, without seeding unrelated module data.
             await content.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE Bookings(BookingId bigint PRIMARY KEY, BookingStatus varchar(20), CheckInDate date, CheckOutDate date, HoldExpiresAt datetime2 NULL, CreatedAt datetime2);
@@ -50,6 +60,12 @@ public sealed class DiscoverySqlTests
             var day = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7);
             var request = new HotelDiscoveryRequest { Location = "Hue", CheckIn = day, CheckOut = day.AddDays(1), MinPrice = 500000, MaxPrice = 500000, Adults = 4, Rooms = 2 };
             Assert.Single((await service.SearchAsync(request, default)).Items);
+            await content.Database.ExecuteSqlInterpolatedAsync($"INSERT RoomPriceHistory(RoomTypeId, Price, EffectiveFrom, ChangedByUserId) VALUES(1, 700000, {day.ToDateTime(TimeOnly.MinValue)}, 1); INSERT PriceSurgeRules(HotelId, RoomTypeId, RuleName, StartDate, EndDate, AdjustmentValue, CreatedByUserId) VALUES(1, 1, N'Peak', {day}, {day}, 20, 1);");
+            request = new HotelDiscoveryRequest { Location = "Hue", CheckIn = day, CheckOut = day.AddDays(1), MinPrice = 840000, MaxPrice = 840000, Adults = 4, Rooms = 2 };
+            Assert.Equal(840000m, Assert.Single((await service.SearchAsync(request, default)).Items).PricePerNight);
+            var calendarRepo = new StaffCalendarRepository(content, bookings);
+            var calendarSource = await calendarRepo.Load(1, true, 1, day, day.AddDays(1), default);
+            Assert.Equal(2, Assert.Single(HotelBooking.Application.Rooms.StaffCalendarService.Calculate(calendarSource, day, 1)).Days[0].AvailableCount);
             await service.SetPolicyAsync(1, 1, new("Published policy"), default);
             Assert.Equal("Published policy", (await service.DetailAsync(1, request, default)).Policies.CancellationPolicy);
             await service.SetWishlistAsync(1, 1, true, default); await service.SetWishlistAsync(1, 1, true, default);
@@ -57,10 +73,13 @@ public sealed class DiscoverySqlTests
             var start = day.ToDateTime(TimeOnly.MinValue); var end = start.AddDays(1);
             await content.Database.ExecuteSqlInterpolatedAsync($"INSERT Bookings VALUES(1, 'Confirmed', {day}, {day.AddDays(1)}, NULL, {start}); INSERT BookingDetails VALUES(1, 1, 1); INSERT Payments VALUES(1, 1, 'Payment', 'Paid', 100, {start}); INSERT Payments VALUES(2, 1, 'Refund', 'Paid', 20, {start});");
             Assert.Empty((await service.SearchAsync(request, default)).Items);
+            calendarSource = await calendarRepo.Load(1, true, 1, day, day.AddDays(1), default);
+            Assert.Equal(1, Assert.Single(HotelBooking.Application.Rooms.StaffCalendarService.Calculate(calendarSource, day, 1)).Days[0].AvailableCount);
             var report = await service.ReportAsync(1, new(day, day.AddDays(1), 1), default);
             Assert.Equal(80, report.Revenue); Assert.Equal(1, report.BookingCount); Assert.Equal(50, report.OccupancyRate);
         }
         finally { await content.Database.EnsureDeletedAsync(); }
     }
     private sealed class Allowed : IContentAccess { public Task EnsureAdminAsync(long userId, CancellationToken ct) => Task.CompletedTask; }
+    private static string SourceFile([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
 }

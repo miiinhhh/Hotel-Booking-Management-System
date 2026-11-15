@@ -94,58 +94,12 @@ public class PricingService : IPricingService
             for (int i = 0; i < numberOfNights; i++)
             {
                 var stayDate = request.CheckInDate.AddDays(i);
-                var stayDateTime = stayDate.ToDateTime(TimeOnly.MinValue);
-
-                // Bước 1: Xác định giá gốc có hiệu lực tại ngày lưu trú (RoomPriceHistory ưu tiên, fallback BasePrice)
-                var matchedHistory = typeHistories.FirstOrDefault(h =>
-                    h.EffectiveFrom <= stayDateTime &&
-                    (!h.EffectiveTo.HasValue || h.EffectiveTo.Value >= stayDateTime));
-
-                decimal nightlyBasePrice;
-                string rateSource;
-
-                if (matchedHistory != null)
-                {
-                    nightlyBasePrice = matchedHistory.Price;
-                    rateSource = "History";
-                }
-                else
-                {
-                    nightlyBasePrice = basePrice;
-                    rateSource = "BasePrice";
-                }
-
-                // Bước 2: Tìm các PriceSurgeRules đang hoạt động thỏa mãn ngày và phòng
-                var candidateRules = activeSurgeRules
-                    .Where(r => r.IsActive)
-                    .Where(r => r.RoomTypeId == null || r.RoomTypeId == roomTypeId)
-                    .Where(r => stayDate >= r.StartDate && stayDate <= r.EndDate)
-                    .OrderByDescending(r => r.Priority)                           // Ưu tiên Priority cao nhất
-                    .ThenByDescending(r => r.RoomTypeId.HasValue ? 1 : 0)         // Cụ thể RoomType trước toàn khách sạn
-                    .ThenBy(r => r.RuleId)                                        // Tiêu chí ổn định RuleId tăng dần
-                    .ToList();
-
-                // Bước 3: Chọn đúng 1 quy tắc theo chính sách ưu tiên
-                var matchedRule = candidateRules.FirstOrDefault();
-
-                // Bước 4: Tính phụ thu và giá cuối cùng của đêm
-                decimal surgeAmount = 0m;
-                string appliedRule = "Giá ngày thường";
-
-                if (matchedRule != null)
-                {
-                    if (string.Equals(matchedRule.AdjustmentType, "PERCENTAGE", StringComparison.OrdinalIgnoreCase))
-                    {
-                        surgeAmount = Math.Round(nightlyBasePrice * (matchedRule.AdjustmentValue / 100m), 2);
-                        appliedRule = $"{matchedRule.RuleName} (+{matchedRule.AdjustmentValue}%)";
-                    }
-                    else if (string.Equals(matchedRule.AdjustmentType, "FIXED_AMOUNT", StringComparison.OrdinalIgnoreCase))
-                    {
-                        surgeAmount = matchedRule.AdjustmentValue;
-                        appliedRule = $"{matchedRule.RuleName} (+{matchedRule.AdjustmentValue:N0}đ)";
-                    }
-                }
-
+                var rate = HotelBooking.Application.Rooms.NightlyRateCalculator.Calculate(
+                    request.HotelId, roomTypeId, basePrice, stayDate, typeHistories, activeSurgeRules);
+                var nightlyBasePrice = rate.BasePrice;
+                var surgeAmount = rate.SurgeAmount;
+                var rateSource = rate.Source;
+                var appliedRule = rate.AppliedRule;
                 decimal finalNightlyPrice = nightlyBasePrice + surgeAmount;
                 roomSubTotal += finalNightlyPrice;
 
