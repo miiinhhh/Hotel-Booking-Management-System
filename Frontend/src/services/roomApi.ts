@@ -1,3 +1,4 @@
+import { FORBIDDEN_MESSAGE, notifyAuthFailure } from '../auth/permissions';
 import { ApiError, getStoredAccessToken } from './authApi';
 
 export type RoomStatus = 'Available' | 'Occupied' | 'Maintenance' | 'Inactive';
@@ -46,9 +47,10 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) {
+    notifyAuthFailure(response.status);
     const error = await response.json().catch(() => null);
     const validation = error?.errors ? Object.values(error.errors).flat().join(' ') : '';
-    throw new ApiError(error?.detail || validation || error?.title || `Yêu cầu thất bại (${response.status}).`, response.status);
+    throw new ApiError(error?.detail || validation || (response.status === 403 ? FORBIDDEN_MESSAGE : error?.title) || `Yêu cầu thất bại (${response.status}).`, response.status);
   }
   if (response.status === 204) return undefined as T;
   return response.json();

@@ -1,3 +1,4 @@
+import { FORBIDDEN_MESSAGE, notifyForbidden } from '../auth/permissions';
 import { loadAllStaff } from './staffPagination';
 
 export interface AuthResponse {
@@ -89,7 +90,8 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
     const validation = payload?.errors && !Array.isArray(payload.errors)
       ? Object.values(payload.errors).flat()[0]
       : Array.isArray(payload?.errors) ? payload.errors[0] : undefined;
-    const fallback = response.status === 401 ? 'Phiên xác thực không hợp lệ.' : `Yêu cầu không thành công (${response.status}).`;
+    if (response.status === 403) notifyForbidden();
+    const fallback = response.status === 401 ? 'Phiên xác thực không hợp lệ.' : response.status === 403 ? FORBIDDEN_MESSAGE : `Yêu cầu không thành công (${response.status}).`;
     throw new ApiError(payload?.detail || payload?.message || validation || payload?.title || fallback, response.status, payload?.code);
   }
   if (response.status === 204) return undefined as T;

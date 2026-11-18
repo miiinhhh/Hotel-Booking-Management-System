@@ -5,12 +5,15 @@ interface HotelCardProps {
   hotel: Hotel;
   onSelect?: (hotel: Hotel) => void;
   onFavoriteToggle?: (hotelId: string, isFav: boolean) => void;
+  /** Ẩn nút trái tim khi tài khoản không có quyền dùng danh sách yêu thích. */
+  showFavorite?: boolean;
 }
 
 export const HotelCard: React.FC<HotelCardProps> = ({
   hotel,
   onSelect,
   onFavoriteToggle,
+  showFavorite = true,
 }) => {
   const isFavorite = hotel.isFavorite ?? false;
 
@@ -51,7 +54,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
         )}
 
         {/* Favorite Button */}
-        <button
+        {showFavorite && <button
           type="button"
           aria-label="Lưu vào danh sách yêu thích"
           onClick={handleFavoriteClick}
@@ -67,7 +70,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
           >
             favorite
           </span>
-        </button>
+        </button>}
       </div>
 
       {/* Middle & Right Content Split */}

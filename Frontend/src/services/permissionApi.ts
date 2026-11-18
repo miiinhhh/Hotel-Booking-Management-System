@@ -1,3 +1,4 @@
+import { FORBIDDEN_MESSAGE, notifyAuthFailure } from '../auth/permissions';
 import { API_BASE_URL, ApiError, getStoredAccessToken } from './authApi';
 
 export interface PermissionDto { permissionId: number; code: string; name: string; group: string; description: string | null }
@@ -9,8 +10,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getStoredAccessToken();
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } });
   if (!response.ok) {
+    notifyAuthFailure(response.status);
     const problem = await response.json().catch(() => null);
-    throw new ApiError(problem?.detail || problem?.title || `Yêu cầu không thành công (${response.status}).`, response.status);
+    throw new ApiError(problem?.detail || (response.status === 403 ? FORBIDDEN_MESSAGE : problem?.title) ||`Yêu cầu không thành công (${response.status}).`, response.status);
   }
   return response.status === 204 ? undefined as T : response.json();
 }

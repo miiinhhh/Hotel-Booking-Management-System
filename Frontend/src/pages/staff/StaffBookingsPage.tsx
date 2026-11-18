@@ -16,6 +16,8 @@ import {
   cancelBooking,
 } from '../../services/bookingApi';
 import { useAuth } from '../../context/AuthContext';
+import { PERMISSIONS } from '../../auth/permissions';
+import { STAFF_NAVIGATION } from './components/StaffSidebar';
 import { getStaffDashboard, getStaffNotifications, StaffPortalBookingDto, StaffPortalNotificationDto } from '../../services/staffPortalApi';
 import { roomApi } from '../../services/roomApi';
 
@@ -35,7 +37,8 @@ const mapStaffNotifications = (notifications: StaffPortalNotificationDto[]): Sta
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   onNavigateCustomerPortal,
 }) => {
-  const { logout, session } = useAuth();
+  const { logout, session, hasPermission, hasAnyPermission } = useAuth();
+  const canViewBookings = hasPermission(PERMISSIONS.bookingView);
   const [loggingOut, setLoggingOut] = useState(false);
   const [bookings, setBookings] = useState<StaffBooking[]>([]);
   const [metrics, setMetrics] = useState<StaffMetricsData>({
@@ -189,8 +192,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
       }
     });
 
-    fetchBookings();
-  }, [fetchBookings]);
+    if (canViewBookings) fetchBookings();
+    else setLoadingBookings(false);
+  }, [fetchBookings, canViewBookings]);
 
   useEffect(() => {
     const refreshNotifications = async () => {
@@ -383,10 +387,13 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     showToast(`${message} cho đơn ${updated.bookingCode}`);
   };
 
-  const [staffTab, setStaffTab] = useState<StaffPortalTab>('reservations');
+  const allowedTabs = STAFF_NAVIGATION.filter((item) => hasAnyPermission(item.permissions)).map((item) => item.id);
+  const [selectedStaffTab, setStaffTab] = useState<StaffPortalTab>('reservations');
+  // Tab bị thu hồi quyền (hoặc không được cấp) sẽ không render; tự chuyển sang tab đầu tiên còn quyền.
+  const staffTab: StaffPortalTab | null = allowedTabs.includes(selectedStaffTab) ? selectedStaffTab : allowedTabs[0] ?? null;
 
   const handleSelectStaffTab = (tab: string) => {
-    setStaffTab(tab as StaffPortalTab);
+    if (allowedTabs.includes(tab as StaffPortalTab)) setStaffTab(tab as StaffPortalTab);
   };
 
   const handleExportExcel = () => {
@@ -424,7 +431,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     <div className="bg-surface font-body-md text-on-surface antialiased min-h-screen flex selection:bg-secondary-container selection:text-on-secondary-container">
       {/* PERSISTENT LEFT SIDEBAR */}
       <StaffSidebar
-        currentTab={staffTab}
+        currentTab={staffTab ?? undefined}
         onSelectTab={handleSelectStaffTab}
         onNavigateCustomerPortal={onNavigateCustomerPortal}
         assignedAreas={assignedAreas}
@@ -448,7 +455,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           notifications={staffNotifications}
           onLogout={() => void handleLogout()}
           loggingOut={loggingOut}
-          currentTab={staffTab}
+          currentTab={staffTab ?? undefined}
         />
 
         {/* MAIN OPERATIONAL WORKSPACE */}
@@ -461,6 +468,14 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
               </span>
               <span className="font-label-md text-label-md font-medium">{toastMessage}</span>
             </div>
+          )}
+
+          {!staffTab && (
+            <section className="mx-auto mt-16 flex max-w-xl flex-col items-center gap-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-14 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container text-primary"><span className="material-symbols-outlined text-[28px]">lock_person</span></span>
+              <h1 className="font-headline-sm text-headline-sm text-on-surface">Tài khoản chưa được cấp quyền vận hành</h1>
+              <p className="font-body-md text-body-md text-on-surface-variant">Vai trò hiện tại của bạn chưa có quyền sử dụng chức năng nào trong Staff Portal. Vui lòng liên hệ quản trị viên để được cấp quyền.</p>
+            </section>
           )}
 
           {/* 1. CALENDAR VIEW (Lịch phòng & Khóa bán) */}

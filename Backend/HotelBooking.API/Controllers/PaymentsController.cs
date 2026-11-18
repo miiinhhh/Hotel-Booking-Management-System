@@ -364,6 +364,7 @@ public class PaymentsController : BaseAPIController
     /// </summary>
     [HttpPost("vnpay/refund/{bookingId:long}")]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PaymentManage)]
     public async Task<IActionResult> RefundVnPayPayment(long bookingId, CancellationToken ct)
     {
         var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
@@ -383,6 +384,7 @@ public class PaymentsController : BaseAPIController
     /// </summary>
     [HttpPost("refund/confirm/{bookingId:long}")]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PaymentManage)]
     public async Task<IActionResult> ConfirmRefund(
         long bookingId,
         [FromServices] IBookingRepository bookingRepo,
@@ -413,6 +415,7 @@ public class PaymentsController : BaseAPIController
     /// </summary>
     [HttpPost("cash-collect/{bookingId:long}")]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.PaymentManage)]
     public async Task<IActionResult> CollectCashPayment(
         long bookingId,
         [FromServices] IBookingRepository bookingRepo,

@@ -11,7 +11,8 @@ interface AdminShellProps {
 }
 
 export const AdminShell: React.FC<AdminShellProps> = ({ activePage, onPageChange, onExit, children }) => {
-  const { session, logout } = useAuth();
+  const { session, logout, hasAnyPermission } = useAuth();
+  const navigation = ADMIN_NAVIGATION.filter((item) => hasAnyPermission(item.permissions));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -48,7 +49,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({ activePage, onPageChange
             <p className="mt-1 font-semibold">Tổng Quản Lý / GM</p><p className="text-xs text-outline">Executive Access Level 1</p>
           </div>
           <nav className="space-y-1.5">
-            {ADMIN_NAVIGATION.map((item) => (
+            {navigation.map((item) => (
               <button key={item.id} onClick={() => navigate(item.id)} className={`flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-sm transition-colors ${activePage === item.id ? 'bg-primary-container font-semibold text-on-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
                 <span className="material-symbols-outlined text-xl">{item.icon}</span><span>{item.label}</span>
               </button>

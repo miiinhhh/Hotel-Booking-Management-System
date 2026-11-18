@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { discoveryApi } from '../../../services/discoveryApi';
+import { useAuth } from '../../../context/AuthContext';
+import { SELF_PERMISSIONS } from '../../../auth/permissions';
 
 interface BreadcrumbHeaderProps {
   hotelName: string;
@@ -16,13 +18,16 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
   onNavigateSearch,
   isInitiallyFavorited = false,
 }) => {
+  const { session, hasPermission } = useAuth();
+  const canUseWishlist = Boolean(session) && hasPermission(SELF_PERMISSIONS.wishlistManage);
   const [isFavorited, setIsFavorited] = useState(isInitiallyFavorited);
   const [shareText, setShareText] = useState('Chia sẻ');
-  useEffect(() => { let alive = true; discoveryApi.wishlist().then(items => { if (alive) setIsFavorited(items.some(item => item.hotelId === hotelId)); }).catch(() => {}); return () => { alive = false; }; }, [hotelId]);
+  useEffect(() => { let alive = true; if (!canUseWishlist) return; discoveryApi.wishlist().then(items => { if (alive) setIsFavorited(items.some(item => item.hotelId === hotelId)); }).catch(() => {}); return () => { alive = false; }; }, [hotelId, canUseWishlist]);
 
   const [favoriteError, setFavoriteError] = useState('');
   const handleFavoriteClick = async () => {
     if (!hotelId) return;
+    if (!session) { setFavoriteError('Vui lòng đăng nhập để lưu khách sạn.'); return; }
     try { await discoveryApi.save(hotelId, !isFavorited); setIsFavorited(!isFavorited); setFavoriteError(''); }
     catch (error) { setFavoriteError(error instanceof Error ? error.message : 'Không lưu được.'); }
   };
@@ -118,7 +123,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           <span className="font-label-md text-label-md">{shareText}</span>
         </button>
 
-        <button
+        {(!session || canUseWishlist) && <button
           type="button"
           onClick={handleFavoriteClick}
           className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-lowest shadow-sm hover:bg-surface-container-low transition-all text-on-surface-variant hover:text-primary active:scale-95 group cursor-pointer border-0"
@@ -136,7 +141,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           <span className="font-label-md text-label-md">
             {isFavorited ? 'Đã lưu yêu thích' : 'Lưu yêu thích'}
           </span>
-        </button>
+        </button>}
       </div>
     </section>
   );

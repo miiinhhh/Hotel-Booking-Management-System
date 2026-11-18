@@ -1,3 +1,4 @@
+import { FORBIDDEN_MESSAGE, notifyAuthFailure } from '../auth/permissions';
 import { ApiError, getStoredAccessToken } from './authApi';
 import type { Hotel } from '../pages/search/types';
 import type { HotelDetail, Room } from '../pages/hotel-detail/types';
@@ -13,7 +14,7 @@ export async function discoveryRequest<T>(path: string, init: RequestInit = {}):
   let response: Response;
   try { response = await fetch(BASE + path, { ...init, headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } }); }
   catch (error) { if (error instanceof Error && error.name === 'AbortError') throw error; throw new ApiError('Không kết nối được máy chủ. Hãy thử lại.', 0); }
-  if (!response.ok) { const error = await response.json().catch(() => null); throw new ApiError(error?.detail || error?.title || `Yêu cầu thất bại (${response.status}).`, response.status); }
+  if (!response.ok) { notifyAuthFailure(response.status); const error = await response.json().catch(() => null); throw new ApiError(error?.detail || (response.status === 403 ? FORBIDDEN_MESSAGE : error?.title) || `Yêu cầu thất bại (${response.status}).`, response.status); }
   return response.status === 204 ? undefined as T : response.json();
 }
 export interface HotelCardData { hotelId: number; name: string; address: string; city: string; imageUrl: string | null; roomTypeName: string; pricePerNight: number; availableRooms: number; capacity: number }

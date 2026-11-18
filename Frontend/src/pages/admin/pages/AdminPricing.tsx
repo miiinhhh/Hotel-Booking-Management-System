@@ -1,5 +1,7 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { PageHeading, Toast } from '../components/AdminUi';
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../auth/permissions';
 import { formatVnd } from '../../../utils/formatters';
 import { PriceHistoryChart } from '../components/PriceHistoryChart';
 import {
@@ -14,6 +16,9 @@ import {
 } from '../../../services/pricingAdminApi';
 
 export const AdminPricing: React.FC = () => {
+  const { hasPermission } = useAuth();
+  const canManagePricing = hasPermission(PERMISSIONS.pricingManage);
+  const canManageRoomTypes = hasPermission(PERMISSIONS.roomManage);
   const [hotels, setHotels] = useState<HotelDto[]>([]);
   const [selectedHotelId, setSelectedHotelId] = useState<number>(1);
   const [roomTypes, setRoomTypes] = useState<RoomTypeDto[]>([]);
@@ -145,6 +150,7 @@ export const AdminPricing: React.FC = () => {
 
   // Thao tác 1: Tạo cấu hình giá mới theo thời gian (RoomPriceHistory)
   const savePriceHistory = async (event: FormEvent<HTMLFormElement>) => {
+    if (!canManagePricing) { event.preventDefault(); return; }
     event.preventDefault();
     if (!selectedRoom) {
       setError('Vui lòng chọn hạng phòng trước.');
@@ -343,14 +349,14 @@ export const AdminPricing: React.FC = () => {
                     Giá gốc hiện tại trong CSDL:{' '}
                     <strong>{formatCurrency(selectedRoom?.basePrice || 0)}</strong>
                   </span>
-                  <button
+                  {canManageRoomTypes && <button
                     type="button"
                     onClick={handleUpdatePermanentBasePrice}
                     disabled={isSubmitting}
                     className="text-xs font-bold text-primary underline hover:opacity-80 cursor-pointer"
                   >
                     Cập nhật làm giá gốc vĩnh viễn (RoomTypes.BasePrice)
-                  </button>
+                  </button>}
                 </div>
               </div>
             </section>
@@ -525,7 +531,7 @@ export const AdminPricing: React.FC = () => {
               </div>
             </article>
 
-            <button
+            {canManagePricing && <button
               type="submit"
               disabled={isSubmitting || !selectedRoom}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary shadow-md hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
@@ -543,7 +549,7 @@ export const AdminPricing: React.FC = () => {
                   Thêm vào RoomPriceHistory
                 </>
               )}
-            </button>
+            </button>}
           </aside>
         </form>
       )}

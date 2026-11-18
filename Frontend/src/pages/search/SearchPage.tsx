@@ -3,10 +3,13 @@ import { HotelList } from './components/HotelList';
 import { Hotel } from './types';
 import { SearchCard } from '../dashboard/components/SearchCard';
 import { useAuth } from '../../context/AuthContext';
+import { SELF_PERMISSIONS } from '../../auth/permissions';
 import { defaultSelection, discoveryApi, DiscoveryPage, DiscoverySelection, HotelCardData, mediaUrl, toHotel } from '../../services/discoveryApi';
 interface SearchPageProps { initialLocation?: string; initialDates?: string; initialGuests?: string; initialSelection?: DiscoverySelection; initialShowSaved?: boolean; onNavigateHome?: () => void; onSelectHotel?: (hotel: Hotel, selection?: DiscoverySelection) => void }
 export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initialShowSaved = false, onSelectHotel }) => {
-  const { session } = useAuth();
+  const { session, hasPermission } = useAuth();
+  // Khách chưa đăng nhập vẫn thấy trái tim (bấm sẽ được nhắc đăng nhập); tài khoản bị tắt quyền thì ẩn hẳn.
+  const canUseWishlist = !session || hasPermission(SELF_PERMISSIONS.wishlistManage);
   const [selection, setSelection] = useState<DiscoverySelection>(() => ({ ...(initialSelection || defaultSelection()), location: '' }));
   const [filters, setFilters] = useState({ minPrice: '', maxPrice: '', roomTypeName: '', amenityId: '', sort: 'price_asc' });
   const [page, setPage] = useState(1);
@@ -17,7 +20,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
   const [amenities, setAmenities] = useState<{ amenityId: number; name: string }[]>([]);
   useEffect(() => { if (initialSelection) { setSelection({ ...initialSelection, location: '' }); setPage(1); } }, [initialSelection]);
   useEffect(() => { let alive = true; discoveryApi.amenities().then(v => { if (alive) setAmenities(v); }).catch(() => {}); return () => { alive = false; }; }, []);
-  useEffect(() => { let alive = true; setSaved([]); if (session) discoveryApi.wishlist().then(v => { if (alive) setSaved(v); }).catch(e => { if (alive) setNotice(e.message); }); return () => { alive = false; }; }, [session?.userId]);
+  useEffect(() => { let alive = true; setSaved([]); if (session && canUseWishlist) discoveryApi.wishlist().then(v => { if (alive) setSaved(v); }).catch(e => { if (alive) setNotice(e.message); }); return () => { alive = false; }; }, [session?.userId, canUseWishlist]);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError(''); setResult(null);
     discoveryApi.search({ location: selection.location, checkIn: selection.checkIn, checkOut: selection.checkOut, adults: selection.adults, children: selection.children, rooms: selection.rooms, ...filters, page, pageSize: 12 }, controller.signal)
@@ -34,10 +37,10 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
       <div className="flex flex-wrap gap-3">{([['roomTypeName', 'Tên loại phòng'], ['minPrice', 'Giá tối thiểu'], ['maxPrice', 'Giá tối đa']] as const).map(([key, label]) => <label key={key}>{label}<input aria-label={label} type={key === 'roomTypeName' ? 'text' : 'number'} min="0" value={filters[key]} onChange={e => { setFilters({ ...filters, [key]: e.target.value }); setPage(1); }} className="mt-1 block rounded-lg border border-outline-variant p-2" /></label>)}
         <label>Tiện ích<select value={filters.amenityId} onChange={e => { setFilters({ ...filters, amenityId: e.target.value }); setPage(1); }} className="mt-1 block rounded-lg border p-2"><option value="">Tất cả</option>{amenities.map(a => <option key={a.amenityId} value={a.amenityId}>{a.name}</option>)}</select></label>
         <label>Sắp xếp<select value={filters.sort} onChange={e => { setFilters({ ...filters, sort: e.target.value }); setPage(1); }} className="mt-1 block rounded-lg border p-2"><option value="price_asc">Giá tăng dần</option><option value="price_desc">Giá giảm dần</option><option value="name">Tên khách sạn</option></select></label>
-        <button type="button" aria-pressed={showSaved} className={`flex items-center gap-1.5 self-end rounded-full px-4 py-2 font-label-md text-label-md font-semibold transition-colors ${showSaved ? 'bg-primary-container text-on-primary' : 'bg-surface-container text-on-surface hover:text-primary'}`} onClick={() => setShowSaved(!showSaved)}><span className="material-symbols-outlined text-[18px]" style={showSaved ? undefined : { fontVariationSettings: "'FILL' 1" }}>{showSaved ? 'search' : 'favorite'}</span>{showSaved ? 'Kết quả tìm kiếm' : `Yêu thích (${saved.length})`}</button>
+        {canUseWishlist && <button type="button" aria-pressed={showSaved} className={`flex items-center gap-1.5 self-end rounded-full px-4 py-2 font-label-md text-label-md font-semibold transition-colors ${showSaved ? 'bg-primary-container text-on-primary' : 'bg-surface-container text-on-surface hover:text-primary'}`} onClick={() => setShowSaved(!showSaved)}><span className="material-symbols-outlined text-[18px]" style={showSaved ? undefined : { fontVariationSettings: "'FILL' 1" }}>{showSaved ? 'search' : 'favorite'}</span>{showSaved ? 'Kết quả tìm kiếm' : `Yêu thích (${saved.length})`}</button>}
       </div>
       {notice && <p role="status" className="rounded-lg bg-surface-container p-3">{notice}</p>}
-      {showSaved ? <section aria-label="Khách sạn yêu thích" className="space-y-4">
+      {showSaved && canUseWishlist ? <section aria-label="Khách sạn yêu thích" className="space-y-4">
         <div className="flex items-center gap-2 text-on-surface"><span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span><h2 className="font-headline-sm text-headline-sm">Khách sạn đã lưu</h2><span className="rounded-full bg-surface-container px-2.5 py-0.5 font-label-sm text-label-sm font-semibold text-on-surface-variant">{saved.length}</span></div>
         {!saved.length ? <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-14 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container text-primary"><span className="material-symbols-outlined text-[28px]">favorite</span></span>
@@ -61,7 +64,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
         </article>)}</div>}
       </section> : <>
         {loading && <p role="status">Đang tìm phòng trống…</p>}{error && <div role="alert" className="rounded-lg bg-error-container p-4">{error} <button onClick={() => setRetry(retry + 1)}>Thử lại</button></div>}
-        {result && <><p>{result.totalCount} khách sạn phù hợp · Giá tham khảo mỗi đêm, xác nhận lại khi đặt.</p><HotelList hotels={result.items.map(h => toHotel(h, saved.some(s => s.hotelId === h.hotelId)))} currentPage={page} totalPages={result.totalPages} totalResults={result.totalCount} onPageChange={setPage} onFavoriteToggle={(id, value) => void favorite(id, value)} onSelectHotel={h => onSelectHotel?.(h, selection)} /></>}
+        {result && <><p>{result.totalCount} khách sạn phù hợp · Giá tham khảo mỗi đêm, xác nhận lại khi đặt.</p><HotelList hotels={result.items.map(h => toHotel(h, saved.some(s => s.hotelId === h.hotelId)))} currentPage={page} totalPages={result.totalPages} totalResults={result.totalCount} onPageChange={setPage} onFavoriteToggle={canUseWishlist ? (id, value) => void favorite(id, value) : undefined} onSelectHotel={h => onSelectHotel?.(h, selection)} /></>}
       </>}
     </div></main>;
 };

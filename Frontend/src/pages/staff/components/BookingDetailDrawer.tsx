@@ -1,3 +1,5 @@
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../auth/permissions';
 import React, { useState, useEffect } from 'react';
 import { StaffBooking } from '../types';
 import { refundVnPayPayment, confirmManualRefund, confirmCashPayment } from '../../../services/paymentApi';
@@ -24,6 +26,9 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   onRefundBooking,
   onConfirmPayment,
 }) => {
+  const { hasPermission } = useAuth();
+  const canManageBooking = hasPermission(PERMISSIONS.bookingManage);
+  const canManagePayment = hasPermission(PERMISSIONS.paymentManage);
   const [isRefunding, setIsRefunding] = useState(false);
   const [isCollectingCash, setIsCollectingCash] = useState(false);
   const [showCashConfirmModal, setShowCashConfirmModal] = useState(false);
@@ -527,7 +532,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                     Tiền mặt hoặc quẹt thẻ POS khi bàn giao khóa phòng
                   </p>
                 </div>
-                {booking.remainingAmount > 0 && booking.status !== 'cancelled' && (
+                {canManagePayment && booking.remainingAmount > 0 && booking.status !== 'cancelled' && (
                   <button
                     type="button"
                     onClick={() => setShowCashConfirmModal(true)}
@@ -632,6 +637,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
         <footer className="p-4 md:px-8 bg-surface-container-lowest shadow-[0_-4px_24px_rgba(0,0,0,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3 relative z-10 border-t border-[#eae8e5]">
           {/* Left Utility Actions */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            {canManageBooking && <>
             <button
               type="button"
               onClick={handleRoomSwitch}
@@ -650,11 +656,12 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
               <span className="material-symbols-outlined text-[18px]">block</span>
               <span>Hủy booking</span>
             </button>
+            </>}
           </div>
 
           {/* Primary Action Buttons */}
           <div className="flex flex-wrap items-center justify-end gap-2.5 w-full sm:w-auto">
-            {booking.depositStatus === 'refund_pending' ? (
+            {booking.depositStatus === 'refund_pending' ? canManagePayment && (
               <>
                 <button
                   type="button"
@@ -694,7 +701,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
             ) : (
               <>
                 {/* Nút xác nhận đã thu đủ tiền mặt / POS nếu còn thiếu */}
-                {booking.remainingAmount > 0 && booking.status !== 'cancelled' && (
+                {canManagePayment && booking.remainingAmount > 0 && booking.status !== 'cancelled' && (
                   <button
                     type="button"
                     onClick={() => setShowCashConfirmModal(true)}
@@ -712,7 +719,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
                     <span className="material-symbols-outlined text-[20px]">check_circle</span>
                     <span>Đã Check-in ({booking.roomNumber})</span>
                   </div>
-                ) : (
+                ) : canManageBooking && (
                   <button
                     type="button"
                     onClick={handleExecuteCheckIn}

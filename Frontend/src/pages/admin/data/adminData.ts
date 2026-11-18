@@ -1,15 +1,16 @@
+import { PERMISSIONS as P } from '../../../auth/permissions';
 import { formatVnd } from '../../../utils/formatters';
 import { AdminNavigationItem, RoomType, StaffMember, Voucher } from '../types';
 
 export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
-  { id: 'overview', label: 'Tổng quan kinh doanh', icon: 'query_stats' },
-  { id: 'inventory', label: 'Phân khu & Hạng phòng', icon: 'apartment' },
-  { id: 'content', label: 'Tiện ích & Hình ảnh', icon: 'photo_library' },
-  { id: 'pricing', label: 'Giá phòng', icon: 'price_change' },
-  { id: 'vouchers', label: 'Voucher & Hủy hoàn', icon: 'confirmation_number' },
-  { id: 'staff', label: 'Nhân viên & Phân công', icon: 'badge' },
-  { id: 'accounts', label: 'Quản trị tài khoản', icon: 'manage_accounts' },
-  { id: 'roles', label: 'Vai trò & Phân quyền', icon: 'admin_panel_settings' },
+  { id: 'overview', label: 'Tổng quan kinh doanh', icon: 'query_stats', permissions: [P.reportsView] },
+  { id: 'inventory', label: 'Phân khu & Hạng phòng', icon: 'apartment', permissions: [P.hotelManage, P.areaManage, P.roomManage, P.inventoryView] },
+  { id: 'content', label: 'Tiện ích & Hình ảnh', icon: 'photo_library', permissions: [P.contentManage] },
+  { id: 'pricing', label: 'Giá phòng', icon: 'price_change', permissions: [P.pricingView] },
+  { id: 'vouchers', label: 'Voucher & Hủy hoàn', icon: 'confirmation_number', permissions: [P.voucherView, P.policiesManage] },
+  { id: 'staff', label: 'Nhân viên & Phân công', icon: 'badge', permissions: [P.staffView] },
+  { id: 'accounts', label: 'Quản trị tài khoản', icon: 'manage_accounts', permissions: [P.accountsManage] },
+  { id: 'roles', label: 'Vai trò & Phân quyền', icon: 'admin_panel_settings', permissions: [P.rolesManage] },
 ];
 
 export const ZONES = [

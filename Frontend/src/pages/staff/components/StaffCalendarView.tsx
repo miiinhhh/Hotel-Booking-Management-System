@@ -3,12 +3,16 @@ import { RoomCategorySchedule, EmergencyLockFormData } from '../types';
 import { EmergencyLockModal } from './EmergencyLockModal';
 import { getStaffCalendar } from '../../../services/staffPortalApi';
 import { roomApi } from '../../../services/roomApi';
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../auth/permissions';
 
 interface StaffCalendarViewProps {
   onShowToast?: (message: string) => void;
 }
 
 export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToast }) => {
+  const { hasPermission } = useAuth();
+  const canManageInventory = hasPermission(PERMISSIONS.inventoryManage);
   const [schedules, setSchedules] = useState<RoomCategorySchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,6 +73,7 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
   });
 
   const handleOpenLockModal = (category = '', roomNumber = '', hotelId?: number, allowedRoomIds: number[] = []) => {
+    if (!canManageInventory) return;
     if (!hotelId) {
       onShowToast?.('Vui lòng chọn một phân khu có phòng trước khi khóa bán.');
       return;
@@ -177,14 +182,14 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
             <span className="material-symbols-outlined text-[19px] text-secondary">file_download</span>
             <span>Xuất báo cáo công suất</span>
           </button>
-          <button
+          {canManageInventory && <button
             type="button"
             onClick={() => handleOpenLockModal(selectedZone === 'all' ? 'Tất cả phân khu được giao' : areaOptions.find(item => item.key === selectedZone)?.label || 'Phân khu được giao', '', lockHotelIds.length === 1 ? lockHotelIds[0] : undefined, lockRoomIds)}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-[0_8px_20px_-4px_rgba(194,65,12,0.35)] hover:bg-primary transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer font-semibold"
           >
             <span className="material-symbols-outlined text-[20px]">shield_lock</span>
             <span>+ Khóa phòng khẩn cấp</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -389,7 +394,7 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
                     </div>
                   </td>
                   {row.days.map((cell) => (
-                    <td key={cell.date} onClick={() => handleOpenLockModal(row.name, cell.lockedRoomNumber || '', row.hotelId, row.roomIds)} className={`p-2.5 cursor-pointer ${cell.isToday ? 'bg-primary-fixed/10' : ''}`}>
+                    <td key={cell.date} onClick={() => handleOpenLockModal(row.name, cell.lockedRoomNumber || '', row.hotelId, row.roomIds)} className={`p-2.5 ${canManageInventory ? 'cursor-pointer' : ''} ${cell.isToday ? 'bg-primary-fixed/10' : ''}`}>
                       <div className={`rounded-DEFAULT p-2.5 shadow-xs hover:shadow-md ${cell.isEmergencyLocked ? 'bg-error-container ring-1 ring-error/30' : cell.status === 'full' ? 'bg-surface-container-highest' : cell.status === 'low' ? 'bg-secondary-fixed/40' : 'bg-surface-container'}`}>
                         <div className="flex items-center justify-between"><strong className="text-sm">Còn {cell.availableCount} / {cell.totalCount}</strong><span className={`h-2 w-2 rounded-full ${cell.isEmergencyLocked ? 'bg-error' : cell.status === 'full' ? 'bg-inverse-surface' : cell.status === 'low' ? 'bg-secondary' : 'bg-emerald-600'}`} /></div>
                         <div className="my-2 h-1.5 overflow-hidden rounded-full bg-surface-container-high"><div className={`h-full ${cell.isEmergencyLocked ? 'bg-error' : cell.status === 'low' ? 'bg-secondary' : 'bg-emerald-600'}`} style={{ width: `${cell.occupancyPercent}%` }} /></div>

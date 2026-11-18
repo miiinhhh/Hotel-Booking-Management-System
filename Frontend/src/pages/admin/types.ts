@@ -4,6 +4,8 @@ export interface AdminNavigationItem {
   id: AdminPage;
   label: string;
   icon: string;
+  /** Hiện module khi người dùng có ít nhất một quyền trong danh sách. */
+  permissions: readonly string[];
 }
 
 export interface RoomType {

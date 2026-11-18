@@ -1,5 +1,15 @@
 import React from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../auth/permissions';
+import type { StaffPortalTab } from '../types';
+
+/** Tab của Staff Portal và quyền tối thiểu để hiển thị tab đó. */
+export const STAFF_NAVIGATION: { id: StaffPortalTab; label: string; icon: string; permissions: readonly string[] }[] = [
+  { id: 'reservations', label: 'Quản lý Đặt phòng', icon: 'event_available', permissions: [PERMISSIONS.bookingView] },
+  { id: 'calendar', label: 'Lịch phòng & Khóa bán', icon: 'calendar_month', permissions: [PERMISSIONS.inventoryView] },
+  { id: 'suites', label: 'Suites & Phân khu', icon: 'bed', permissions: [PERMISSIONS.inventoryView] },
+  { id: 'customers', label: 'Hồ sơ Khách hàng', icon: 'group', permissions: [PERMISSIONS.bookingView] },
+];
 
 interface StaffSidebarProps {
   currentTab?: string;
@@ -25,15 +35,10 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   activeAreaId,
   onSelectArea,
 }) => {
-  const { session, profile } = useAuth();
+  const { session, profile, hasAnyPermission } = useAuth();
   const staffName = profile?.fullName || session?.fullName || 'Nhân viên';
   const initials = staffName.trim().split(/\s+/).filter(Boolean).slice(-2).map(part => part[0]).join('').toUpperCase() || 'NV';
-  const navItems = [
-    { id: 'reservations', label: 'Quản lý Đặt phòng', icon: 'event_available' },
-    { id: 'calendar', label: 'Lịch phòng & Khóa bán', icon: 'calendar_month' },
-    { id: 'suites', label: 'Suites & Phân khu', icon: 'bed' },
-    { id: 'customers', label: 'Hồ sơ Khách hàng', icon: 'group' },
-  ];
+  const navItems = STAFF_NAVIGATION.filter((item) => hasAnyPermission(item.permissions));
 
   const currentArea = assignedAreas?.find((a) => a.areaId === activeAreaId) || assignedAreas?.[0];
 

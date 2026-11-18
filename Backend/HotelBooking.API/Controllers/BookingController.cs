@@ -190,6 +190,7 @@ public class BookingController : BaseAPIController
     /// </summary>
     [HttpPost("{id:long}/no-show")]
     [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.BookingManage)]
     public async Task<IActionResult> MarkNoShow(long id, [FromBody] NoShowRequest request)
     {
         var (staffUserId, isAdmin, isStaff) = GetUserContext();

@@ -17,6 +17,15 @@ import { CheckoutBookingData } from './pages/checkout/types';
 import { LoginPage, ProfilePage, RegisterPage } from './pages/account';
 import { VnPayReturnPage } from './pages/checkout/VnPayReturnPage';
 import { useAuth } from './context/AuthContext';
+import { SELF_PERMISSIONS } from './auth/permissions';
+
+/** Tab tự phục vụ của khách và quyền cần có (chỉ áp dụng khi đã đăng nhập). */
+const CUSTOMER_TAB_PERMISSIONS: Record<string, string> = {
+  'dat-phong-cua-toi': SELF_PERMISSIONS.bookingView,
+  'danh-gia': SELF_PERMISSIONS.reviewManage,
+  'yeu-thich': SELF_PERMISSIONS.wishlistManage,
+  'thanh-toan': SELF_PERMISSIONS.bookingCreate,
+};
 import InformationPage, { InformationPageId } from './pages/information/InformationPage';
 
 const informationTabs: InformationPageId[] = ['dieu-khoan', 'chinh-sach-bao-mat', 'tro-giup', 'lien-he'];
@@ -45,7 +54,7 @@ const portalFromPath = () => {
 };
 
 function App() {
-  const { session, hasRole } = useAuth();
+  const { session, hasRole, hasPermission } = useAuth();
   const [initialPendingCheckout] = useState<CheckoutBookingData | null>(() => readPendingCheckout());
   const isVnPayReturn = typeof window !== 'undefined' && (window.location.pathname.includes('vnpay-return') || window.location.search.includes('txnRef=') || window.location.search.includes('vnp_TxnRef='));
   const [activeTab, setActiveTab] = useState(
@@ -57,6 +66,15 @@ function App() {
   );
   const [searchParams, setSearchParams] = useState<DiscoverySelection>(defaultSelection);
   const [detailStatus, setDetailStatus] = useState('');
+
+  // Khi quyền tự phục vụ bị tắt (kể cả lúc đang mở trang), không render chức năng đó và đưa khách về trang khám phá.
+  const requiredTabPermission = session ? CUSTOMER_TAB_PERMISSIONS[activeTab] : undefined;
+  const tabBlocked = Boolean(requiredTabPermission && !hasPermission(requiredTabPermission));
+  useEffect(() => {
+    if (!tabBlocked) return;
+    setActiveTab('kham-pha');
+    setDetailStatus('Chức năng này hiện không khả dụng với tài khoản của bạn.');
+  }, [tabBlocked]);
   const [currentHotelDetail, setCurrentHotelDetail] = useState<HotelDetail | null>(null);
   const [currentCheckoutData, setCurrentCheckoutData] =
     useState<CheckoutBookingData>(initialPendingCheckout || DEFAULT_CHECKOUT_DATA);
@@ -117,6 +135,11 @@ function App() {
     } catch (error) { setDetailStatus(error instanceof Error ? error.message : 'Không tải được khách sạn.'); }
   };
   const handleNavigateToCheckout = (room?: Room, totalPrice?: number) => {
+    if (session && !hasPermission(SELF_PERMISSIONS.bookingCreate)) {
+      setDetailStatus('Tài khoản của bạn hiện không có quyền đặt phòng trực tuyến.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     let nextCheckoutData = currentCheckoutData;
     if (room && totalPrice !== undefined) {
       const deposit = Math.round((totalPrice * 30) / 100);
@@ -215,7 +238,7 @@ function App() {
       {detailStatus && <p role="status" className="mx-5 mt-24 rounded-lg bg-surface-container p-4">{detailStatus}</p>}
       {/* Main Content Area */}
       <div className="flex-1">
-        {(activeTab === 'tim-kiem' || activeTab === 'yeu-thich') && (
+        {!tabBlocked && (activeTab === 'tim-kiem' || activeTab === 'yeu-thich') && (
           <SearchPage
             initialSelection={searchParams}
             initialShowSaved={activeTab === 'yeu-thich'}
@@ -248,7 +271,7 @@ function App() {
           />
         )}
 
-        {activeTab === 'dat-phong-cua-toi' && (
+        {!tabBlocked && activeTab === 'dat-phong-cua-toi' && (
           <BookingHistoryPage
             onNavigateHome={() => setActiveTab('kham-pha')}
             onNavigateSearch={() => setActiveTab('tim-kiem')}
@@ -259,14 +282,14 @@ function App() {
           />
         )}
 
-        {activeTab === 'danh-gia' && (
+        {!tabBlocked && activeTab === 'danh-gia' && (
           <ReviewPage
             onNavigateHome={() => setActiveTab('kham-pha')}
             onNavigateHistory={() => setActiveTab('dat-phong-cua-toi')}
           />
         )}
 
-        {activeTab === 'thanh-toan' && (
+        {!tabBlocked && activeTab === 'thanh-toan' && (
           <CheckoutPage
             initialBookingData={currentCheckoutData}
             onNavigateBack={() => setActiveTab('chi-tiet-phong')}

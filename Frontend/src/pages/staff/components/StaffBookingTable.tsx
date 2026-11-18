@@ -1,3 +1,5 @@
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../auth/permissions';
 import React from 'react';
 import { StaffBooking } from '../types';
 
@@ -14,6 +16,8 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
   onQuickCheckIn,
   onQuickConfirmBooking,
 }) => {
+  const { hasPermission } = useAuth();
+  const canManageBooking = hasPermission(PERMISSIONS.bookingManage);
   return (
     <div className="bg-surface-container-lowest rounded-DEFAULT shadow-[0_4px_24px_-2px_rgba(120,53,15,0.04)] border border-[#eae8e5] overflow-hidden">
       <div className="w-full overflow-x-auto">
@@ -256,7 +260,7 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
                           <span className="material-symbols-outlined text-[19px]">visibility</span>
                         </button>
 
-                        {isConfirmed && (
+                        {canManageBooking && isConfirmed && (
                           <button
                             type="button"
                             onClick={() => onQuickCheckIn(booking)}
@@ -268,7 +272,7 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
                           </button>
                         )}
 
-                        {isPending && (
+                        {canManageBooking && isPending && (
                           <button
                             type="button"
                             onClick={() => onQuickConfirmBooking(booking)}

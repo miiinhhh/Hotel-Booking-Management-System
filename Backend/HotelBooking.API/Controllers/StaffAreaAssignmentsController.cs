@@ -92,7 +92,8 @@ public class StaffAreaAssignmentsController : ControllerBase
     /// Lấy danh sách các phân khu mà nhân sự đang đăng nhập phụ trách (Dành cho Staff Portal - Active Zone)
     /// </summary>
     [HttpGet("api/staff/me/assigned-areas")]
-    [RequirePermission(SystemPermissions.StaffView)]
+    // Chỉ trả phạm vi của chính người đang đăng nhập nên không đòi quyền quản lý nhân sự (staff.view).
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
     public async Task<IActionResult> GetMyAssignedAreas(
         [FromQuery] int? hotelId,
         CancellationToken ct)

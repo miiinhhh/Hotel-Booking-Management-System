@@ -1,3 +1,4 @@
+import { FORBIDDEN_MESSAGE, notifyAuthFailure } from '../auth/permissions';
 import { ApiError, getStoredAccessToken } from './authApi';
 
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -37,9 +38,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set('Content-Type', 'application/json');
   const response = await fetch(BASE + path, { ...init, headers });
   if (!response.ok) {
+    notifyAuthFailure(response.status);
     const problem = await response.json().catch(() => null);
     const validation = problem?.errors ? Object.values(problem.errors).flat().join(' ') : '';
-    throw new ApiError(problem?.detail || validation || problem?.title || `Yêu cầu thất bại (${response.status}).`, response.status);
+    throw new ApiError(problem?.detail || validation || (response.status === 403 ? FORBIDDEN_MESSAGE : problem?.title) || `Yêu cầu thất bại (${response.status}).`, response.status);
   }
   return response.status === 204 ? undefined as T : response.json();
 }

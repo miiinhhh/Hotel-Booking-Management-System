@@ -56,7 +56,13 @@ public sealed class PermissionManagementService(HotelBookingDbContext db) : IPer
         var permissions = await db.Permissions.Where(x => x.IsActive && requested.Contains(x.PermissionCode)).ToListAsync(ct);
         if (permissions.Count != requested.Length) throw new NotFoundException("One or more permissions do not exist.");
         var actorCodes = await EffectivePermissions(actorId, ct);
-        if (requested.Any(x => !actorCodes.Contains(x))) throw new UnauthorizedAccessException("You cannot grant a permission that you do not have.");
+        // Chống leo thang quyền: chỉ được gán quyền vận hành mà chính mình đang có.
+        // Quyền tự phục vụ của khách (*.self.*) chỉ cho phép thao tác trên dữ liệu của chính người dùng,
+        // nên Admin (vốn không mang các quyền này) vẫn được bật/tắt chúng cho role Customer.
+        var notHeld = requested.Where(x => !actorCodes.Contains(x)
+            && !SystemPermissions.DefaultCustomer.Contains(x, StringComparer.OrdinalIgnoreCase)).ToArray();
+        if (notHeld.Length != 0)
+            throw new UnauthorizedAccessException($"Bạn không thể cấp quyền mà chính tài khoản của bạn chưa có: {string.Join(", ", notHeld)}.");
 
         db.RolePermissions.RemoveRange(role.RolePermissions);
         foreach (var permission in permissions)

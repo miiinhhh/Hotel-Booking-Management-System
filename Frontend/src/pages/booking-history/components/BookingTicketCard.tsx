@@ -2,6 +2,8 @@ import React from 'react';
 import { BookingItem } from '../types';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { formatVnd, formatDateVi } from '../../../utils/formatters';
+import { useAuth } from '../../../context/AuthContext';
+import { SELF_PERMISSIONS } from '../../../auth/permissions';
 
 interface BookingTicketCardProps {
   booking: BookingItem;
@@ -20,6 +22,10 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
   onPayNow,
   onRebook,
 }) => {
+  const { hasPermission } = useAuth();
+  const canPay = hasPermission(SELF_PERMISSIONS.paymentManage);
+  const canCancel = hasPermission(SELF_PERMISSIONS.bookingCancel);
+  const canReview = hasPermission(SELF_PERMISSIONS.reviewManage);
   const isPending = booking.status === 'pending';
   const isCompleted = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
@@ -373,7 +379,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
           {/* Confirmed actions */}
           {isConfirmed && (
             <>
-              {booking.paymentStatus === 'PartiallyPaid' && (booking.remainingAmount ?? 0) > 0 && (
+              {canPay && booking.paymentStatus === 'PartiallyPaid' && (booking.remainingAmount ?? 0) > 0 && (
                 <button
                   onClick={() => onPayNow?.(booking, 'Full')}
                   className="w-full py-2.5 px-4 rounded-full bg-secondary text-on-secondary font-label-md text-label-md shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mb-1"
@@ -391,7 +397,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                 <span>Chi tiết đơn &amp; Vé điện tử</span>
               </button>
 
-              <div className="relative group w-full">
+              {canCancel && <div className="relative group w-full">
                 <button
                   onClick={() => onOpenCancelModal(booking)}
                   className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
@@ -405,7 +411,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                   </div>
                   <div className="w-2 h-2 bg-inverse-surface rotate-45 -mt-1" />
                 </div>
-              </div>
+              </div>}
 
               <div className="flex items-center justify-center gap-4 pt-1">
                 <a
@@ -436,27 +442,27 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
           {/* Pending actions */}
           {isPending && (
             <>
-              <button
+              {canPay && <button
                 onClick={() => onPayNow?.(booking, 'Deposit')}
                 className="w-full py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">payment</span>
                 <span>Thanh toán ngay ({formatVnd(booking.totalAmount)})</span>
-              </button>
+              </button>}
 
-              <button
+              {canCancel && <button
                 onClick={() => onOpenCancelModal(booking)}
                 className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>Hủy đặt phòng này</span>
-              </button>
+              </button>}
             </>
           )}
 
           {/* Completed actions */}
           {isCompleted && (
             <>
-              <button
+              {canReview && <button
                 onClick={() => onOpenReviewModal(booking)}
                 className="w-full py-2.5 px-4 rounded-full bg-surface-container-lowest text-primary-container font-label-lg text-label-lg border-2 border-primary-container/20 hover:border-primary-container shadow-sm hover:bg-primary-container hover:text-on-primary transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
@@ -467,7 +473,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                   star
                 </span>
                 <span>Viết đánh giá kỳ nghỉ</span>
-              </button>
+              </button>}
 
               <button
                 onClick={() => onRebook?.(booking)}

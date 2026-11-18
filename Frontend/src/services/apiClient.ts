@@ -1,3 +1,4 @@
+import { FORBIDDEN_MESSAGE, notifyAuthFailure } from '../auth/permissions';
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;
@@ -139,12 +140,14 @@ export async function apiClient<T>(
     });
 
     if (!res.ok) {
+      notifyAuthFailure(res.status);
       const errorJson = await res.json().catch(() => null);
       return {
         success: false,
         message:
           errorJson?.message ||
-          errorJson?.title ||
+          errorJson?.detail ||
+          (res.status === 403 ? FORBIDDEN_MESSAGE : errorJson?.title) ||
           `Yêu cầu thất bại với mã lỗi HTTP ${res.status}`,
         errors: errorJson?.errors ? Object.values(errorJson.errors).flat() as string[] : undefined,
       };

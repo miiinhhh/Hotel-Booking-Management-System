@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { onForbidden } from '../auth/permissions';
 import { AccountProfile, ApiError, AUTH_STORAGE_KEY, AuthResponse, authApi, LoginPortal } from '../services/authApi';
 
 interface RegisterInput {
@@ -32,6 +33,8 @@ interface AuthContextValue {
   deleteAvatar: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
+  /** true nếu có ít nhất một quyền trong danh sách (danh sách rỗng = luôn true). */
+  hasAnyPermission: (permissions: readonly string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -100,6 +103,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const timer = window.setTimeout(() => { void refreshSession().catch(() => undefined); }, delay);
     return () => window.clearTimeout(timer);
   }, [session, refreshSession]);
+
+  // Backend luôn đọc quyền mới nhất từ CSDL. Khi gặp 403, làm mới phiên để giao diện ẩn ngay
+  // các chức năng vừa bị thu hồi, và báo cho người dùng nếu danh sách quyền thực sự thay đổi.
+  const [accessNotice, setAccessNotice] = useState('');
+  const lastForbiddenSync = useRef(0);
+  const syncPermissions = useCallback(() => {
+    const current = sessionRef.current;
+    if (!current || Date.now() - lastForbiddenSync.current < 5_000) return;
+    lastForbiddenSync.current = Date.now();
+    const before = [...(current.permissions || [])].sort().join('|');
+    void refreshSession()
+      .then((next) => { if ([...(next.permissions || [])].sort().join('|') !== before) setAccessNotice('Quyền truy cập của bạn vừa được quản trị viên thay đổi. Giao diện đã cập nhật theo quyền mới.'); })
+      .catch(() => undefined);
+  }, [refreshSession]);
+  // Đồng bộ quyền khi: API trả 401/403, người dùng quay lại tab, và định kỳ mỗi 30 giây khi tab đang mở.
+  // Nhờ vậy menu/nút bị Admin tắt quyền sẽ tự ẩn mà không cần đăng nhập lại.
+  useEffect(() => onForbidden(syncPermissions), [syncPermissions]);
+  useEffect(() => {
+    if (!session) return;
+    const onVisible = () => { if (document.visibilityState === 'visible') syncPermissions(); };
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') syncPermissions(); }, 30_000);
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', onVisible); document.removeEventListener('visibilitychange', onVisible); };
+  }, [Boolean(session), syncPermissions]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!accessNotice) return;
+    const timer = window.setTimeout(() => setAccessNotice(''), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [accessNotice]);
 
   useEffect(() => {
     if (!session) { setLoading(false); return; }
@@ -171,9 +204,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     hasRole: (role) => Boolean(session?.roles.includes(role)),
     hasPermission: (permission) => Boolean(session?.permissions?.includes(permission)),
+    hasAnyPermission: (permissions) => permissions.length === 0 || permissions.some((p) => Boolean(session?.permissions?.includes(p))),
   }), [session, profile, loading, clearSession, persist, requireSession, updateSessionIdentity]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {accessNotice && (
+        <div role="status" className="fixed bottom-6 left-1/2 z-[100] flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-full bg-inverse-surface px-5 py-3 text-sm text-inverse-on-surface shadow-lg">
+          <span className="material-symbols-outlined text-[18px]">shield_person</span>
+          <span>{accessNotice}</span>
+          <button type="button" aria-label="Đóng thông báo" onClick={() => setAccessNotice('')} className="flex items-center"><span className="material-symbols-outlined text-[18px]">close</span></button>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 };
 
 export function useAuth() {

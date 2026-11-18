@@ -1,5 +1,7 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS } from '../../../auth/permissions';
 import { formatVnd } from '../../../utils/formatters';
 import {
   createVoucher,
@@ -16,7 +18,13 @@ import {
 } from '../../../services/cancellationAdminApi';
 
 export const AdminVouchers: React.FC = () => {
-  const [tab, setTab] = useState<'voucher' | 'policy'>('voucher');
+  const { hasPermission } = useAuth();
+  const canViewVouchers = hasPermission(PERMISSIONS.voucherView);
+  const canManageVouchers = hasPermission(PERMISSIONS.voucherManage);
+  const canManagePolicies = hasPermission(PERMISSIONS.policiesManage);
+  const [selectedTab, setTab] = useState<'voucher' | 'policy'>(canViewVouchers ? 'voucher' : 'policy');
+  // Chỉ hiển thị tab mà người dùng có quyền; nếu quyền bị thu hồi thì tự chuyển tab còn lại.
+  const tab: 'voucher' | 'policy' = selectedTab === 'voucher' && !canViewVouchers ? 'policy' : selectedTab === 'policy' && !canManagePolicies ? 'voucher' : selectedTab;
   const [selectedHotelId] = useState<number>(1);
 
   // Vouchers state
@@ -79,9 +87,9 @@ export const AdminVouchers: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchVouchers();
-    fetchPolicies();
-  }, [selectedHotelId]);
+    if (canViewVouchers) fetchVouchers();
+    if (canManagePolicies) fetchPolicies();
+  }, [selectedHotelId, canViewVouchers, canManagePolicies]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bộ lọc vouchers phía client cho trải nghiệm tức thời
   const filteredVouchers = useMemo(() => {
@@ -265,7 +273,7 @@ export const AdminVouchers: React.FC = () => {
               <span className="material-symbols-outlined text-lg">refresh</span>
               Làm mới
             </button>
-            {tab === 'voucher' ? (
+            {tab === 'voucher' ? canManageVouchers && (
               <button
                 onClick={() => setVoucherModalOpen(true)}
                 className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary hover:bg-primary/90"
@@ -273,7 +281,7 @@ export const AdminVouchers: React.FC = () => {
                 <span className="material-symbols-outlined text-lg">add</span>
                 Tạo voucher
               </button>
-            ) : (
+            ) : canManagePolicies && (
               <button
                 onClick={() => setPolicyModalOpen(true)}
                 className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary hover:bg-primary/90"
@@ -302,7 +310,7 @@ export const AdminVouchers: React.FC = () => {
       )}
 
       {/* Tabs */}
-      <div className="mb-6 inline-flex rounded-full bg-surface-container p-1">
+      {canViewVouchers && canManagePolicies && <div className="mb-6 inline-flex rounded-full bg-surface-container p-1">
         <button
           onClick={() => setTab('voucher')}
           className={`rounded-full px-6 py-2.5 font-semibold ${
@@ -327,7 +335,7 @@ export const AdminVouchers: React.FC = () => {
           <span className="material-symbols-outlined mr-2 align-middle text-lg">policy</span>
           Chính sách Hủy / Hoàn ({policies.length})
         </button>
-      </div>
+      </div>}
 
       {/* TAB 1: QUẢN LÝ VOUCHER */}
       {tab === 'voucher' ? (
@@ -443,6 +451,7 @@ export const AdminVouchers: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        {canManageVouchers && <>
                         <Toggle
                           checked={voucher.isActive}
                           label={`Trạng thái ${voucher.code}`}
@@ -455,6 +464,7 @@ export const AdminVouchers: React.FC = () => {
                         >
                           <span className="material-symbols-outlined text-lg">delete</span>
                         </button>
+                        </>}
                       </div>
                     </div>
 
@@ -618,7 +628,7 @@ export const AdminVouchers: React.FC = () => {
       {/* MODAL 1: TẠO VOUCHER */}
       <Modal
         title="Khởi tạo mã Voucher khuyến mãi (Backend)"
-        open={voucherModalOpen}
+        open={canManageVouchers && voucherModalOpen}
         onClose={() => setVoucherModalOpen(false)}
       >
         <form onSubmit={handleCreateVoucher} className="grid gap-4 sm:grid-cols-2">

@@ -45,6 +45,7 @@ export const HotelList: React.FC<HotelListProps> = ({
             hotel={hotel}
             onSelect={onSelectHotel}
             onFavoriteToggle={onFavoriteToggle}
+            showFavorite={Boolean(onFavoriteToggle)}
           />
         ))
       )}
