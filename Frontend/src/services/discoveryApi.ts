@@ -36,12 +36,19 @@ export const discoveryApi = {
     const url = URL.createObjectURL(await response.blob()); const a = document.createElement('a'); a.href = url; a.download = 'bao-cao-khach-san.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };
-export function toHotel(h: HotelCardData, favorite = false): Hotel { return { id: String(h.hotelId), name: h.name, location: `${h.address}, ${h.city}`, image: mediaUrl(h.imageUrl), imageAlt: h.name, starRating: 0, ratingScore: 0, ratingText: 'Chưa có đánh giá', reviewCount: 0, amenities: [{ icon: 'hotel', text: `${h.availableRooms} phòng khả dụng` }], featuredRoomType: h.roomTypeName, pricePerNight: h.pricePerNight, isFavorite: favorite }; }
-export function toHotelDetail(h: HotelDetailData, selection: DiscoverySelection): HotelDetail {
+/** Điểm trung bình (thang 5) và số đánh giá hiển thị công khai của một khách sạn. */
+export interface RatingSummary { average: number | null; count: number }
+export function ratingFields(rating?: RatingSummary) {
+  const score = rating?.count && rating.average != null ? Math.round(rating.average * 10) / 10 : 0;
+  const text = !score ? 'Chưa có đánh giá' : score >= 4.5 ? 'Tuyệt vời' : score >= 4 ? 'Rất tốt' : score >= 3 ? 'Tốt' : 'Trung bình';
+  return { ratingScore: score, ratingText: text, reviewCount: rating?.count ?? 0 };
+}
+export function toHotel(h: HotelCardData, favorite = false, rating?: RatingSummary): Hotel { return { id: String(h.hotelId), name: h.name, location: `${h.address}, ${h.city}`, image: mediaUrl(h.imageUrl), imageAlt: h.name, starRating: 0, ...ratingFields(rating), amenities: [{ icon: 'hotel', text: `${h.availableRooms} phòng khả dụng` }], featuredRoomType: h.roomTypeName, pricePerNight: h.pricePerNight, isFavorite: favorite }; }
+export function toHotelDetail(h: HotelDetailData, selection: DiscoverySelection, rating?: RatingSummary): HotelDetail {
   const policy = h.policies.cancellationPolicy || 'Khách sạn chưa công bố chính sách hủy. Vui lòng liên hệ trước khi đặt.';
   const rooms: Room[] = h.rooms.map(r => ({ id: String(r.roomId), roomId: r.roomId, hotelId: h.hotelId, hotelName: h.name, hotelAddress: h.address, checkIn: h.checkIn, checkOut: h.checkOut, requestedGuests: selection.adults + selection.children, name: `${r.name} · ${r.roomNumber}`, tag: 'Còn phòng', floor: `Tầng ${r.floor}`, remainingRooms: 1, image: mediaUrl(r.imageUrl), specs: [{ icon: 'person', text: `${r.capacity} khách` }], features: r.amenities.map(a => ({ icon: 'check', text: a.name })), packages: [{ id: 'base', name: 'Giá tham khảo', description: 'Giá được máy chủ xác nhận khi đặt.', pricePerNight: r.pricePerNight }], cancellationPolicy: policy }));
   const images = [...h.images].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
-  return { id: String(h.hotelId), checkIn: h.checkIn, checkOut: h.checkOut, guestsPerRoom: Math.ceil((selection.adults + selection.children) / selection.rooms), name: h.name, address: `${h.address}, ${h.city}`, categoryTag: 'Khách sạn', starRating: 0, distanceToBeach: '', ratingScore: 0, ratingText: 'Chưa có đánh giá', reviewCount: 0,
+  return { id: String(h.hotelId), checkIn: h.checkIn, checkOut: h.checkOut, guestsPerRoom: Math.ceil((selection.adults + selection.children) / selection.rooms), name: h.name, address: `${h.address}, ${h.city}`, categoryTag: 'Khách sạn', starRating: 0, distanceToBeach: '', ...ratingFields(rating),
     galleryImages: { hero: { url: mediaUrl(images[0]?.url), caption: images[0]?.altText || h.name, badge: '' }, thumbnails: images.slice(1).map(i => ({ url: mediaUrl(i.url), caption: i.altText || h.name })), totalCount: images.length },
     checkInTime: h.policies.checkInTime, checkOutTime: h.policies.checkOutTime, cancelPolicySummary: policy, datesText: `${h.checkIn} – ${h.checkOut}`, durationNights: Math.round((Date.parse(h.checkOut) - Date.parse(h.checkIn)) / 86400000), guestsText: `${selection.adults + selection.children} khách · ${selection.rooms} phòng`,
     resortAmenities: h.amenities.map(a => ({ icon: 'check', title: a.name, subtitle: a.description || '' })), rooms };

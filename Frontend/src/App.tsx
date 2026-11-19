@@ -17,6 +17,7 @@ import { CheckoutBookingData } from './pages/checkout/types';
 import { LoginPage, ProfilePage, RegisterPage } from './pages/account';
 import { VnPayReturnPage } from './pages/checkout/VnPayReturnPage';
 import { useAuth } from './context/AuthContext';
+import { loadHotelRatings } from './services/reviewApi';
 import { SELF_PERMISSIONS } from './auth/permissions';
 
 /** Tab tự phục vụ của khách và quyền cần có (chỉ áp dụng khi đã đăng nhập). */
@@ -129,8 +130,8 @@ function App() {
   const handleSelectHotelFromSearch = async (hotel: Hotel, selection = searchParams) => {
     setDetailStatus('Đang tải thông tin khách sạn…');
     try {
-      const detail = await discoveryApi.detail(Number(hotel.id), selection);
-      setCurrentHotelDetail(toHotelDetail(detail, selection)); setDetailStatus('');
+      const [detail, ratings] = await Promise.all([discoveryApi.detail(Number(hotel.id), selection), loadHotelRatings([Number(hotel.id)])]);
+      setCurrentHotelDetail(toHotelDetail(detail, selection, ratings[Number(hotel.id)])); setDetailStatus('');
       setActiveTab('chi-tiet-phong'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) { setDetailStatus(error instanceof Error ? error.message : 'Không tải được khách sạn.'); }
   };

@@ -1,27 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookingItem } from '../types';
+import { reviewApi } from '../../../services/reviewApi';
+import { composeReviewComment, CriteriaRatings, DEFAULT_CRITERIA, parseReviewComment } from '../reviewFormat';
 
 export interface ReviewStayModalProps {
   isOpen: boolean;
   booking: BookingItem | null;
   onClose: () => void;
-  onSubmitReview: (
-    bookingId: string,
-    rating: number,
-    comment: string,
-    reviewData?: {
-      criteria: Record<string, number>;
-      selectedTags: string[];
-      photos: { id: string; url: string; caption: string }[];
-      isPublicName: boolean;
-    }
-  ) => void;
-}
-
-interface PhotoItem {
-  id: string;
-  url: string;
-  caption: string;
+  /** Gọi sau khi đánh giá đã được lưu thành công vào CSDL. */
+  onSubmitReview: (bookingId: string, rating: number, isUpdate: boolean) => void;
 }
 
 export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
@@ -34,67 +21,51 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   const [overallRating, setOverallRating] = useState(5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
 
-  // Criteria ratings (5 categories)
-  const [criteriaRatings, setCriteriaRatings] = useState({
-    cleanliness: 5,
-    location: 5,
-    service: 5,
-    facilities: 5,
-    value: 5,
-  });
+  // Criteria ratings (5 categories) — được ghép vào bình luận khi gửi (Backend chỉ lưu sao + bình luận)
+  const [criteriaRatings, setCriteriaRatings] = useState<CriteriaRatings>({ ...DEFAULT_CRITERIA });
 
   // Review comment
-  const [comment, setComment] = useState(
-    'Kỳ nghỉ 3 ngày 2 đêm tại Biệt thự hồ bơi riêng thực sự vượt ngoài mong đợi! Không gian trúc xanh mát, hồ bơi riêng biệt lập hoàn toàn và dịch vụ Pure Spa miễn phí hàng ngày rất chu đáo. Bữa sáng tại nhà hàng Hay Hay rất đa dạng món Việt truyền thống.'
-  );
+  const [comment, setComment] = useState('');
 
   // Quick tags
-  const [selectedTags, setSelectedTags] = useState<string[]>([
-    'Bể bơi riêng đẹp',
-    'Bữa sáng phong phú',
-  ]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // Uploaded photos
-  const [photos, setPhotos] = useState<PhotoItem[]>([
-    {
-      id: 'photo-1',
-      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAQG0FXQsjtwrn2gWW4hSCTVdN9dk3Eald5DfFLJ1Xw6OqyTTP5FNEsZMBDQVvFNQ_rg2OnuHS6j3U-wadFQroKHrHatB7urGox5wn_TZ1qF1to7P5IBjPxjVu7-5HHq8dlQK2GJgSCxqlCWCY2mKurSSed37tMIBy_7RYc0qxGRpVMGmNsd46aH6OMQzRc1DqJzJ0jKW3wEIxXH6NXO4K0PtBBQITN810tYcQQsmg0',
-      caption: 'Hồ bơi villa',
-    },
-    {
-      id: 'photo-2',
-      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBKh-E3pVGIjG1hect85jeOxsTtItlE2H_-6IDhR9YfY9RTbeu0QV3B42o36qdjP91YWo9SrRWj8W0FmRJe8ofzvOCsP-6AkUEKb8ypUMxcUD63ggYgeufqCMO4Y727qwbHWqyGYzh8VdCMlOwdVGZYcMwNLRDzo1Hyh4petAgTh01WS4k1zat3YYqZDp0Nm2a026iBdwbbLyMYUFt2I1dHmeuLymMlNR2DFgXDWVgK',
-      caption: 'Bữa sáng',
-    },
-    {
-      id: 'photo-3',
-      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDbFiV4I8alKcG4a9so3YhWkbutoLBa8HWFZ7XGdLpwZr3ZK0VbIL1flTEXloIpOo0KIllEUYC47vN2YDjkPW7ic5gKDujctl1KhYSYjPXNNmv9N-GS9KETewaXlhu0L2TShCEp3vXZlO6Tlkn96-X2CNWeeh1gA0lIlb1jljIDj-283zwJoG7oE04oXhA7jeISD_vPn4f5zBaKeXD2E_M_nzxm0PIt_ZEm0XnSN4IU',
-      caption: 'Pure Spa',
-    },
-  ]);
-
-  // Privacy toggle
-  const [isPublicName, setIsPublicName] = useState(true);
+  // Đánh giá đã có của booking (null = chưa đánh giá)
+  const [existingReviewId, setExistingReviewId] = useState<number | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Submitting state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset or preset when booking changes
+  // Reset khi đổi booking, rồi tải đánh giá cũ (nếu có) để khách chỉnh sửa
   useEffect(() => {
-    if (booking) {
-      setOverallRating(5);
-      setCriteriaRatings({
-        cleanliness: 5,
-        location: 5,
-        service: 5,
-        facilities: 5,
-        value: 5,
-      });
-      setSelectedTags(['Bể bơi riêng đẹp', 'Bữa sáng phong phú']);
-      setIsPublicName(true);
-      setIsSubmitting(false);
-    }
-  }, [booking]);
+    if (!booking || !isOpen) return;
+    let alive = true;
+    setOverallRating(5);
+    setCriteriaRatings({ ...DEFAULT_CRITERIA });
+    setComment('');
+    setSelectedTags([]);
+    setExistingReviewId(null);
+    setSubmitError('');
+    setIsSubmitting(false);
+    const bookingId = Number(booking.id);
+    if (!Number.isSafeInteger(bookingId) || bookingId <= 0) return;
+    setLoadingExisting(true);
+    reviewApi.forBooking(bookingId)
+      .then((review) => {
+        if (!alive || !review) return;
+        const parsed = parseReviewComment(review.comment);
+        setExistingReviewId(review.reviewId);
+        setOverallRating(review.rating);
+        setCriteriaRatings(parsed.criteria);
+        setComment(parsed.comment);
+        setSelectedTags(parsed.tags);
+      })
+      .catch((error) => { if (alive) setSubmitError(error instanceof Error ? error.message : 'Không tải được đánh giá trước đó.'); })
+      .finally(() => { if (alive) setLoadingExisting(false); });
+    return () => { alive = false; };
+  }, [booking, isOpen]);
 
   // Calculate dynamic criteria average
   const averageCriteriaScore = useMemo(() => {
@@ -140,10 +111,10 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   const availableTags = [
     'Không gian yên tĩnh',
     'Nhân viên nhiệt tình',
-    'Bể bơi riêng đẹp',
+    'Phòng sạch sẽ',
+    'Vị trí thuận tiện',
     'Bữa sáng phong phú',
-    'Spa Pure thư giãn',
-  ];
+  ]
 
   const handleToggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -153,36 +124,6 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
     }
   };
 
-  const handleDeletePhoto = (id: string) => {
-    setPhotos(photos.filter((p) => p.id !== id));
-  };
-
-  const handleAddSamplePhoto = () => {
-    if (photos.length >= 6) {
-      alert('Bạn chỉ có thể tải lên tối đa 6 ảnh.');
-      return;
-    }
-    const sampleImages = [
-      {
-        url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKJiFktCkZPVtynmzSfxjtPMkS9ieT6CiRpM5pbEUgAZzobcsaNYWYKblTOOVrrSypt7kTHRzh-WCu_2iBrzQL8i3JglnmdfXvaQpulEtgas5H9ASO1od6hNckPpmdnZjtLGxmQ-CaQoIjHf944Yn6VHOX989tTioSEu-_QsDHrna6diiVGVtrMGQIt0VX6xhwrP97MiXmtN0EpwGZ6SkagfWl4H9vroKQrlHlvnqe',
-        caption: 'Toàn cảnh resort',
-      },
-      {
-        url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDQutWN_l85U5jeyWFUjm0ljvG3Pwr5d0PCfmzCYADgvSReJmb5SJVYPwU9GmvfkFNrnE93jsdp7ZoMeavq55AuxrBhLH_GxoJbtwIROKiycetLYbe_1g9vTV4vzGlBhWnHeXT36z6kHMBc_OfGV9VDIHD5xKOQPFbk0kfIHR5AIAvnHRgH2lhGpN1DkJe8B2huzuQ8a101R_ykgWmcTyzeBZLhzOQsTBQlBpkl9m0D',
-        caption: 'Phòng ngủ sang trọng',
-      },
-    ];
-    const newSample = sampleImages[photos.length % sampleImages.length];
-    setPhotos([
-      ...photos,
-      {
-        id: `photo-${Date.now()}`,
-        url: newSample.url,
-        caption: newSample.caption,
-      },
-    ]);
-  };
-
   const handleCriteriaChange = (key: keyof typeof criteriaRatings, star: number) => {
     setCriteriaRatings((prev) => ({
       ...prev,
@@ -190,17 +131,23 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSubmitting || loadingExisting) return;
+    const bookingId = Number(booking.id);
+    if (!Number.isSafeInteger(bookingId) || bookingId <= 0) { setSubmitError('Mã đặt phòng không hợp lệ.'); return; }
     setIsSubmitting(true);
-    setTimeout(() => {
-      onSubmitReview(booking.id, overallRating, comment, {
-        criteria: criteriaRatings,
-        selectedTags,
-        photos,
-        isPublicName,
-      });
+    setSubmitError('');
+    try {
+      const fullComment = composeReviewComment(comment, criteriaRatings, selectedTags);
+      const isUpdate = existingReviewId !== null;
+      if (isUpdate) await reviewApi.update(bookingId, overallRating, fullComment);
+      else await reviewApi.create(bookingId, overallRating, fullComment);
+      onSubmitReview(booking.id, overallRating, isUpdate);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Không gửi được đánh giá. Vui lòng thử lại.');
+    } finally {
       setIsSubmitting(false);
-    }, 600);
+    }
   };
 
   const currentDisplayRating = hoverRating || overallRating;
@@ -241,11 +188,11 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                   Đặt phòng đã hoàn thành
                 </span>
                 <span className="text-xs text-outline font-medium">
-                  Mã: {booking.bookingCode || '#SL-88492'}
+                  Mã: {booking.bookingCode}
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-bold font-headline-sm text-on-surface mt-1.5 tracking-tight">
-                Đánh giá kỳ nghỉ của bạn
+                {existingReviewId !== null ? 'Chỉnh sửa đánh giá của bạn' : 'Đánh giá kỳ nghỉ của bạn'}
               </h2>
               <p className="text-secondary text-xs sm:text-sm font-body-md mt-0.5 flex items-center gap-1.5">
                 <span
@@ -576,107 +523,12 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
               </div>
             </div>
 
-            {/* SECTION 4: REAL PHOTO UPLOADS WITH PREVIEWS */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-on-surface flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-base text-primary">
-                    photo_camera
-                  </span>
-                  Hình ảnh thực tế từ chuyến đi
-                </span>
-                <span className="text-[11px] text-outline font-medium">
-                  Đã chọn {photos.length} / 6 ảnh
-                </span>
-              </div>
-
-              {/* Upload Container & Thumbnail Gallery */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {photos.map((photo) => (
-                  <div
-                    key={photo.id}
-                    className="relative group rounded-xl overflow-hidden aspect-square border border-outline-variant/50 shadow-sm bg-surface-container"
-                  >
-                    <img
-                      src={photo.url}
-                      alt={photo.caption}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePhoto(photo.id)}
-                        className="w-7 h-7 rounded-full bg-surface-container-lowest/90 text-error hover:bg-error hover:text-white flex items-center justify-center transition-colors shadow cursor-pointer"
-                        title="Xóa ảnh"
-                      >
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                      </button>
-                    </div>
-                    <span className="absolute bottom-1.5 left-1.5 text-[9px] font-medium bg-black/60 text-white px-1.5 py-0.5 rounded backdrop-blur-xs">
-                      {photo.caption}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Add More Slot */}
-                {photos.length < 6 && (
-                  <button
-                    type="button"
-                    onClick={handleAddSamplePhoto}
-                    className="border-2 border-dashed border-outline-variant hover:border-primary rounded-xl aspect-square flex flex-col items-center justify-center p-2 text-center bg-surface-container-low/50 hover:bg-primary-fixed/20 transition group focus:outline-none cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-surface-container group-hover:bg-primary-container group-hover:text-white text-primary flex items-center justify-center mb-1 transition-colors">
-                      <span className="material-symbols-outlined text-lg">add_photo_alternate</span>
-                    </div>
-                    <span className="text-xs font-semibold text-on-surface group-hover:text-primary">
-                      Thêm ảnh
-                    </span>
-                    <span className="text-[10px] text-outline mt-0.5">Tối đa 6 ảnh</span>
-                  </button>
-                )}
-              </div>
-
-              <p className="text-[11px] text-outline text-center sm:text-left flex items-center justify-center sm:justify-start gap-1">
-                <span className="material-symbols-outlined text-[13px]">info</span>
-                Hỗ trợ định dạng JPG, PNG hoặc HEIC dung lượng tối đa 10MB mỗi ảnh.
-              </p>
-            </div>
-
-            {/* SECTION 5: PRIVACY / ANONYMOUS DISPLAY OPTION */}
-            <div className="bg-surface-container-low/50 rounded-xl p-3.5 border border-outline-variant/30 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant shrink-0">
-                  <span className="material-symbols-outlined text-base">person</span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-on-surface">
-                    Hiển thị tên người đánh giá
-                  </p>
-                  <p className="text-[11px] text-on-surface-variant">
-                    {isPublicName ? (
-                      <>
-                        Hiển thị công khai là:{' '}
-                        <strong className="text-on-surface">
-                          {booking.guest?.name || 'Nguyễn Văn An'}
-                        </strong>{' '}
-                        (Thành viên Diamond)
-                      </>
-                    ) : (
-                      <>Đánh giá sẽ được hiển thị ẩn danh với du khách khác</>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isPublicName}
-                  onChange={(e) => setIsPublicName(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-dim after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
-              </label>
-            </div>
+            {loadingExisting && (
+              <p role="status" className="text-xs text-on-surface-variant">Đang tải đánh giá trước đó…</p>
+            )}
+            {submitError && (
+              <p role="alert" className="rounded-xl bg-error-container p-3 text-xs sm:text-sm text-on-error-container">{submitError}</p>
+            )}
           </div>
 
           {/* MODAL STICKY FOOTER ACTIONS */}
@@ -701,8 +553,8 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting || loadingExisting}
                 className="w-1/2 sm:w-auto px-7 py-2.5 rounded-full text-xs sm:text-sm font-semibold bg-primary hover:bg-primary/95 text-on-primary shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 focus:outline-none cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
@@ -714,7 +566,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>Gửi đánh giá</span>
+                    <span>{existingReviewId !== null ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}</span>
                     <span className="material-symbols-outlined text-base">send</span>
                   </>
                 )}

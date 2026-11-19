@@ -40,10 +40,15 @@ export interface BookingItem {
   qrCaption: string;
   cancellationPolicyNotice?: string;
   isEligibleForReview?: boolean;
+  /** Đã có đánh giá lưu trong CSDL (nút chuyển thành "Sửa đánh giá"). */
+  hasReview?: boolean;
 }
 
 export interface BookingStats {
+  /** Chuyến đi đã chốt (đã xác nhận/đang lưu trú) — không tính đơn chưa thanh toán. */
   upcomingCount: number;
+  /** Đơn đang chờ thanh toán (vẫn nằm trong tab Sắp tới để khách thanh toán). */
+  pendingPaymentCount: number;
   completedCount: number;
   cancelledCount: number;
 }

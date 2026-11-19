@@ -42,7 +42,8 @@ export function useBookingsQuery() {
       status: (
         b.bookingStatus.toLowerCase() === 'confirmed' ? 'confirmed' :
         b.bookingStatus.toLowerCase() === 'checkedin' ? 'confirmed' :
-        b.bookingStatus.toLowerCase() === 'cancelled' ? 'cancelled' :
+        // Đơn hết hạn giữ chỗ (không thanh toán kịp) không còn là chuyến đi sắp tới.
+        b.bookingStatus.toLowerCase() === 'cancelled' || b.bookingStatus.toLowerCase() === 'expired' ? 'cancelled' :
         b.bookingStatus.toLowerCase() === 'completed' || b.bookingStatus.toLowerCase() === 'checkedout' ? 'completed' :
         'pending'
       ),

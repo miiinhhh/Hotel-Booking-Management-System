@@ -472,7 +472,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                 >
                   star
                 </span>
-                <span>Viết đánh giá kỳ nghỉ</span>
+                <span>{booking.hasReview ? 'Sửa đánh giá kỳ nghỉ' : 'Viết đánh giá kỳ nghỉ'}</span>
               </button>}
 
               <button

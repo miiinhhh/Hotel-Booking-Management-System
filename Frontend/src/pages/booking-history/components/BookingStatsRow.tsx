@@ -35,6 +35,9 @@ export const BookingStatsRow: React.FC<BookingStatsRowProps> = ({ stats }) => {
               </span>
               <span className="font-label-sm text-[10px] text-outline uppercase tracking-wider">
                 Sắp diễn ra
+                {stats.pendingPaymentCount > 0 && (
+                  <span className="text-primary font-semibold"> · {stats.pendingPaymentCount} chờ thanh toán</span>
+                )}
               </span>
             </div>
           </div>

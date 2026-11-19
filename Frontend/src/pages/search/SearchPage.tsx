@@ -4,6 +4,8 @@ import { Hotel } from './types';
 import { SearchCard } from '../dashboard/components/SearchCard';
 import { useAuth } from '../../context/AuthContext';
 import { SELF_PERMISSIONS } from '../../auth/permissions';
+import { loadHotelRatings } from '../../services/reviewApi';
+import type { RatingSummary } from '../../services/discoveryApi';
 import { defaultSelection, discoveryApi, DiscoveryPage, DiscoverySelection, HotelCardData, mediaUrl, toHotel } from '../../services/discoveryApi';
 interface SearchPageProps { initialLocation?: string; initialDates?: string; initialGuests?: string; initialSelection?: DiscoverySelection; initialShowSaved?: boolean; onNavigateHome?: () => void; onSelectHotel?: (hotel: Hotel, selection?: DiscoverySelection) => void }
 export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initialShowSaved = false, onSelectHotel }) => {
@@ -17,6 +19,15 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
   const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [retry, setRetry] = useState(0);
   const [saved, setSaved] = useState<HotelCardData[]>([]); const [showSaved, setShowSaved] = useState(false);
   useEffect(() => setShowSaved(initialShowSaved), [initialShowSaved]);
+  // Điểm đánh giá thật cho các khách sạn đang hiển thị
+  const [ratings, setRatings] = useState<Record<number, RatingSummary>>({});
+  useEffect(() => {
+    const ids = [...(result?.items || []), ...saved].map(h => h.hotelId);
+    if (!ids.length) return;
+    let alive = true;
+    loadHotelRatings(ids).then(value => { if (alive) setRatings(prev => ({ ...prev, ...value })); });
+    return () => { alive = false; };
+  }, [result, saved]);
   const [amenities, setAmenities] = useState<{ amenityId: number; name: string }[]>([]);
   useEffect(() => { if (initialSelection) { setSelection({ ...initialSelection, location: '' }); setPage(1); } }, [initialSelection]);
   useEffect(() => { let alive = true; discoveryApi.amenities().then(v => { if (alive) setAmenities(v); }).catch(() => {}); return () => { alive = false; }; }, []);
@@ -47,7 +58,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
           <p className="font-body-md text-body-md font-medium text-on-surface">Chưa có khách sạn yêu thích</p>
           <p className="max-w-md font-label-md text-label-md text-on-surface-variant">{session ? 'Bấm biểu tượng trái tim trên kết quả tìm kiếm để lưu lại những nơi bạn thích.' : 'Đăng nhập rồi bấm biểu tượng trái tim để lưu khách sạn.'}</p>
           <button type="button" onClick={() => setShowSaved(false)} className="mt-1 rounded-full bg-primary-container px-space-lg py-2.5 font-label-lg text-label-lg font-semibold text-on-primary shadow-sm transition-all hover:bg-tertiary-container active:scale-95">Khám phá khách sạn</button>
-        </div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{saved.map(h => <article key={h.hotelId} onClick={() => onSelectHotel?.(toHotel(h, true), selection)} className="group flex cursor-pointer flex-col overflow-hidden rounded-lg border border-transparent bg-surface-container-lowest transition-all hover:border-surface-container hover:shadow-[0_12px_32px_-4px_rgba(120,53,15,0.08)]">
+        </div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{saved.map(h => <article key={h.hotelId} onClick={() => onSelectHotel?.(toHotel(h, true, ratings[h.hotelId]), selection)} className="group flex cursor-pointer flex-col overflow-hidden rounded-lg border border-transparent bg-surface-container-lowest transition-all hover:border-surface-container hover:shadow-[0_12px_32px_-4px_rgba(120,53,15,0.08)]">
           <div className="relative h-48 overflow-hidden">
             <img src={mediaUrl(h.imageUrl)} alt={h.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <button type="button" aria-label={`Bỏ lưu ${h.name}`} title="Bỏ lưu" onClick={e => { e.stopPropagation(); void favorite(String(h.hotelId), false); }} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-lowest/90 text-primary shadow-sm backdrop-blur-md transition-colors hover:bg-surface-container-lowest"><span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span></button>
@@ -58,13 +69,13 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
             {h.roomTypeName && <span className="font-label-sm text-label-sm text-on-surface-variant">{h.roomTypeName}</span>}
             <div className="mt-auto flex items-end justify-between gap-3 border-t border-surface-container/60 pt-3">
               {h.pricePerNight > 0 ? <div className="flex flex-col"><span className="font-body-md text-body-md font-bold text-on-surface">{h.pricePerNight.toLocaleString('vi-VN')}đ</span><span className="font-label-sm text-label-sm text-outline-variant">/ đêm · Giá tham khảo</span></div> : <span />}
-              <button type="button" onClick={e => { e.stopPropagation(); onSelectHotel?.(toHotel(h, true), selection); }} className="flex shrink-0 items-center gap-space-xs rounded-full bg-primary-container px-4 py-2 font-label-lg text-label-lg font-semibold text-on-primary shadow-sm transition-all hover:bg-tertiary-container active:scale-95"><span>Xem phòng</span><span className="material-symbols-outlined text-[18px]">arrow_forward</span></button>
+              <button type="button" onClick={e => { e.stopPropagation(); onSelectHotel?.(toHotel(h, true, ratings[h.hotelId]), selection); }} className="flex shrink-0 items-center gap-space-xs rounded-full bg-primary-container px-4 py-2 font-label-lg text-label-lg font-semibold text-on-primary shadow-sm transition-all hover:bg-tertiary-container active:scale-95"><span>Xem phòng</span><span className="material-symbols-outlined text-[18px]">arrow_forward</span></button>
             </div>
           </div>
         </article>)}</div>}
       </section> : <>
         {loading && <p role="status">Đang tìm phòng trống…</p>}{error && <div role="alert" className="rounded-lg bg-error-container p-4">{error} <button onClick={() => setRetry(retry + 1)}>Thử lại</button></div>}
-        {result && <><p>{result.totalCount} khách sạn phù hợp · Giá tham khảo mỗi đêm, xác nhận lại khi đặt.</p><HotelList hotels={result.items.map(h => toHotel(h, saved.some(s => s.hotelId === h.hotelId)))} currentPage={page} totalPages={result.totalPages} totalResults={result.totalCount} onPageChange={setPage} onFavoriteToggle={canUseWishlist ? (id, value) => void favorite(id, value) : undefined} onSelectHotel={h => onSelectHotel?.(h, selection)} /></>}
+        {result && <><p>{result.totalCount} khách sạn phù hợp · Giá tham khảo mỗi đêm, xác nhận lại khi đặt.</p><HotelList hotels={result.items.map(h => toHotel(h, saved.some(s => s.hotelId === h.hotelId), ratings[h.hotelId]))} currentPage={page} totalPages={result.totalPages} totalResults={result.totalCount} onPageChange={setPage} onFavoriteToggle={canUseWishlist ? (id, value) => void favorite(id, value) : undefined} onSelectHotel={h => onSelectHotel?.(h, selection)} /></>}
       </>}
     </div></main>;
 };

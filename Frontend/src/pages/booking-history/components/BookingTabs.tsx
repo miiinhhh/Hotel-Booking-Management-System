@@ -41,7 +41,7 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
                 : 'bg-surface-container-high text-on-surface-variant'
             }`}
           >
-            {stats.upcomingCount}
+            {stats.upcomingCount + stats.pendingPaymentCount}
           </span>
         </button>
 

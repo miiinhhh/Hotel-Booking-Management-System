@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ReviewStayModal } from '../booking-history/components/ReviewStayModal';
 import { BookingItem } from '../booking-history/types';
+import { useBookingsQuery } from '../../hooks/useBookingQueries';
+import { reviewApi, ReviewDto } from '../../services/reviewApi';
+import { parseReviewComment } from '../booking-history/reviewFormat';
+import { formatDateVi } from '../../utils/formatters';
 
 interface ReviewPageProps {
   booking?: BookingItem;
@@ -8,108 +12,119 @@ interface ReviewPageProps {
   onNavigateHistory?: () => void;
 }
 
-export const ReviewPage: React.FC<ReviewPageProps> = ({
-  booking,
-  onNavigateHome,
-  onNavigateHistory,
-}) => {
-  const defaultBooking: BookingItem = booking || {
-    id: 'booking-review-default',
-    bookingCode: '#SL-88492',
-    hotelName: 'Naman Retreat Đà Nẵng',
-    hotelCategory: 'Khu Nghỉ Dưỡng Chữa Lành 5 Sao',
-    location: 'Bãi biển Non Nước, Đà Nẵng',
-    roomType: 'Biệt thự 1 phòng ngủ có hồ bơi riêng (One-Bedroom Pool Villa)',
-    image:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuDKJiFktCkZPVtynmzSfxjtPMkS9ieT6CiRpM5pbEUgAZzobcsaNYWYKblTOOVrrSypt7kTHRzh-WCu_2iBrzQL8i3JglnmdfXvaQpulEtgas5H9ASO1od6hNckPpmdnZjtLGxmQ-CaQoIjHf944Yn6VHOX989tTioSEu-_QsDHrna6diiVGVtrMGQIt0VX6xhwrP97MiXmtN0EpwGZ6SkagfWl4H9vroKQrlHlvnqe',
-    imageAlt: 'Naman Retreat Da Nang',
-    nightsText: '3 ngày 2 đêm',
-    checkInDate: '24/10/2025',
-    checkInDetail: 'Từ 14:00',
-    checkOutDate: '27/10/2025',
-    checkOutDetail: 'Trước 12:00',
-    guest: {
-      name: 'Nguyễn Văn A',
-      countText: '2 người lớn · 1 trẻ em',
-    },
-    amenities: [
-      { icon: 'pool', text: 'Hồ bơi riêng' },
-      { icon: 'spa', text: 'Pure Spa' },
-    ],
-    status: 'completed',
-    statusLabel: 'ĐÃ HOÀN TẤT',
-    depositBadge: 'ĐÃ THANH TOÁN ĐỦ',
-    totalAmount: 16800000,
-    paidAmount: 16800000,
-    remainingAmount: 0,
-    qrType: 'checkin',
-    qrCaption: 'Đặt phòng đã hoàn tất',
-    isEligibleForReview: true,
+export const ReviewPage: React.FC<ReviewPageProps> = ({ booking, onNavigateHome, onNavigateHistory }) => {
+  const { bookings, isLoading, error, refetch } = useBookingsQuery();
+  const [reviews, setReviews] = useState<Record<string, ReviewDto>>({});
+  const [reviewsError, setReviewsError] = useState('');
+  const [selected, setSelected] = useState<BookingItem | null>(booking ?? null);
+  const [toast, setToast] = useState('');
+
+  const loadReviews = () => {
+    setReviewsError('');
+    reviewApi.mine()
+      .then((page) => setReviews(Object.fromEntries(page.items.filter((r) => r.status !== 'Deleted').map((r) => [String(r.bookingId), r]))))
+      .catch((e) => setReviewsError(e instanceof Error ? e.message : 'Không tải được đánh giá của bạn.'));
   };
+  useEffect(loadReviews, []);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedScore, setSubmittedScore] = useState(5);
+  // Chỉ kỳ nghỉ đã hoàn tất mới đánh giá được (Backend cũng kiểm tra lại).
+  const completed = useMemo(() => bookings.filter((b) => b.isEligibleForReview), [bookings]);
+  const pending = completed.filter((b) => !reviews[b.id]);
+  const done = completed.filter((b) => reviews[b.id]);
 
-  const handleSubmitReview = (
-    _bookingId: string,
-    rating: number,
-    _comment: string
-  ) => {
-    setSubmittedScore(rating);
-    setSubmitted(true);
-  };
-
-  if (submitted) {
+  const renderCard = (item: BookingItem) => {
+    const review = reviews[item.id];
+    const preview = review ? parseReviewComment(review.comment).comment : '';
     return (
-      <main className="min-h-screen pt-28 pb-16 px-4 max-w-xl mx-auto flex flex-col items-center justify-center text-center">
-        <div className="w-20 h-20 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4 border border-emerald-200">
-          <span
-            className="material-symbols-outlined text-[40px]"
-            style={{ fontVariationSettings: "'FILL' 1" }}
+      <article key={item.id} className="flex flex-col gap-4 rounded-lg border border-outline-variant/20 bg-surface-container-lowest p-4 shadow-sm sm:flex-row">
+        <img src={item.image} alt={item.imageAlt} loading="lazy" className="h-32 w-full shrink-0 rounded-xl object-cover sm:h-28 sm:w-40" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-outline">Mã: {item.bookingCode}</span>
+            {review && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary-fixed/50 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                {review.rating}/5 · {review.status === 'Hidden' ? 'Chờ duyệt' : 'Đã hiển thị'}
+              </span>
+            )}
+          </div>
+          <h3 className="font-headline-sm text-lg text-on-surface">{item.hotelName}</h3>
+          <p className="text-sm text-on-surface-variant">{item.roomType} · {item.checkInDate} – {item.checkOutDate}</p>
+          {preview && <p className="line-clamp-2 text-sm text-on-surface-variant">“{preview}”</p>}
+          {review && <p className="text-[11px] text-outline">Cập nhật {formatDateVi(review.updatedAt || review.createdAt)}</p>}
+        </div>
+        <div className="flex shrink-0 items-end">
+          <button
+            type="button"
+            onClick={() => setSelected(item)}
+            className={`flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 font-label-md text-label-md font-semibold transition-all active:scale-95 sm:w-auto ${review ? 'bg-surface-container text-on-surface hover:bg-surface-container-high' : 'bg-primary-container text-on-primary shadow-sm hover:bg-tertiary-container'}`}
           >
-            verified
-          </span>
+            <span className="material-symbols-outlined text-[18px]" style={review ? undefined : { fontVariationSettings: "'FILL' 1" }}>{review ? 'edit' : 'star'}</span>
+            {review ? 'Sửa đánh giá' : 'Viết đánh giá'}
+          </button>
         </div>
-        <h2 className="font-headline-md text-2xl font-bold text-on-surface mb-2">
-          Cảm ơn quý khách đã gửi đánh giá!
-        </h2>
-        <p className="text-on-surface-variant font-body-md text-sm mb-6">
-          Đánh giá {submittedScore}/5 sao cho kỳ nghỉ tại{' '}
-          <strong className="text-on-surface">{defaultBooking.hotelName}</strong> đã được ghi nhận.
-          +250 Điểm StayLuxe Rewards đã được tích lũy vào tài khoản hội viên của bạn.
-        </p>
-        <div className="flex gap-3">
-          {onNavigateHistory && (
-            <button
-              onClick={onNavigateHistory}
-              className="px-6 py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors cursor-pointer"
-            >
-              Xem lịch sử đặt phòng
-            </button>
-          )}
-          {onNavigateHome && (
-            <button
-              onClick={onNavigateHome}
-              className="px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md shadow-md hover:bg-tertiary-container transition-colors cursor-pointer"
-            >
-              Về trang chủ
-            </button>
-          )}
-        </div>
-      </main>
+      </article>
     );
-  }
+  };
 
   return (
-    <ReviewStayModal
-      isOpen={true}
-      booking={defaultBooking}
-      onClose={() => {
-        if (onNavigateHistory) onNavigateHistory();
-        else if (onNavigateHome) onNavigateHome();
-      }}
-      onSubmitReview={handleSubmitReview}
-    />
+    <main className="mx-auto min-h-screen max-w-4xl space-y-6 px-4 pb-16 pt-28">
+      <header className="space-y-1">
+        <h1 className="font-headline-md text-2xl font-bold text-on-surface">Đánh giá kỳ nghỉ</h1>
+        <p className="text-sm text-on-surface-variant">Chia sẻ trải nghiệm về những kỳ nghỉ đã hoàn tất để giúp du khách khác lựa chọn.</p>
+      </header>
+
+      {toast && <p role="status" className="rounded-lg bg-surface-container p-3 text-sm">{toast}</p>}
+      {(error || reviewsError) && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-error-container p-4 text-sm text-on-error-container">
+          <span>{error || reviewsError}</span>
+          <button type="button" onClick={() => { refetch(); loadReviews(); }} className="font-semibold underline">Thử lại</button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p role="status" className="rounded-lg bg-surface-container-low p-4 text-sm text-on-surface-variant">Đang tải các kỳ nghỉ của bạn…</p>
+      ) : !completed.length ? (
+        <section className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-14 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container text-primary"><span className="material-symbols-outlined text-[28px]">rate_review</span></span>
+          <p className="font-medium text-on-surface">Chưa có kỳ nghỉ nào đã hoàn tất để đánh giá</p>
+          <p className="max-w-md text-sm text-on-surface-variant">Sau khi trả phòng, kỳ nghỉ sẽ xuất hiện tại đây để bạn chia sẻ cảm nhận.</p>
+          <div className="mt-1 flex flex-wrap justify-center gap-3">
+            {onNavigateHistory && <button type="button" onClick={onNavigateHistory} className="rounded-full bg-surface-container px-6 py-2.5 font-label-md text-label-md hover:bg-surface-container-high">Xem lịch sử đặt phòng</button>}
+            {onNavigateHome && <button type="button" onClick={onNavigateHome} className="rounded-full bg-primary-container px-6 py-2.5 font-label-md text-label-md text-on-primary shadow-md hover:bg-tertiary-container">Về trang chủ</button>}
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="space-y-3">
+            <h2 className="font-headline-sm text-lg text-on-surface">Chờ đánh giá ({pending.length})</h2>
+            {pending.length ? pending.map(renderCard) : <p className="text-sm text-on-surface-variant">Bạn đã đánh giá tất cả kỳ nghỉ đã hoàn tất. Cảm ơn quý khách!</p>}
+          </section>
+          {done.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="font-headline-sm text-lg text-on-surface">Đã đánh giá ({done.length})</h2>
+              {done.map(renderCard)}
+            </section>
+          )}
+        </>
+      )}
+
+      <ReviewStayModal
+        isOpen={selected !== null}
+        booking={selected}
+        onClose={() => setSelected(null)}
+        onSubmitReview={(_bookingId, rating, isUpdate) => {
+          setSelected(null);
+          setToast(isUpdate ? `Đã cập nhật đánh giá ${rating} sao.` : `Cảm ơn quý khách đã đánh giá ${rating} sao!`);
+          loadReviews();
+        }}
+      />
+    </main>
   );
 };
 export default ReviewPage;

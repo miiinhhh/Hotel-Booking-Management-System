@@ -1,4 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import { reviewApi } from '../../services/reviewApi';
+import { useAuth } from '../../context/AuthContext';
+import { SELF_PERMISSIONS } from '../../auth/permissions';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BookingStatsRow } from './components/BookingStatsRow';
 import { AssuranceBanner } from './components/AssuranceBanner';
 import { BookingTabs } from './components/BookingTabs';
@@ -33,6 +36,19 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   const [cancelModalBooking, setCancelModalBooking] = useState<BookingItem | null>(null);
   const [reviewModalBooking, setReviewModalBooking] = useState<BookingItem | null>(null);
 
+  // Booking nào đã có đánh giá trong CSDL (để hiển thị "Sửa đánh giá")
+  const { hasPermission } = useAuth();
+  const canReview = hasPermission(SELF_PERMISSIONS.reviewManage);
+  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!canReview) return;
+    let alive = true;
+    reviewApi.mine()
+      .then((page) => { if (alive) setReviewedIds(new Set(page.items.filter((r) => r.status !== 'Deleted').map((r) => String(r.bookingId)))); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [canReview]);
+
   // Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -45,13 +61,14 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
 
   // Stats calculation
   const stats: BookingStats = useMemo(() => {
-    const upcoming = bookings.filter(
-      (b) => b.status === 'confirmed' || b.status === 'pending'
-    ).length;
+    // Chỉ đơn đã xác nhận mới là "chuyến đi sắp diễn ra"; đơn chưa thanh toán đếm riêng.
+    const upcoming = bookings.filter((b) => b.status === 'confirmed').length;
+    const pendingPayment = bookings.filter((b) => b.status === 'pending').length;
     const completed = bookings.filter((b) => b.status === 'completed').length;
     const cancelled = bookings.filter((b) => b.status === 'cancelled').length;
     return {
       upcomingCount: upcoming,
+      pendingPaymentCount: pendingPayment,
       completedCount: completed,
       cancelledCount: cancelled,
     };
@@ -139,11 +156,10 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   };
 
   // Submit review confirm
-  const handleSubmitReview = (_bookingId: string, rating: number, _comment: string) => {
+  const handleSubmitReview = (bookingId: string, rating: number, isUpdate: boolean) => {
     setReviewModalBooking(null);
-    showToast(
-      `Cảm ơn quý khách đã đánh giá ${rating} sao! +250 Điểm StayLuxe Rewards đã được cộng vào tài khoản.`
-    );
+    setReviewedIds((prev) => new Set(prev).add(bookingId));
+    showToast(isUpdate ? `Đã cập nhật đánh giá ${rating} sao. Cảm ơn quý khách!` : `Cảm ơn quý khách đã đánh giá ${rating} sao!`);
   };
 
   return (
@@ -241,7 +257,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                 filteredBookings.map((booking) => (
                   <BookingTicketCard
                     key={booking.id}
-                    booking={booking}
+                    booking={{ ...booking, hasReview: reviewedIds.has(booking.id) }}
                     onCopyCode={handleCopyCode}
                     onOpenCancelModal={(b) => setCancelModalBooking(b)}
                     onOpenReviewModal={(b) => setReviewModalBooking(b)}
