@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckoutBookingData, PaymentMethodType } from '../types';
 
 interface OrderSummaryCardProps {
@@ -19,6 +19,8 @@ export const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
   submissionStep,
 }) => {
   const [couponInput, setCouponInput] = useState(bookingData.couponCode);
+  // Đồng bộ ô nhập khi mã được áp dụng từ bên ngoài (vd. chọn ở trang Ưu đãi).
+  useEffect(() => { setCouponInput(bookingData.couponCode); }, [bookingData.couponCode]);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
 
   const handleApply = async () => {

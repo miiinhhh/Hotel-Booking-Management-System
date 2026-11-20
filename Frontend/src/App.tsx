@@ -8,6 +8,7 @@ import BookingHistoryPage from './pages/booking-history/BookingHistoryPage';
 import CheckoutPage from './pages/checkout/CheckoutPage';
 import StaffBookingsPage from './pages/staff/StaffBookingsPage';
 import ReviewPage from './pages/reviews/ReviewPage';
+import OffersPage from './pages/offers/OffersPage';
 import AdminPortal from './pages/admin/AdminPortal';
 import { defaultSelection, DiscoverySelection, discoveryApi, toHotelDetail } from './services/discoveryApi';
 import { DEFAULT_CHECKOUT_DATA } from './pages/checkout/data/mockCheckoutData';
@@ -281,6 +282,10 @@ function App() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
+        )}
+
+        {activeTab === 'uu-dai' && (
+          <OffersPage onNavigateSearch={() => navigateCustomerTab('tim-kiem')} onNavigateHome={() => navigateCustomerTab('kham-pha')} />
         )}
 
         {!tabBlocked && activeTab === 'danh-gia' && (

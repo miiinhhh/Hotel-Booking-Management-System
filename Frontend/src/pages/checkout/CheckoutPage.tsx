@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { offerApi } from '../../services/offerApi';
 import { CheckoutUrgencyBanner } from './components/CheckoutUrgencyBanner';
 import { CheckoutStepper } from './components/CheckoutStepper';
 import { ContactInfoSection } from './components/ContactInfoSection';
@@ -30,7 +31,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 }) => {
   const { session, profile } = useAuth();
   const [error, setError] = useState('');
-  const [bookingData, setBookingData] = useState<CheckoutBookingData>(initialBookingData);
+  // Mã được chọn từ trang Ưu đãi ("Dùng ngay") được tự áp dụng khi vào thanh toán.
+  const [bookingData, setBookingData] = useState<CheckoutBookingData>(() => {
+    const pending = offerApi.takePending();
+    return pending ? { ...initialBookingData, couponCode: pending } : initialBookingData;
+  });
 
   // Hook tính toán giá và voucher có cache thông minh và Invalidation bus
   const { calculatePrice, invalidateVoucherCache, isCalculating } = usePriceCalculationQuery();

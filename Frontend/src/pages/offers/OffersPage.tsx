@@ -1,0 +1,180 @@
+import React, { useEffect, useState } from 'react';
+import { offerApi, PublicVoucher } from '../../services/offerApi';
+import { useAuth } from '../../context/AuthContext';
+
+interface OffersPageProps {
+  onNavigateSearch?: () => void;
+  onNavigateHome?: () => void;
+}
+
+const img = (id: string, w = 900) => `https://images.unsplash.com/photo-${id}?w=${w}&q=75&fm=jpg&fit=crop`;
+const HERO = img('1520250497591-112f2f40a3f4', 1800);
+// Ảnh minh họa xoay vòng cho từng thẻ ưu đãi (Unsplash License).
+const CARD_IMAGES = [
+  '1566073771259-6a8506099945', '1582719508461-905c673771fd', '1540541338287-41700207dee6',
+  '1611892440504-42a792e24d32', '1568084680786-a84f91d1153c', '1590490360182-c33d57733427',
+];
+
+/** 500000 → "500K", 1500000 → "1,5 triệu". */
+const shortMoney = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
+  return `${value}đ`;
+};
+const daysLeft = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+const badge = (v: PublicVoucher) => (v.voucherType === 'Percentage' ? `-${v.discountValue}%` : `-${shortMoney(v.discountValue)}`);
+const title = (v: PublicVoucher) => v.voucherType === 'Percentage'
+  ? `Giảm ${v.discountValue}% cho kỳ nghỉ của bạn`
+  : `Giảm ngay ${shortMoney(v.discountValue)} khi đặt phòng`;
+const subtitle = (v: PublicVoucher) => {
+  const parts: string[] = [];
+  if (v.voucherType === 'Percentage' && v.maxDiscountAmount != null) parts.push(`Tối đa ${shortMoney(v.maxDiscountAmount)}`);
+  parts.push(v.minimumOrderAmount > 0 ? `đơn từ ${shortMoney(v.minimumOrderAmount)}` : 'áp dụng mọi đơn');
+  const text = parts.join(', ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+const period = (v: PublicVoucher) => {
+  const left = daysLeft(v.endAt);
+  if (left <= 1) return { text: 'Hết hạn hôm nay', urgent: true };
+  if (left <= 7) return { text: `Chỉ còn ${left} ngày`, urgent: true };
+  return { text: `Đến ${new Date(v.endAt).toLocaleDateString('vi-VN')}`, urgent: false };
+};
+
+const STEPS = [
+  { icon: 'content_copy', title: 'Sao chép mã', text: 'Bấm “Sao chép” trên ưu đãi bạn thích.' },
+  { icon: 'travel_explore', title: 'Chọn phòng', text: 'Tìm khách sạn và hạng phòng phù hợp.' },
+  { icon: 'redeem', title: 'Dán mã khi thanh toán', text: 'Nhập vào ô “Mã ưu đãi” để được giảm giá.' },
+];
+
+export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavigateHome }) => {
+  const { session } = useAuth();
+  const [vouchers, setVouchers] = useState<PublicVoucher[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setFailed(false);
+    offerApi.available()
+      .then(list => { if (alive) setVouchers(list); })
+      .catch(() => { if (alive) setFailed(true); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [session?.userId]);
+
+  const copy = async (code: string) => {
+    try { await navigator.clipboard.writeText(code); } catch { /* trình duyệt chặn: mã vẫn hiển thị để khách tự chép */ }
+    setCopied(code);
+    window.setTimeout(() => setCopied(current => (current === code ? null : current)), 2000);
+  };
+
+  return (
+    <main className="min-h-screen bg-background pb-20">
+      {/* HERO ẢNH LỚN */}
+      <section className="relative flex min-h-[340px] items-end overflow-hidden pt-24 md:min-h-[400px]">
+        <img src={HERO} alt="Hồ bơi khu nghỉ dưỡng" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-black/10" />
+        <div className="relative mx-auto w-full max-w-[1200px] px-5 pb-10 text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur">
+            <span className="material-symbols-outlined text-[16px]">local_offer</span>Ưu đãi độc quyền
+          </span>
+          <h1 className="mt-3 max-w-2xl font-display-hero text-[34px] font-bold leading-tight md:text-display-hero">Nghỉ dưỡng trọn vẹn, chi phí nhẹ nhàng hơn</h1>
+          <p className="mt-2 max-w-xl font-body-lg text-body-lg text-white/85">
+            {loading ? 'Đang tìm ưu đãi tốt nhất cho bạn…' : vouchers.length ? `${vouchers.length} mã giảm giá đang chờ bạn sử dụng.` : 'Các mã giảm giá mới sẽ sớm xuất hiện tại đây.'}
+          </p>
+        </div>
+      </section>
+
+      {/* DANH SÁCH ƯU ĐÃI */}
+      <section className="mx-auto max-w-[1200px] px-5 pt-10">
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">Mã giảm giá cho bạn</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">Chỉ cần sao chép và dán mã ở bước thanh toán.</p>
+
+        {loading ? (
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map(i => <div key={i} className="h-[360px] animate-pulse rounded-[1.5rem] bg-surface-container" />)}
+          </div>
+        ) : failed || !vouchers.length ? (
+          <div className="mt-6 flex flex-col items-center gap-3 rounded-[1.5rem] bg-surface-container-lowest px-6 py-16 text-center shadow-sm">
+            <span className="material-symbols-outlined text-5xl text-primary">featured_seasonal_and_gifts</span>
+            <p className="font-headline-sm text-lg text-on-surface">{failed ? 'Chưa tải được ưu đãi' : 'Hiện chưa có ưu đãi mới'}</p>
+            <p className="max-w-sm text-sm text-on-surface-variant">Hãy quay lại sau nhé — chúng tôi thường xuyên cập nhật mã giảm giá.</p>
+            {onNavigateHome && <button type="button" onClick={onNavigateHome} className="mt-2 rounded-full bg-primary-container px-6 py-2.5 font-label-lg text-label-lg font-semibold text-on-primary shadow-sm hover:bg-tertiary-container">Khám phá khách sạn</button>}
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {vouchers.map((v, index) => {
+              const isCopied = copied === v.code;
+              const usedUp = v.remainingForMe === 0;
+              const time = period(v);
+              return (
+                <article key={v.code} className="group flex flex-col overflow-hidden rounded-[1.5rem] bg-surface-container-lowest shadow-[0_10px_30px_-10px_rgba(120,53,15,0.18)] transition-shadow hover:shadow-[0_18px_40px_-12px_rgba(120,53,15,0.28)]">
+                  <div className="relative h-44 overflow-hidden">
+                    <img src={img(CARD_IMAGES[index % CARD_IMAGES.length])} alt="" loading="lazy" className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 ${usedUp ? 'grayscale' : ''}`} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                    <span className="absolute left-4 top-4 rounded-full bg-primary-container px-3.5 py-1.5 font-headline-sm text-lg font-bold text-on-primary shadow-md">{badge(v)}</span>
+                    {time.urgent && !usedUp && (
+                      <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-primary shadow-sm">
+                        <span className="material-symbols-outlined text-[14px]">schedule</span>{time.text}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-1 flex-col gap-4 p-5">
+                    <div>
+                      <h3 className="font-headline-sm text-[19px] font-semibold leading-snug text-on-surface">{title(v)}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">{subtitle(v)}</p>
+                      <p className="mt-2 flex items-center gap-1 text-xs text-outline">
+                        <span className="material-symbols-outlined text-[14px]">event</span>{usedUp ? 'Bạn đã sử dụng mã này' : time.text}
+                      </p>
+                    </div>
+
+                    {/* Ô mã + nút sao chép liền khối */}
+                    <div className={`mt-auto flex items-center overflow-hidden rounded-full border-2 border-dashed ${isCopied ? 'border-emerald-500' : 'border-primary/40'}`}>
+                      <span className="min-w-0 flex-1 truncate px-4 font-mono text-[15px] font-bold tracking-[0.15em] text-on-surface">{v.code}</span>
+                      <button type="button" disabled={usedUp} onClick={() => void copy(v.code)}
+                        className={`m-1 flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isCopied ? 'bg-emerald-600 text-white' : 'bg-primary-container text-on-primary hover:bg-tertiary-container'}`}>
+                        <span className="material-symbols-outlined text-[18px]">{isCopied ? 'check' : 'content_copy'}</span>
+                        {isCopied ? 'Đã chép' : 'Sao chép'}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* CÁCH SỬ DỤNG */}
+      <section className="mx-auto mt-14 max-w-[1200px] px-5">
+        <div className="rounded-[1.5rem] bg-surface-container-low px-6 py-8 md:px-10">
+          <h2 className="text-center font-headline-sm text-headline-sm text-on-surface">Dùng mã chỉ với 3 bước</h2>
+          <div className="mt-6 grid gap-6 md:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <div key={step.title} className="flex items-start gap-4 md:flex-col md:items-center md:text-center">
+                <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
+                  <span className="material-symbols-outlined text-[26px]">{step.icon}</span>
+                  <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-xs font-bold text-on-primary">{i + 1}</span>
+                </span>
+                <div>
+                  <p className="font-semibold text-on-surface">{step.title}</p>
+                  <p className="mt-0.5 text-sm text-on-surface-variant">{step.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {onNavigateSearch && (
+            <div className="mt-8 flex justify-center">
+              <button type="button" onClick={onNavigateSearch} className="flex items-center gap-2 rounded-full bg-primary-container px-7 py-3 font-label-lg text-label-lg font-semibold text-on-primary shadow-md transition-all hover:bg-tertiary-container active:scale-95">
+                Tìm phòng ngay <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+};
+export default OffersPage;
