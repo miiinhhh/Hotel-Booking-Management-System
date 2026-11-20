@@ -19,6 +19,7 @@ public sealed class ReportPayment
     public string Status { get; set; } = "";
     public decimal Amount { get; set; }
     public DateTime? PaidAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public sealed class DiscoveryRepository(HotelDb hotels, ContentDb content, HotelBookingDBContext bookings) : IDiscoveryRepository

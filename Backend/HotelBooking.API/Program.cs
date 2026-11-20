@@ -141,6 +141,7 @@ builder.Services.AddAuthorization(options =>
             policy.RequireAuthenticatedUser().RequireClaim(PermissionAuthorization.ClaimType, permission));
 });
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<HotelBooking.Infrastructure.Persistence.NotificationReadStore>();
 builder.Services.AddScoped<HotelBooking.Application.Authorization.IPermissionManagementService, PermissionManagementService>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
@@ -192,6 +193,8 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     await RoleSeeder.SeedAsync(scope.ServiceProvider);
+    await HotelBooking.Infrastructure.Persistence.NotificationReadStore.EnsureSchemaAsync(
+        scope.ServiceProvider.GetRequiredService<HotelBooking.Infrastructure.Persistence.HotelBookingDbContext>());
 }
 
 app.MapControllers();

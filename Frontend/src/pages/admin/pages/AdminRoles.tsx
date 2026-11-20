@@ -22,6 +22,9 @@ const STAFF_PERMISSION_CODES = new Set([
   'pricing.view',
   'staff.view',
   'policies.manage',
+  // Không cấp sẵn khi seed; Admin bật khi muốn Staff kiểm duyệt (hiển thị/ẩn) đánh giá
+  // tại khách sạn được phân công. Khớp SystemPermissions.AssignableStaff ở Backend.
+  'reviews.manage',
 ]);
 
 const allowedCodes = (roleName?: string) => roleName === 'Customer'

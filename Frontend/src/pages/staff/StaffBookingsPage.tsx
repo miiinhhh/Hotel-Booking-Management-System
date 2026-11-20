@@ -33,6 +33,7 @@ const mapStaffNotifications = (notifications: StaffPortalNotificationDto[]): Sta
     title: notification.title,
     description: notification.description,
     time: new Date(notification.occurredAt).toLocaleString('vi-VN'),
+    isRead: Boolean(notification.isRead),
   }));
 
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({

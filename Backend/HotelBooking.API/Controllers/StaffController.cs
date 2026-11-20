@@ -17,7 +17,7 @@ public sealed class StaffController(StaffService service) : ControllerBase
         Ok(await service.List(ActorId, page, pageSize, ct));
     [HttpGet("{id:long:min(1)}")]
     public async Task<ActionResult<StaffResponse>> Get(long id, CancellationToken ct) => Ok(await service.Get(ActorId, id, ct));
-    [HttpPut("{id:long:min(1)}"), RequirePermission(SystemPermissions.StaffManage)]
+    [HttpPut("{id:long:min(1)}")]
     public async Task<ActionResult<StaffResponse>> Update(long id, UpdateStaffRequest request, CancellationToken ct) =>
         Ok(await service.Update(ActorId, id, request, ct));
     [HttpPatch("{id:long:min(1)}/status")]

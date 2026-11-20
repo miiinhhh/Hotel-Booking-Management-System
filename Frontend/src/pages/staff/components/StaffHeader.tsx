@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StaffPortalTab } from '../types';
 import { useAuth } from '../../../context/AuthContext';
+import { notificationApi } from '../../../services/notificationApi';
 
 interface StaffHeaderProps {
   searchQuery: string;
@@ -17,6 +18,7 @@ export interface StaffHeaderNotification {
   description: string;
   time?: string;
   icon: string;
+  isRead?: boolean;
 }
 
 export const StaffHeader: React.FC<StaffHeaderProps> = ({
@@ -30,37 +32,27 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
   const { session, profile } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null);
+  // Trạng thái đã đọc lấy từ server (đồng bộ giữa thiết bị); cập nhật lạc quan khi bấm.
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
-  const notificationStorageKey = session?.userId ? `stayluxe.staff.notifications.read.${session.userId}` : null;
+  useEffect(() => {
+    setReadNotificationIds(current => {
+      const next = new Set(current);
+      notifications.forEach(notification => { if (notification.isRead) next.add(notification.id); });
+      return next;
+    });
+  }, [notifications]);
   const unreadCount = useMemo(
     () => notifications.filter(notification => !readNotificationIds.has(notification.id)).length,
     [notifications, readNotificationIds],
   );
 
-  useEffect(() => {
-    if (!notificationStorageKey) {
-      setReadNotificationIds(new Set());
-      return;
-    }
-    try {
-      const storedIds = JSON.parse(localStorage.getItem(notificationStorageKey) || '[]') as string[];
-      setReadNotificationIds(new Set(Array.isArray(storedIds) ? storedIds : []));
-    } catch {
-      setReadNotificationIds(new Set());
-    }
-  }, [notificationStorageKey]);
-
-  const markNotificationRead = (notificationId: string) => {
-    setReadNotificationIds(current => {
-      if (current.has(notificationId)) return current;
-      const next = new Set(current);
-      next.add(notificationId);
-      if (notificationStorageKey) {
-        localStorage.setItem(notificationStorageKey, JSON.stringify(Array.from(next).slice(-200)));
-      }
-      return next;
-    });
+  const markNotificationsRead = (ids: string[]) => {
+    const fresh = ids.filter(id => !readNotificationIds.has(id));
+    if (!fresh.length) return;
+    setReadNotificationIds(current => new Set([...current, ...fresh]));
+    void notificationApi.markRead(fresh).catch(() => undefined);
   };
+  const markNotificationRead = (notificationId: string) => markNotificationsRead([notificationId]);
   const staffName = profile?.fullName || session?.fullName || 'Nhân viên';
   const initials = staffName.trim().split(/\s+/).filter(Boolean).slice(-2).map(part => part[0]).join('').toUpperCase() || 'NV';
   const getSearchPlaceholder = () => {
@@ -114,7 +106,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
               {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-container px-1 text-[10px] font-bold leading-none text-on-primary">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
             {notificationsOpen && <div className="absolute right-0 top-12 z-[80] w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-2xl">
-              <div className="flex items-center justify-between border-b border-outline-variant/20 px-5 py-4"><div><h2 className="font-semibold">Thông báo</h2><p className="text-xs text-outline">{unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Đã đọc tất cả'}</p></div><button type="button" onClick={() => { setNotificationsOpen(false); setExpandedNotificationId(null); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container" aria-label="Đóng thông báo"><span className="material-symbols-outlined text-[18px]">close</span></button></div>
+              <div className="flex items-center justify-between border-b border-outline-variant/20 px-5 py-4"><div><h2 className="font-semibold">Thông báo</h2><p className="text-xs text-outline">{unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Đã đọc tất cả'}</p></div><div className="flex items-center gap-1">{unreadCount > 0 && <button type="button" onClick={() => markNotificationsRead(notifications.map(n => n.id))} className="rounded-full px-3 py-1.5 text-xs font-semibold text-primary hover:bg-surface-container">Đọc tất cả</button>}<button type="button" onClick={() => { setNotificationsOpen(false); setExpandedNotificationId(null); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container" aria-label="Đóng thông báo"><span className="material-symbols-outlined text-[18px]">close</span></button></div></div>
               <div className="max-h-[420px] overflow-y-auto p-2">{notifications.length === 0 ? <div className="p-8 text-center text-outline"><span className="material-symbols-outlined mb-2 block text-4xl">notifications_off</span>Chưa có thông báo mới.</div> : notifications.map(item => {
                 const expanded = expandedNotificationId === item.id;
                 const isRead = readNotificationIds.has(item.id);

@@ -24,7 +24,8 @@ namespace HotelBooking.API.Controllers;
 [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
 public class StaffPortalController(
     PersistenceDbContext roomDb,
-    BookingDataDbContext bookingDb, HotelBooking.Application.Rooms.StaffCalendarService calendar) : ControllerBase
+    BookingDataDbContext bookingDb, HotelBooking.Application.Rooms.StaffCalendarService calendar,
+    HotelBooking.Infrastructure.Persistence.NotificationReadStore notificationReads) : ControllerBase
 {
     private sealed record StaffNotificationDto(
         string Id,
@@ -173,13 +174,16 @@ public class StaffPortalController(
             "sell",
             history.CreatedAt)));
 
+        var latest = notifications
+            .OrderByDescending(notification => notification.OccurredAt)
+            .Take(30)
+            .ToList();
+        // Trạng thái đã đọc lưu ở server theo tài khoản → đồng bộ giữa các thiết bị.
+        var readKeys = await notificationReads.ReadKeysAsync(ActorId, latest.Select(n => n.Id), ct);
         return Ok(new
         {
             success = true,
-            data = notifications
-                .OrderByDescending(notification => notification.OccurredAt)
-                .Take(30)
-                .ToList()
+            data = latest.Select(n => new { n.Id, n.Type, n.Title, n.Description, n.Icon, n.OccurredAt, IsRead = readKeys.Contains(n.Id) }).ToList()
         });
     }
 

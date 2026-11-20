@@ -20,10 +20,16 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
     public DbSet<HotelImage> HotelImages => Set<HotelImage>();
     public DbSet<RoomImage> RoomImages => Set<RoomImage>();
     public DbSet<ImageFileDeletion> ImageFileDeletions => Set<ImageFileDeletion>();
+    public DbSet<UserNotificationRead> UserNotificationReads => Set<UserNotificationRead>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.ConfigurePropertyContent();
+        var notificationReads = model.Entity<UserNotificationRead>();
+        notificationReads.ToTable("UserNotificationReads");
+        notificationReads.HasKey(x => new { x.UserId, x.NotificationKey });
+        notificationReads.Property(x => x.NotificationKey).HasMaxLength(200).IsUnicode(false);
+        notificationReads.HasIndex(x => x.ReadAt);
         model.Entity<Hotel>().ToTable("Hotels").HasKey(x => x.HotelId);
 
         var area = model.Entity<HotelArea>();

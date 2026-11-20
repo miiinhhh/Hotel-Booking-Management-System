@@ -37,6 +37,8 @@ export interface StaffPortalNotificationDto {
   description: string;
   icon: string;
   occurredAt: string;
+  /** Đã đọc (lưu ở server theo tài khoản). */
+  isRead?: boolean;
 }
 
 const requireData = <T>(response: ApiResponse<T>, fallbackMessage: string): T => {
