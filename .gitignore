@@ -43,3 +43,6 @@ Thumbs.db
 !Database&Docs/AdvancedAuth.sql
 !Database&Docs/DynamicAuthorization.sql
 !Database&Docs/CreateMissingBaseTables.sql
+
+# Android
+Android/
