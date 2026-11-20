@@ -1,3 +1,4 @@
+using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Domain.Enums;
@@ -122,6 +123,22 @@ public sealed class RoomInventoryTests
         Assert.True(await repo.Reserve(Booking(2)));
         Assert.False(await repo.Reserve(Booking(2)));
         Assert.Single(await db.Bookings.ToListAsync());
+    }
+    [Fact]
+    public async Task VoucherLastUseIsGrantedOnceAndRejectedBookingIsRolledBack()
+    {
+        using var db = Database(); var repo = new RoomInventoryRepository(db);
+        var vouchers = new VoucherRepository(db);
+        db.Vouchers.Add(new Voucher { VoucherId = 7, Code = "LAST1", IsActive = true, UsageLimit = 1, UsedCount = 0, StartAt = DateTime.UtcNow.AddDays(-1), EndAt = DateTime.UtcNow.AddDays(1) });
+        await db.SaveChangesAsync();
+        // Khách thứ nhất dùng lượt cuối của voucher → giữ phòng thành công.
+        Assert.Equal(ReservationOutcome.Reserved, await repo.ReserveWith(Booking(1), () => vouchers.IncrementUsedCountAtomicAsync(7)));
+        // Khách thứ hai (phòng khác, còn trống) nhưng voucher đã hết lượt → bị từ chối, booking không được lưu.
+        Assert.Equal(ReservationOutcome.Rejected, await repo.ReserveWith(Booking(2), () => vouchers.IncrementUsedCountAtomicAsync(7)));
+        Assert.Single(await db.Bookings.ToListAsync());
+        Assert.Equal(1, (await db.Vouchers.AsNoTracking().SingleAsync(v => v.VoucherId == 7)).UsedCount);
+        // Phòng 2 vẫn còn trống để khách đặt lại không dùng mã.
+        Assert.True(await repo.Reserve(Booking(2)));
     }
     [Fact]
     public async Task LockBoundaryAndFutureLockOnlyAffectOverlappingDates()

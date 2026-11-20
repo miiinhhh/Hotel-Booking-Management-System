@@ -1,3 +1,4 @@
+using HotelBooking.Application.Interfaces;
 using HotelBooking.Application.Rooms;
 using HotelBooking.Domain.Entities;
 using HotelBooking.Domain.Enums;
@@ -134,6 +135,35 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         await db.SaveChangesAsync(ct);
         if (tx is not null) await tx.CommitAsync(ct);
         return true;
+    }
+    /// <summary>
+    /// Giữ phòng và chạy bước phụ trong cùng giao dịch + khóa phòng. Bước phụ thất bại → rollback cả booking.
+    /// </summary>
+    public async Task<ReservationOutcome> ReserveWith(Booking booking, Func<Task<bool>> withinTransaction, CancellationToken ct = default)
+    {
+        var ids = booking.BookingDetails.Select(d => d.RoomId).ToArray();
+        if (ids.Length == 0 || ids.Distinct().Count() != ids.Length) return ReservationOutcome.RoomUnavailable;
+        await using var tx = await Gate(ids, ct);
+        var busy = Busy(booking.CheckInDate.ToDateTime(TimeOnly.MinValue), booking.CheckOutDate.ToDateTime(TimeOnly.MinValue));
+        var candidates = await Stock().Where(x => ids.Contains(x.RoomId) && !busy.Contains(x.RoomId)).ToListAsync(ct);
+        if (candidates.Count != ids.Length || booking.NumberOfGuests <= 0 || candidates.Sum(x => x.Capacity) < booking.NumberOfGuests || candidates.Select(x => x.HotelId).Distinct().Count() != 1)
+            return ReservationOutcome.RoomUnavailable;
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync(ct);
+        if (!await withinTransaction())
+        {
+            if (tx is not null) await tx.RollbackAsync(ct);
+            else
+            {
+                // Provider không hỗ trợ giao dịch (InMemory): bù trừ bằng cách xóa booking vừa lưu.
+                db.Bookings.Remove(booking);
+                await db.SaveChangesAsync(ct);
+            }
+            db.ChangeTracker.Clear();
+            return ReservationOutcome.Rejected;
+        }
+        if (tx is not null) await tx.CommitAsync(ct);
+        return ReservationOutcome.Reserved;
     }
     public async Task<IReadOnlyList<RoomLockDto>> CreateLocks(int hotelId, CreateRoomLockRequest request, long actorId, bool isAdmin, CancellationToken ct)
     {

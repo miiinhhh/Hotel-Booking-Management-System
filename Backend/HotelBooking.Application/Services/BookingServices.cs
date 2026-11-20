@@ -160,28 +160,31 @@ public class BookingServices : IBookingService
             Note = "Đơn đặt phòng mới được tạo (chờ thanh toán cọc/xác nhận)."
         });
 
-        // 6. Lưu vào CSDL
-        if (!await _bookingRepository.TryReserveAsync(booking))
-            throw new HotelBooking.Application.Rooms.ConflictException("A selected room is no longer available. Please search again.");
-
-        // Tăng số lượt dùng của Voucher và ghi nhận lịch sử áp mã nếu có
-        if (pricing.VoucherId.HasValue)
+        // 6. Lưu vào CSDL — giữ phòng và trừ lượt voucher trong CÙNG giao dịch, dưới cùng khóa phòng.
+        // Nếu voucher vừa hết lượt (hai khách dùng lượt cuối cùng lúc) thì người đến sau bị từ chối
+        // và booking của họ bị rollback, không còn trường hợp voucher bị dùng vượt giới hạn.
+        if (pricing.VoucherId is long voucherId)
         {
-            var incremented = await _voucherRepository.IncrementUsedCountAtomicAsync(pricing.VoucherId.Value);
-            if (!incremented)
+            var outcome = await _bookingRepository.TryReserveAsync(booking, async () =>
             {
-                await _voucherRepository.IncrementUsedCountAsync(pricing.VoucherId.Value);
-            }
-
-            await _voucherRepository.AddUsageRecordAsync(new VoucherUsage
-            {
-                VoucherId = pricing.VoucherId.Value,
-                CustomerId = customerId,
-                BookingId = booking.BookingId,
-                DiscountApplied = pricing.DiscountAmount,
-                UsedAt = DateTime.UtcNow
+                if (!await _voucherRepository.IncrementUsedCountAtomicAsync(voucherId)) return false;
+                await _voucherRepository.AddUsageRecordAsync(new VoucherUsage
+                {
+                    VoucherId = voucherId,
+                    CustomerId = customerId,
+                    BookingId = booking.BookingId,
+                    DiscountApplied = pricing.DiscountAmount,
+                    UsedAt = DateTime.UtcNow
+                });
+                return true;
             });
+            if (outcome == ReservationOutcome.RoomUnavailable)
+                throw new HotelBooking.Application.Rooms.ConflictException("A selected room is no longer available. Please search again.");
+            if (outcome == ReservationOutcome.Rejected)
+                throw new HotelBooking.Application.Rooms.ConflictException("Mã giảm giá vừa hết lượt sử dụng hoặc không còn hiệu lực. Vui lòng đặt lại không dùng mã hoặc chọn mã khác.");
         }
+        else if (!await _bookingRepository.TryReserveAsync(booking))
+            throw new HotelBooking.Application.Rooms.ConflictException("A selected room is no longer available. Please search again.");
 
         var responseDto = MapToResponseDto(booking);
         if (_notificationPublisher != null)

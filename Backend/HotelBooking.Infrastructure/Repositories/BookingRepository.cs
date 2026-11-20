@@ -227,6 +227,8 @@ public class BookingRepository : IBookingRepository
     }
 
     public Task<bool> TryReserveAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking);
+    public Task<ReservationOutcome> TryReserveAsync(Booking booking, Func<Task<bool>> withinTransaction)
+        => new RoomInventoryRepository(_context).ReserveWith(booking, withinTransaction);
     public Task<bool> TrySaveReservedAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking, updating: true);
 
     public Task UpdateAsync(Booking booking)

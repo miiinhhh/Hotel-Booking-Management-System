@@ -2,6 +2,9 @@ namespace HotelBooking.Application.Interfaces;
 
 using HotelBooking.Domain.Entities;
 
+/// <summary>Kết quả giữ phòng kèm các bước phụ (vd. trừ lượt voucher) trong cùng giao dịch.</summary>
+public enum ReservationOutcome { Reserved, RoomUnavailable, Rejected }
+
 public interface IBookingRepository
 {
     Task<Booking?> GetByIdAsync(long bookingId);
@@ -14,6 +17,16 @@ public interface IBookingRepository
     Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId);
     Task AddAsync(Booking booking);
     Task<bool> TryReserveAsync(Booking booking);
+    /// <summary>
+    /// Giữ phòng rồi chạy <paramref name="withinTransaction"/> trong CÙNG giao dịch/khóa phòng.
+    /// Nếu bước phụ trả false (vd. voucher vừa hết lượt) thì booking cũng bị hủy (rollback).
+    /// Mặc định (cho các bản giả lập trong test) chạy tuần tự không có giao dịch.
+    /// </summary>
+    async Task<ReservationOutcome> TryReserveAsync(Booking booking, Func<Task<bool>> withinTransaction)
+    {
+        if (!await TryReserveAsync(booking)) return ReservationOutcome.RoomUnavailable;
+        return await withinTransaction() ? ReservationOutcome.Reserved : ReservationOutcome.Rejected;
+    }
     Task<bool> TrySaveReservedAsync(Booking booking);
     Task UpdateAsync(Booking booking);
     Task AddStatusHistoryAsync(BookingStatusHistory history);
