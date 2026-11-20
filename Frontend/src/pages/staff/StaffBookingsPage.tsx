@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
-import { StaffHeader, StaffHeaderNotification } from './components/StaffHeader';
+import { StaffHeader } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
 import { StaffFilterBar } from './components/StaffFilterBar';
 import { StaffBookingTable } from './components/StaffBookingTable';
@@ -19,22 +19,13 @@ import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS } from '../../auth/permissions';
 import { STAFF_NAVIGATION } from './components/StaffSidebar';
 import { ReviewModerationPanel } from '../../components/reviews/ReviewModerationPanel';
-import { getStaffDashboard, getStaffNotifications, StaffPortalBookingDto, StaffPortalNotificationDto } from '../../services/staffPortalApi';
+import { getStaffDashboard, StaffPortalBookingDto } from '../../services/staffPortalApi';
 import { roomApi } from '../../services/roomApi';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
 }
 
-const mapStaffNotifications = (notifications: StaffPortalNotificationDto[]): StaffHeaderNotification[] =>
-  notifications.map((notification) => ({
-    id: notification.id,
-    icon: notification.icon,
-    title: notification.title,
-    description: notification.description,
-    time: new Date(notification.occurredAt).toLocaleString('vi-VN'),
-    isRead: Boolean(notification.isRead),
-  }));
 
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   onNavigateCustomerPortal,
@@ -50,7 +41,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   });
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [bookingError, setBookingError] = useState('');
-  const [staffNotifications, setStaffNotifications] = useState<StaffHeaderNotification[]>([]);
+  // Thời điểm đồng bộ dữ liệu booking gần nhất (thay cho giờ viết cứng)
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [assignedAreas, setAssignedAreas] = useState<Array<{
     areaId: number;
     hotelId: number;
@@ -115,10 +108,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     setLoadingBookings(true);
     setBookingError('');
     try {
-      const [dashboard, notificationData] = await Promise.all([
-        getStaffDashboard(),
-        getStaffNotifications().catch(() => []),
-      ]);
+      const dashboard = await getStaffDashboard();
       const apiBookings: StaffBooking[] = dashboard.bookings.map((b: StaffPortalBookingDto) => {
         const mappedSt = mapBackendStatus(b.bookingStatus);
         const mappedDep = mapBackendPayment(b.paymentStatus, b.paidAmount);
@@ -166,7 +156,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
       });
       setBookings(apiBookings);
       setMetrics(dashboard.metrics);
-      setStaffNotifications(mapStaffNotifications(notificationData));
+      setLastSyncedAt(new Date());
     } catch (reason) {
       setBookings([]);
       setBookingError(reason instanceof Error ? reason.message : 'Không tải được dữ liệu đặt phòng.');
@@ -198,17 +188,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     else setLoadingBookings(false);
   }, [fetchBookings, canViewBookings]);
 
-  useEffect(() => {
-    const refreshNotifications = async () => {
-      try {
-        setStaffNotifications(mapStaffNotifications(await getStaffNotifications()));
-      } catch {
-        // Keep the current list when a background refresh temporarily fails.
-      }
-    };
-    const intervalId = window.setInterval(() => void refreshNotifications(), 30_000);
-    return () => window.clearInterval(intervalId);
-  }, []);
 
   // Filtered bookings
   const filteredBookings = useMemo(() => {
@@ -430,11 +409,13 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   return (
-    <div className="bg-surface font-body-md text-on-surface antialiased min-h-screen flex selection:bg-secondary-container selection:text-on-secondary-container">
+    <div className="min-h-screen bg-background font-body-md text-on-surface antialiased selection:bg-secondary-container selection:text-on-secondary-container">
       {/* PERSISTENT LEFT SIDEBAR */}
       <StaffSidebar
         currentTab={staffTab ?? undefined}
         onSelectTab={handleSelectStaffTab}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
         onNavigateCustomerPortal={onNavigateCustomerPortal}
         assignedAreas={assignedAreas}
         activeAreaId={(selectedZone === 'all' ? assignedAreas[0] : assignedAreas.find(area => area.areaName === selectedZone))?.areaId}
@@ -445,8 +426,8 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         }}
       />
 
-      {/* MAIN WRAPPER (pl-72 for persistent sidebar) */}
-      <div className="pl-72 flex flex-col min-h-screen w-full">
+      {/* MAIN WRAPPER — cùng khung với Admin Portal: menu trái cố định từ màn hình lớn */}
+      <div className="lg:pl-72">
         {/* INTEGRATED STAFF TOP BAR (HEADER) */}
         <StaffHeader
           searchQuery={searchQuery}
@@ -454,17 +435,18 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
             setSearchQuery(q);
             setCurrentPage(1);
           }}
-          notifications={staffNotifications}
+          onOpenMenu={() => setMobileMenuOpen(true)}
+          onNavigateTab={(tab) => handleSelectStaffTab(tab)}
           onLogout={() => void handleLogout()}
           loggingOut={loggingOut}
           currentTab={staffTab ?? undefined}
         />
 
         {/* MAIN OPERATIONAL WORKSPACE */}
-        <main className="w-full pt-24 bg-surface flex-1 px-8 pb-12 flex flex-col gap-6">
+        <main className="flex min-h-screen w-full flex-col gap-6 px-4 pb-16 pt-20 md:px-8">
           {/* Toast Notification Banner */}
           {toastMessage && (
-            <div className="fixed top-24 right-8 z-50 bg-inverse-surface text-inverse-on-surface px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
+            <div className="fixed top-20 right-4 md:right-8 z-50 bg-inverse-surface text-inverse-on-surface px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
               <span className="material-symbols-outlined text-primary-fixed text-[20px]">
                 check_circle
               </span>
@@ -521,13 +503,13 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
               {/* TOP TITLE BAR & ACTION BUTTONS */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-secondary font-label-sm uppercase tracking-widest text-[11px]">
+                  <div className="flex flex-wrap items-center gap-2 text-secondary font-label-sm uppercase tracking-widest text-[11px]">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
                     <span>Khu vực phụ trách: {assignedAreas.length ? assignedAreas.map(area => `${area.hotelName} · ${area.areaName}`).join(', ') : 'Chưa được phân công'}</span>
-                    <span className="text-outline-variant">·</span>
-                    <span>Ca trực sáng (08:00 - 16:00)</span>
-                    <span className="text-outline-variant">·</span>
-                    <span className="text-on-surface-variant">Cập nhật: 09:42 SA</span>
+                    {lastSyncedAt && <>
+                      <span className="text-outline-variant">·</span>
+                      <span className="text-on-surface-variant">Cập nhật: {lastSyncedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </>}
                   </div>
                   <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight flex items-baseline flex-wrap gap-2.5">
                     Quản lý &amp; Tra cứu Đặt phòng
@@ -537,7 +519,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                   </h1>
                   <p className="font-body-md text-body-md text-on-surface-variant">
                     Điều phối lưu trú, đối soát tiền cọc và thực hiện thủ tục check-in theo phân khu
-                    được chỉ định tại StayLuxe Đà Nẵng
+                    được chỉ định
                   </p>
                 </div>
 
@@ -610,25 +592,6 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           )}
         </main>
 
-        {/* FOOTER */}
-        <footer className="w-full bg-surface-container-low border-t border-[#eae8e5] mt-auto">
-          <div className="w-full px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-3 font-label-md text-label-md text-on-surface-variant">
-            <div className="flex items-center gap-2">
-              <span className="font-headline-sm text-sm text-primary font-bold tracking-tight">
-                StayLuxe
-              </span>
-              <span>© 2025 StayLuxe Hospitality Group • Khu nghỉ dưỡng 5 sao Đà Nẵng</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                Máy trạm Lễ tân: Quầy 02 (Sảnh Chính)
-              </span>
-              <span className="hidden lg:inline text-outline-variant">|</span>
-              <span className="hidden lg:inline">Hỗ trợ Kỹ thuật Nội bộ: Ext 108</span>
-            </div>
-          </div>
-        </footer>
       </div>
 
       {/* SLIDE-OVER DETAIL DRAWER (SCREEN 2) */}

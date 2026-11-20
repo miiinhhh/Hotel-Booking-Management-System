@@ -47,7 +47,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({ activePage, onPageChange
           </div>
           <div className="mx-2 rounded-lg border border-outline-variant/40 bg-surface-container p-3">
             <p className="text-[11px] font-semibold uppercase text-on-surface-variant">Quyền truy cập</p>
-            <p className="mt-1 font-semibold">Tổng Quản Lý / GM</p><p className="text-xs text-outline">Executive Access Level 1</p>
+            <p className="mt-1 font-semibold">{session?.roles?.join(', ') || 'Quản trị viên'}</p><p className="text-xs text-outline">{session?.permissions?.length ?? 0} quyền được cấp</p>
           </div>
           <nav className="space-y-1.5">
             {navigation.map((item) => (
@@ -65,8 +65,8 @@ export const AdminShell: React.FC<AdminShellProps> = ({ activePage, onPageChange
       <div className="lg:pl-72">
         <header className="fixed left-0 right-0 top-0 z-30 flex h-16 items-center justify-between bg-surface/90 px-4 shadow-sm backdrop-blur-xl lg:left-72 lg:px-8">
           <button className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><span className="material-symbols-outlined">menu</span></button>
-          <div className="relative hidden max-w-lg flex-1 md:block"><span className="material-symbols-outlined absolute left-3 top-2.5 text-xl text-outline">search</span><input className="h-10 w-full rounded-full border border-outline-variant/50 bg-surface-container-lowest pl-11 pr-4 outline-none focus:border-primary" placeholder="Tìm kiếm trong hệ thống quản trị..." /></div>
-          <div className="flex items-center gap-3"><span className="hidden items-center gap-2 rounded-full bg-surface-container px-3 py-1.5 text-xs text-on-surface-variant sm:flex"><span className="h-2 w-2 rounded-full bg-emerald-600" />PMS trực tuyến</span><AdminNotificationBell onNavigate={navigate} /><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined text-lg">person</span></div><button type="button" disabled={loggingOut} onClick={() => void handleLogout()} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-error hover:bg-error-container disabled:cursor-wait disabled:opacity-60" title="Đăng xuất"><span className={`material-symbols-outlined text-xl ${loggingOut ? 'animate-spin' : ''}`}>{loggingOut ? 'progress_activity' : 'logout'}</span><span className="hidden xl:inline">{loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}</span></button></div>
+          <div className="hidden flex-1 md:block" />
+          <div className="ml-auto flex items-center gap-3"><AdminNotificationBell onNavigate={navigate} /><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined text-lg">person</span></div><button type="button" disabled={loggingOut} onClick={() => void handleLogout()} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-error hover:bg-error-container disabled:cursor-wait disabled:opacity-60" title="Đăng xuất"><span className={`material-symbols-outlined text-xl ${loggingOut ? 'animate-spin' : ''}`}>{loggingOut ? 'progress_activity' : 'logout'}</span><span className="hidden xl:inline">{loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}</span></button></div>
         </header>
         <main className="min-h-screen px-4 pb-16 pt-16 md:px-8">{children}</main>
       </div>

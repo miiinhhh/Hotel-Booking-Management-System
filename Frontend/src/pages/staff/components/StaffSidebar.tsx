@@ -27,6 +27,9 @@ interface StaffSidebarProps {
   }>;
   activeAreaId?: number;
   onSelectArea?: (areaId: number) => void;
+  /** Màn hình nhỏ: menu ẩn, mở bằng nút ☰ ở header (giống Admin Portal). */
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const StaffSidebar: React.FC<StaffSidebarProps> = ({
@@ -36,39 +39,36 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   assignedAreas,
   activeAreaId,
   onSelectArea,
+  mobileOpen = false,
+  onCloseMobile,
 }) => {
   const { session, profile, hasAnyPermission } = useAuth();
   const staffName = profile?.fullName || session?.fullName || 'Nhân viên';
+  const roleLabel = session?.roles?.join(', ') || 'Nhân viên khách sạn';
   const initials = staffName.trim().split(/\s+/).filter(Boolean).slice(-2).map(part => part[0]).join('').toUpperCase() || 'NV';
   const navItems = STAFF_NAVIGATION.filter((item) => hasAnyPermission(item.permissions));
 
   const currentArea = assignedAreas?.find((a) => a.areaId === activeAreaId) || assignedAreas?.[0];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-72 bg-surface-container-low z-50 flex flex-col justify-between py-7 px-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eae8e5]">
-      <div className="flex flex-col gap-6">
-        {/* Logo & Brand Header */}
-        <div className="flex items-center justify-between px-1">
+    <>
+    {mobileOpen && <button type="button" aria-label="Đóng menu" className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={onCloseMobile} />}
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col gap-4 bg-surface-container-low px-4 py-6 shadow-sm transition-transform lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Phần trên cuộn được khi menu dài; phần tài khoản bên dưới luôn cố định */}
+      <div className="-mr-2 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain pr-2 [scrollbar-width:thin]">
+        <div className="flex items-center justify-between px-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary shadow-sm shrink-0">
-              <span className="material-symbols-outlined text-[20px]">villa</span>
-            </div>
-            <div>
-              <span className="font-headline-sm text-headline-sm text-on-surface block tracking-tight leading-tight">
-                StayLuxe
-              </span>
-              <span className="font-label-sm text-[11px] text-on-surface-variant uppercase tracking-wider block">
-                Staff Portal
-              </span>
-            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined">villa</span></div>
+            <div><strong className="block font-headline-sm text-xl">StayLuxe</strong><span className="text-[11px] font-semibold uppercase text-outline">Staff Portal</span></div>
           </div>
+          <button type="button" className="lg:hidden" onClick={onCloseMobile} aria-label="Đóng menu"><span className="material-symbols-outlined">close</span></button>
         </div>
 
         {/* Active Zone Indicator Module */}
-        <div className="bg-surface-container rounded-DEFAULT p-3.5 flex flex-col gap-1.5 border border-surface-container-high/80">
+        <div className="mx-2 flex flex-col gap-1.5 rounded-lg border border-outline-variant/40 bg-surface-container p-3">
           <div className="flex items-center justify-between">
-            <span className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-widest font-semibold">
-              Active Zone
+            <span className="text-[11px] font-semibold uppercase text-on-surface-variant">
+              Khu vực phụ trách
             </span>
             <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse" />
           </div>
@@ -114,21 +114,17 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex flex-col gap-1.5">
+        <nav className="space-y-1.5">
           {navItems.map((item) => {
             const isActive = currentTab === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onSelectTab?.(item.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-full font-label-md text-label-md transition-all text-left cursor-pointer ${
-                  isActive
-                    ? 'bg-primary-container text-on-primary shadow-[0_4px_12px_rgba(194,65,12,0.22)] font-semibold'
-                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-                }`}
+                onClick={() => { onSelectTab?.(item.id); onCloseMobile?.(); }}
+                className={`flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-sm transition-colors ${isActive ? 'bg-primary-container font-semibold text-on-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}
               >
-                <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                <span className="material-symbols-outlined text-xl">{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             );
@@ -136,56 +132,19 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom Sidebar Section (Shift Handover & Staff Profile) */}
-      <div className="flex flex-col gap-3.5 pt-4 border-t border-[#eae8e5]">
-        {/* Switch back to Customer Portal button */}
+      {/* Tài khoản + về cổng khách hàng (giống Admin Portal) */}
+      <div className="shrink-0 border-t border-outline-variant/40 pt-4">
+        <div className="mb-3 flex items-center gap-3 rounded-lg bg-surface-container-lowest p-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-on-primary">{initials}</div>
+          <div className="min-w-0"><p className="truncate text-sm font-semibold">{staffName}</p><p className="truncate text-xs text-outline">{session?.email || roleLabel}</p></div>
+        </div>
         {onNavigateCustomerPortal && (
-          <button
-            type="button"
-            onClick={onNavigateCustomerPortal}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-primary font-label-sm text-[12px] font-semibold transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            <span>Về trang Khách hàng (StayLuxe)</span>
+          <button type="button" onClick={onNavigateCustomerPortal} className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container">
+            <span className="material-symbols-outlined text-lg">storefront</span>Về cổng khách hàng
           </button>
         )}
-
-        {/* Shift Detail Card */}
-        <div className="bg-surface-container-lowest rounded-DEFAULT p-3.5 shadow-[0_2px_12px_rgba(120,53,15,0.03)] border border-[#eae8e5]">
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
-              Ca trực Lễ tân
-            </span>
-            <span className="font-label-sm text-[11px] text-primary font-bold">08:00 - 16:00</span>
-          </div>
-          <div className="font-body-md text-label-md text-on-surface font-semibold flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-            Bàn giao ca sáng
-          </div>
-        </div>
-
-        {/* Staff Profile Row */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary text-[15px] font-semibold shrink-0">
-              {initials}
-            </div>
-            <div className="leading-tight">
-              <div className="font-label-md text-label-md text-on-surface font-semibold">
-                {staffName}
-              </div>
-              <div className="font-label-sm text-[11px] text-on-surface-variant">Nhân viên khách sạn</div>
-            </div>
-          </div>
-          <button
-            className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer"
-            title="Cài đặt hệ thống"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[18px]">settings</span>
-          </button>
-        </div>
       </div>
     </aside>
+    </>
   );
 };

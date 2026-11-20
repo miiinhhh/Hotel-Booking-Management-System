@@ -70,7 +70,7 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({
   return (
     <>
     <button type="button" aria-label="Đóng hồ sơ khách hàng" onClick={onClose} className="fixed inset-0 z-[60] bg-inverse-surface/25 backdrop-blur-[1px]" />
-    <aside role="dialog" aria-modal="true" aria-label={`Hồ sơ khách hàng ${customer.name}`} className="fixed bottom-0 right-0 top-20 z-[70] flex w-full max-w-[480px] flex-col gap-6 overflow-y-auto rounded-l-2xl border-l border-[#eae8e5] bg-surface-container-lowest p-6 shadow-2xl">
+    <aside role="dialog" aria-modal="true" aria-label={`Hồ sơ khách hàng ${customer.name}`} className="fixed bottom-0 right-0 top-16 z-[70] flex w-full max-w-[480px] flex-col gap-6 overflow-y-auto rounded-l-2xl border-l border-[#eae8e5] bg-surface-container-lowest p-6 shadow-2xl">
       {/* Drawer Top Bar & Profile Identity Card */}
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between">
