@@ -32,6 +32,10 @@ const MESSAGES: [RegExp, string][] = [
   [/exactly one hotel/i, 'Đơn đặt phòng không hợp lệ để đánh giá.'],
   [/own (booking|review)|ownership/i, 'Bạn chỉ có thể đánh giá đơn đặt phòng của chính mình.'],
   [/Booking not found/i, 'Không tìm thấy đơn đặt phòng.'],
+  [/deleting is not allowed/i, 'Chỉ được hiển thị hoặc ẩn đánh giá, không được xóa.'],
+  [/reason is required/i, 'Vui lòng nhập lý do khi ẩn đánh giá.'],
+  [/review author does not match/i, 'Người viết đánh giá không khớp chủ đơn đặt phòng nên không thể hiển thị.'],
+  [/Review not found/i, 'Không tìm thấy đánh giá trong khách sạn này.'],
 ];
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -64,7 +68,18 @@ export async function loadHotelRatings(hotelIds: number[]): Promise<Record<numbe
 /** Gọi sau khi khách gửi/sửa đánh giá để lần hiển thị sau lấy điểm mới. */
 export function invalidateHotelRating(hotelId?: number | null) { if (hotelId) ratingCache.delete(hotelId); else ratingCache.clear(); }
 
+export interface ReviewHistoryDto { historyId: number; actorId: number; oldStatus: ReviewStatus; newStatus: ReviewStatus; action: string; reason: string | null; createdAt: string }
+
 export const reviewApi = {
+  /** Danh sách đánh giá của khách sạn để kiểm duyệt (cần quyền reviews.manage). */
+  moderationList: (hotelId: number, status?: ReviewStatus, page = 1, pageSize = 20) =>
+    call<ReviewPageDto<ReviewDto>>(`/api/admin/hotels/${hotelId}/reviews?page=${page}&pageSize=${pageSize}${status ? `&status=${status}` : ''}`),
+  /** Chỉ hiển thị hoặc ẩn; Backend từ chối xóa. Ẩn bắt buộc có lý do. */
+  moderate: (hotelId: number, reviewId: number, status: 'Visible' | 'Hidden', reason?: string) =>
+    call<ReviewDto>(`/api/admin/hotels/${hotelId}/reviews/${reviewId}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason: reason?.trim() || null }) })
+      .then((review) => { invalidateHotelRating(hotelId); return review; }),
+  history: (hotelId: number, reviewId: number) =>
+    call<ReviewHistoryDto[]>(`/api/admin/hotels/${hotelId}/reviews/${reviewId}/history`),
   /** Trả về null nếu booking chưa có đánh giá. */
   async forBooking(bookingId: number): Promise<ReviewDto | null> {
     try {

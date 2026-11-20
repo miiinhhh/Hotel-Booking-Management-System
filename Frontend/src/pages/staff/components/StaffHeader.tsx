@@ -71,6 +71,8 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({
         return 'Tìm kiếm tòa nhà, tên phân khu...';
       case 'customers':
         return 'Tìm khách hàng theo Tên, SĐT, Email hoặc Mã CCCD...';
+      case 'reviews':
+        return 'Tìm kiếm mã booking #BK, tên khách...';
       default:
         return 'Tìm kiếm mã booking #BK, tên khách, số điện thoại, số phòng...';
     }

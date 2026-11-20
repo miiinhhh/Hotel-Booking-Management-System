@@ -6,6 +6,7 @@ export const ADMIN_NAVIGATION: AdminNavigationItem[] = [
   { id: 'overview', label: 'Tổng quan kinh doanh', icon: 'query_stats', permissions: [P.reportsView] },
   { id: 'inventory', label: 'Phân khu & Hạng phòng', icon: 'apartment', permissions: [P.hotelManage, P.areaManage, P.roomManage, P.inventoryView] },
   { id: 'content', label: 'Tiện ích & Hình ảnh', icon: 'photo_library', permissions: [P.contentManage] },
+  { id: 'reviews', label: 'Quản lý đánh giá', icon: 'reviews', permissions: [P.reviewsManage] },
   { id: 'pricing', label: 'Giá phòng', icon: 'price_change', permissions: [P.pricingView] },
   { id: 'vouchers', label: 'Voucher & Hủy hoàn', icon: 'confirmation_number', permissions: [P.voucherView, P.policiesManage] },
   { id: 'staff', label: 'Nhân viên & Phân công', icon: 'badge', permissions: [P.staffView] },

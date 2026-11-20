@@ -187,5 +187,5 @@ export interface StaffZone {
   accessLevel: 'full' | 'view_only';
 }
 
-export type StaffPortalTab = 'reservations' | 'calendar' | 'suites' | 'customers';
+export type StaffPortalTab = 'reservations' | 'calendar' | 'suites' | 'customers' | 'reviews';
 

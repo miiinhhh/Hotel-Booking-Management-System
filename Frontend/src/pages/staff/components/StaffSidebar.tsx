@@ -9,6 +9,8 @@ export const STAFF_NAVIGATION: { id: StaffPortalTab; label: string; icon: string
   { id: 'calendar', label: 'Lịch phòng & Khóa bán', icon: 'calendar_month', permissions: [PERMISSIONS.inventoryView] },
   { id: 'suites', label: 'Suites & Phân khu', icon: 'bed', permissions: [PERMISSIONS.inventoryView] },
   { id: 'customers', label: 'Hồ sơ Khách hàng', icon: 'group', permissions: [PERMISSIONS.bookingView] },
+  // Chỉ hiện khi Admin bật quyền reviews.manage cho role Hotel Staff.
+  { id: 'reviews', label: 'Đánh giá của khách', icon: 'reviews', permissions: [PERMISSIONS.reviewsManage] },
 ];
 
 interface StaffSidebarProps {

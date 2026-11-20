@@ -48,7 +48,7 @@ public sealed class PermissionManagementService(HotelBookingDbContext db) : IPer
                 !SystemPermissions.DefaultCustomer.Contains(code, StringComparer.OrdinalIgnoreCase)))
             throw new ConflictException("Customer can only receive customer self-service permissions.");
         if (role.RoleName == SystemRoles.HotelStaff && requested.Any(code =>
-                !SystemPermissions.DefaultStaff.Contains(code, StringComparer.OrdinalIgnoreCase)))
+                !SystemPermissions.AssignableStaff.Contains(code, StringComparer.OrdinalIgnoreCase)))
             throw new ConflictException("Hotel Staff can only receive staff operational permissions.");
         if (requested.Contains(SystemPermissions.RolesManage, StringComparer.OrdinalIgnoreCase) ||
             requested.Contains(SystemPermissions.AccountsManage, StringComparer.OrdinalIgnoreCase))

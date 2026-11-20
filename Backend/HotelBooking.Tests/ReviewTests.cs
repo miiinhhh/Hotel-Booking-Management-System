@@ -110,8 +110,12 @@ public sealed class ReviewTests
         using var db = Database(); var service = Service(db);
         var review = await service.Create(10, 4, new(5, null), default);
         await Assert.ThrowsAsync<NotFoundException>(() => service.Moderate(2, review.ReviewId, 1, new(ReviewStatus.Visible, null), default));
-        await Assert.ThrowsAsync<DomainRuleException>(() => service.Moderate(1, review.ReviewId, 1, new(ReviewStatus.Deleted, " "), default));
-        await service.Moderate(1, review.ReviewId, 1, new(ReviewStatus.Deleted, "Spam"), default);
+        // Kiểm duyệt chỉ được hiển thị/ẩn; xóa bị từ chối kể cả khi có lý do, và ẩn bắt buộc có lý do.
+        await Assert.ThrowsAsync<DomainRuleException>(() => service.Moderate(1, review.ReviewId, 1, new(ReviewStatus.Deleted, "Spam"), default));
+        await Assert.ThrowsAsync<DomainRuleException>(() => service.Moderate(1, review.ReviewId, 1, new(ReviewStatus.Hidden, " "), default));
+        Assert.Equal(ReviewStatus.Hidden, (await service.Moderate(1, review.ReviewId, 1, new(ReviewStatus.Hidden, "Spam"), default)).Status);
+        // Chỉ tác giả tự xóa được; đánh giá đã xóa không thể khôi phục bằng kiểm duyệt.
+        await service.DeleteOwn(10, 4, default);
         await Assert.ThrowsAsync<ConflictException>(() => service.Moderate(1, review.ReviewId, 1, new(ReviewStatus.Visible, null), default));
         await Assert.ThrowsAsync<ConflictException>(() => service.Edit(10, 4, new(4, null), default));
         await Assert.ThrowsAsync<ConflictException>(() => service.Create(10, 4, new(4, null), default));

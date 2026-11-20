@@ -8,6 +8,7 @@ import { AdminVouchers } from './pages/AdminVouchers';
 import { AdminAccounts } from './pages/AdminAccounts';
 import { AdminRoles } from './pages/AdminRoles';
 import { AdminContent } from './pages/AdminContent';
+import { AdminReviews } from './pages/AdminReviews';
 import { ADMIN_NAVIGATION } from './data/adminData';
 import { AdminPage } from './types';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +32,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onExit }) => {
     overview: <AdminOverview />,
     inventory: <AdminInventory />,
     content: <AdminContent />,
+    reviews: <AdminReviews />,
     pricing: <AdminPricing />,
     vouchers: <AdminVouchers />,
     staff: <AdminStaff />,

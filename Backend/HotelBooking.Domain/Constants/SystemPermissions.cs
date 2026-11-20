@@ -45,6 +45,11 @@ public static class SystemPermissions
     [ProfileSelfManage, InventoryView, InventoryManage, BookingView, BookingManage, PaymentView,
         PaymentManage, PricingView, StaffView, PoliciesManage];
 
+    /// <summary>
+    /// Quyền Admin được phép bật thêm cho role Hotel Staff (không cấp sẵn khi seed).
+    /// </summary>
+    public static readonly IReadOnlyCollection<string> AssignableStaff = [.. DefaultStaff, ReviewsManage];
+
     public static readonly IReadOnlyCollection<string> DefaultCustomer =
     [ProfileSelfManage, BookingSelfCreate, BookingSelfView, BookingSelfCancel,
         PaymentSelfManage, ReviewSelfManage, WishlistSelfManage];

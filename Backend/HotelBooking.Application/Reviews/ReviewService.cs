@@ -84,6 +84,8 @@ public sealed class ReviewService(IReviewRepository repository)
     {
         var target = request.Status ?? throw new DomainRuleException("Status is required.");
         if (!Enum.IsDefined(target) || request.Reason?.Length > 500) throw new DomainRuleException("Invalid status or reason.");
+        // Quy định vận hành: kiểm duyệt chỉ được hiển thị hoặc ẩn đánh giá, không được xóa nội dung của khách.
+        if (target == ReviewStatus.Deleted) throw new DomainRuleException("Moderators can only show or hide reviews; deleting is not allowed.");
         var review = await repository.Find(reviewId, ct) ?? throw new NotFoundException("Review not found.");
         var stay = await repository.Stay(review.BookingId, ct);
         if (stay?.HotelId != hotelId) throw new NotFoundException("Review not found in this hotel.");

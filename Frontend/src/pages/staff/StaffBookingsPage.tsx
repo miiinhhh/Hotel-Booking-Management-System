@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS } from '../../auth/permissions';
 import { STAFF_NAVIGATION } from './components/StaffSidebar';
+import { ReviewModerationPanel } from '../../components/reviews/ReviewModerationPanel';
 import { getStaffDashboard, getStaffNotifications, StaffPortalBookingDto, StaffPortalNotificationDto } from '../../services/staffPortalApi';
 import { roomApi } from '../../services/roomApi';
 
@@ -492,6 +493,20 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                 setStaffTab('reservations');
               }}
             />
+          )}
+
+          {/* ĐÁNH GIÁ CỦA KHÁCH — chỉ khách sạn được phân công; chỉ hiển thị/ẩn, không xóa */}
+          {staffTab === 'reviews' && (
+            <section className="flex flex-col gap-5 pt-2">
+              <div>
+                <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">Đánh giá của khách</h1>
+                <p className="font-body-md text-body-md text-on-surface-variant">Hiển thị hoặc ẩn đánh giá tại khách sạn bạn phụ trách. Khi ẩn cần ghi lý do; đánh giá không thể bị xóa.</p>
+              </div>
+              <ReviewModerationPanel
+                hotels={Array.from(new Map(assignedAreas.map((a) => [a.hotelId, { hotelId: a.hotelId, hotelName: a.hotelName }])).values())}
+                onToast={showToast}
+              />
+            </section>
           )}
 
           {/* 3. CUSTOMERS VIEW (Hồ sơ Khách hàng) */}
