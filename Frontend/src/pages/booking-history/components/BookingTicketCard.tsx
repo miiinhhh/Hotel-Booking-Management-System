@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { previewCancelBooking } from '../../../services/bookingApi';
 import { BookingItem } from '../types';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { formatVnd, formatDateVi } from '../../../utils/formatters';
@@ -12,6 +13,7 @@ interface BookingTicketCardProps {
   onOpenReviewModal: (booking: BookingItem) => void;
   onPayNow?: (booking: BookingItem, paymentTarget?: 'Deposit' | 'Full') => void;
   onRebook?: (booking: BookingItem) => void;
+  onReschedule?: (booking: BookingItem) => void;
 }
 
 export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
@@ -21,6 +23,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
   onOpenReviewModal,
   onPayNow,
   onRebook,
+  onReschedule,
 }) => {
   const { hasPermission } = useAuth();
   const canPay = hasPermission(SELF_PERMISSIONS.paymentManage);
@@ -30,6 +33,24 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
   const isCompleted = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
   const isConfirmed = booking.status === 'confirmed';
+
+  // Mức hoàn khi hủy NGAY BÂY GIỜ, do server tính theo chính sách hủy của khách sạn (tải khi rê chuột).
+  const [cancelNotice, setCancelNotice] = useState<string | null>(null);
+  const loadCancelNotice = async () => {
+    if (cancelNotice !== null) return;
+    setCancelNotice('Đang tính mức hoàn tiền…');
+    try {
+      const res = await previewCancelBooking(Number(booking.id));
+      const p = res.data;
+      if (!res.success || !p) { setCancelNotice('Mức hoàn tiền tính theo chính sách hủy của khách sạn.'); return; }
+      const paid = p.totalPaid ?? p.paidAmount ?? 0;
+      setCancelNotice(paid <= 0
+        ? 'Đơn chưa thanh toán, hủy không mất phí.'
+        : `Hủy bây giờ: hoàn ${p.refundPercentage}% (${formatVnd(p.refundAmount)})${p.appliedPolicyName ? ` · ${p.appliedPolicyName}` : ''}`);
+    } catch {
+      setCancelNotice('Mức hoàn tiền tính theo chính sách hủy của khách sạn.');
+    }
+  };
 
   return (
     <div className="relative bg-surface-container-lowest rounded-lg shadow-[0_4px_24px_-2px_rgba(120,53,15,0.06)] hover:shadow-[0_12px_32px_-4px_rgba(120,53,15,0.1)] transition-all overflow-hidden flex flex-col xl:flex-row">
@@ -397,7 +418,15 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                 <span>Chi tiết đơn &amp; Vé điện tử</span>
               </button>
 
-              {canCancel && <div className="relative group w-full">
+              {canCancel && onReschedule && (
+                <button type="button" onClick={() => onReschedule(booking)}
+                  className="w-full py-2 px-4 rounded-full border border-outline-variant text-on-surface font-label-md text-label-md hover:bg-surface-container transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+                  <span className="material-symbols-outlined text-[16px] text-primary">event_repeat</span>
+                  <span>Đổi ngày lưu trú</span>
+                </button>
+              )}
+
+              {canCancel && <div className="relative group w-full" onMouseEnter={() => void loadCancelNotice()} onFocus={() => void loadCancelNotice()}>
                 <button
                   onClick={() => onOpenCancelModal(booking)}
                   className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
@@ -406,36 +435,13 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
                   <span>Hủy đặt phòng</span>
                 </button>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center w-56 z-20 pointer-events-none">
-                  <div className="bg-inverse-surface text-inverse-on-surface font-label-sm text-[11px] p-2 rounded shadow-lg text-center">
-                    {booking.cancellationPolicyNotice || 'Hủy miễn phí hoàn 100% trước giờ quy định'}
+                  <div className="bg-inverse-surface text-inverse-on-surface font-label-sm text-[11px] p-2 rounded-2xl shadow-lg text-center">
+                    {cancelNotice ?? 'Mức hoàn tiền tính theo chính sách hủy của khách sạn.'}
                   </div>
                   <div className="w-2 h-2 bg-inverse-surface rotate-45 -mt-1" />
                 </div>
               </div>}
 
-              <div className="flex items-center justify-center gap-4 pt-1">
-                <a
-                  href="#pdf"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(`Đang tải vé PDF cho mã đặt phòng ${booking.bookingCode}`);
-                  }}
-                  className="font-label-sm text-[11px] text-outline hover:text-primary transition-colors flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[14px]">download</span> Tải PDF
-                </a>
-                <span className="text-outline-variant">|</span>
-                <a
-                  href="#apple-wallet"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(`Thêm vé ${booking.bookingCode} vào Apple Wallet`);
-                  }}
-                  className="font-label-sm text-[11px] text-outline hover:text-primary transition-colors flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[14px]">wallet</span> Apple Wallet
-                </a>
-              </div>
             </>
           )}
 

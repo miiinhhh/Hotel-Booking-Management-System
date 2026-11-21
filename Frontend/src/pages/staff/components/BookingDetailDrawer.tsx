@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS } from '../../../auth/permissions';
 import { StaffBooking } from '../types';
+import { RescheduleDialog } from '../../../components/booking/RescheduleDialog';
 import { refundVnPayPayment, confirmManualRefund, confirmCashPayment } from '../../../services/paymentApi';
 import { PAYMENT_UI, PaidBar, StatusBadge, viDate, vnd } from './staffUi';
 
@@ -14,6 +15,8 @@ interface BookingDetailDrawerProps {
   onUpdateNotes?: (bookingId: string, notes: string, approval: 'accepted' | 'rejected') => void;
   onRefundBooking?: (booking: StaffBooking, message: string) => void;
   onConfirmPayment?: (booking: StaffBooking) => void;
+  /** Sau khi đổi lịch thành công (tải lại danh sách + thông báo). */
+  onRescheduled?: (message: string) => void;
 }
 
 /** Thao tác cần xác nhận trước khi gọi máy chủ. */
@@ -24,7 +27,7 @@ type Pending = 'checkin' | 'cash' | 'refund-vnpay' | 'refund-manual' | 'cancel';
  * và thanh thao tác dưới cùng chỉ hiện đúng bước kế tiếp theo trạng thái + quyền.
  */
 export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
-  booking, isOpen, onClose, onCheckIn, onCancelBooking, onRefundBooking, onConfirmPayment,
+  booking, isOpen, onClose, onCheckIn, onCancelBooking, onRefundBooking, onConfirmPayment, onRescheduled,
 }) => {
   const { hasPermission } = useAuth();
   const canManageBooking = hasPermission(PERMISSIONS.bookingManage);
@@ -33,6 +36,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
   useEffect(() => { setPending(null); setError(''); setCopied(false); }, [booking?.id]);
 
@@ -51,6 +55,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   const owing = booking.remainingAmount > 0 && !cancelled;
   const refundPending = booking.depositStatus === 'refund_pending';
   const refunded = booking.depositStatus === 'refunded';
+  const refundAmount = booking.refundAmount ?? booking.paidAmount;
   const pay = PAYMENT_UI[booking.depositStatus];
 
   const copyCode = () => {
@@ -109,12 +114,12 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
     },
     'refund-vnpay': {
       title: 'Hoàn tiền qua VNPay',
-      body: <p>Gửi lệnh hoàn <b>{vnd(booking.paidAmount)}</b> về tài khoản thanh toán của khách qua cổng VNPay.</p>,
+      body: <p>Gửi lệnh hoàn <b>{vnd(refundAmount)}</b> về tài khoản thanh toán của khách qua cổng VNPay.</p>,
       cta: 'Gửi lệnh hoàn tiền',
     },
     'refund-manual': {
       title: 'Xác nhận đã hoàn tiền thủ công',
-      body: <p>Chỉ xác nhận khi đã trả <b>{vnd(booking.paidAmount)}</b> cho khách bằng tiền mặt hoặc chuyển khoản ngoài hệ thống.</p>,
+      body: <p>Chỉ xác nhận khi đã trả <b>{vnd(refundAmount)}</b> cho khách bằng tiền mặt hoặc chuyển khoản ngoài hệ thống.</p>,
       cta: 'Đã hoàn tiền',
     },
     cancel: {
@@ -135,6 +140,8 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   if (refundPending && canManagePayment) secondary.push({ label: 'Đã hoàn tiền thủ công', icon: 'receipt_long', action: 'refund-manual' });
   if (owing && canManagePayment && primary?.action !== 'cash') secondary.push({ label: `Thu ${vnd(booking.remainingAmount)}`, icon: 'point_of_sale', action: 'cash' });
   if (canManageBooking && (booking.status === 'pending_deposit' || booking.status === 'confirmed_deposit')) secondary.push({ label: 'Hủy đơn', icon: 'block', action: 'cancel', danger: true });
+
+  const canReschedule = canManageBooking && Boolean(onRescheduled) && (booking.status === 'pending_deposit' || booking.status === 'confirmed_deposit');
 
   const section = 'border-b border-outline-variant/40 px-6 py-5 last:border-b-0';
   const label = 'text-xs text-on-surface-variant';
@@ -224,6 +231,9 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between"><dt className="text-on-surface-variant">Tổng tiền</dt><dd className="font-semibold tabular-nums text-on-surface">{vnd(booking.totalAmount)}</dd></div>
               <div className="flex justify-between"><dt className="text-on-surface-variant">Đã thanh toán</dt><dd className="tabular-nums text-emerald-700">{vnd(booking.paidAmount)}</dd></div>
+              {(refundPending || refunded) && (
+                <div className="flex justify-between"><dt className="text-on-surface-variant">Hoàn theo chính sách hủy</dt><dd className="font-semibold tabular-nums text-on-surface">{vnd(refundAmount)}</dd></div>
+              )}
               {!cancelled && <PaidBar paid={booking.paidAmount} total={booking.totalAmount} />}
               {!cancelled && (
                 <div className="flex justify-between border-t border-outline-variant/40 pt-2">
@@ -238,12 +248,12 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
             {refundPending && (
               <p className="mt-3 flex items-start gap-2 rounded bg-amber-50 p-3 text-sm text-amber-900">
                 <span className="material-symbols-outlined text-[18px]">pending_actions</span>
-                <span>Đơn đã hủy, đang chờ hoàn <b>{vnd(booking.paidAmount)}</b> cho khách qua VNPay hoặc trả trực tiếp.</span>
+                <span>Đơn đã hủy, đang chờ hoàn <b>{vnd(refundAmount)}</b> cho khách qua VNPay hoặc trả trực tiếp.</span>
               </p>
             )}
             {refunded && (
               <p className="mt-3 flex items-center gap-2 rounded bg-violet-50 p-3 text-sm text-violet-800">
-                <span className="material-symbols-outlined text-[18px]">check_circle</span>Đã hoàn tiền cho khách.
+                <span className="material-symbols-outlined text-[18px]">check_circle</span>Đã hoàn {vnd(refundAmount)} cho khách.
               </p>
             )}
           </div>
@@ -258,9 +268,15 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
         </div>
 
         {/* ===== Thanh thao tác ===== */}
-        {(primary || secondary.length > 0) && (
+        {(primary || secondary.length > 0 || canReschedule) && (
           <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/40 px-6 py-4">
             <div className="flex flex-wrap gap-1">
+              {canReschedule && (
+                <button type="button" disabled={busy} onClick={() => setRescheduleOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40">
+                  <span className="material-symbols-outlined text-[18px]">event_repeat</span>Đổi lịch
+                </button>
+              )}
               {secondary.map(s => (
                 <button key={s.action} type="button" disabled={busy} onClick={() => { setError(''); setPending(s.action); }}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold disabled:opacity-40 ${s.danger ? 'text-error hover:bg-error-container' : 'text-on-surface hover:bg-surface-container'}`}>
@@ -277,6 +293,11 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
           </footer>
         )}
       </section>
+
+      <RescheduleDialog open={rescheduleOpen} bookingId={id} bookingCode={booking.bookingCode}
+        checkInDate={booking.checkInDate} checkOutDate={booking.checkOutDate}
+        onClose={() => setRescheduleOpen(false)}
+        onDone={(msg) => { setRescheduleOpen(false); onRescheduled?.(msg); }} />
 
       {/* ===== Hộp xác nhận chung ===== */}
       {pending && (

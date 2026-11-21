@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
 import { StaffHeader } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
-import { StaffFilterBar, UPCOMING_REQUESTS } from './components/StaffFilterBar';
+import { StaffFilterBar, UPCOMING_REQUESTS, REFUND_PENDING } from './components/StaffFilterBar';
 import { StaffBookingTable } from './components/StaffBookingTable';
 import { StaffPagination } from './components/StaffPagination';
 import { BookingDetailDrawer } from './components/BookingDetailDrawer';
@@ -156,6 +156,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           nightsLabel: `${nights} đêm`,
           totalAmount: b.totalAmount,
           paidAmount: b.paidAmount,
+          refundAmount: b.refundAmount ?? undefined,
           remainingAmount: b.remainingAmount,
           depositStatus: mappedDep.status,
           depositStatusLabel: mappedDep.label,
@@ -209,9 +210,11 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         return false;
       }
 
-      // Status filter ("Sắp đến · có yêu cầu" là bộ lọc nghiệp vụ riêng)
+      // Status filter ("Khách có ghi chú" là bộ lọc nghiệp vụ riêng)
       if (selectedStatus === UPCOMING_REQUESTS) {
         if (!isUpcomingWithRequest(b)) return false;
+      } else if (selectedStatus === REFUND_PENDING) {
+        if (b.depositStatus !== 'refund_pending') return false;
       } else if (selectedStatus !== 'all' && b.status !== selectedStatus) {
         return false;
       }
@@ -253,6 +256,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     for (const b of base) counts[b.status] = (counts[b.status] ?? 0) + 1;
     for (const s of ['pending_deposit', 'confirmed_deposit', 'checked_in', 'staying', 'cancelled']) counts[s] ??= 0;
     counts[UPCOMING_REQUESTS] = base.filter(isUpcomingWithRequest).length;
+    counts[REFUND_PENDING] = base.filter(b => b.depositStatus === 'refund_pending').length;
     return counts;
   }, [bookings, selectedZone, searchQuery]);
   // Reset filters
@@ -571,6 +575,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         onCancelBooking={handleCancelBooking}
         onRefundBooking={handleRefundBooking}
         onConfirmPayment={handleConfirmPayment}
+        onRescheduled={(msg) => { setIsDrawerOpen(false); showToast(msg); void fetchBookings(); }}
       />
     </div>
   );

@@ -20,6 +20,8 @@ export interface StaffPortalBookingDto {
   paidAmount: number;
   remainingAmount: number;
   depositAmount: number;
+  /** Số tiền hoàn theo chính sách hủy (chỉ có khi đơn chờ hoàn / đã hoàn). */
+  refundAmount?: number | null;
   specialRequests?: string;
   createdAt: string;
   updatedAt?: string;

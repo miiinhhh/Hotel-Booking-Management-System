@@ -170,6 +170,15 @@ public class BookingController : BaseAPIController
     /// <summary>
     /// Đổi ngày lưu trú / đổi phòng (Khách hàng cho đơn của mình, hoặc Nhân viên / Admin)
     /// </summary>
+    [HttpPost("{id:long}/preview-reschedule")]
+    [Authorize]
+    public async Task<IActionResult> PreviewReschedule(long id, [FromBody] RescheduleBookingRequest request)
+    {
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
+        var result = await _bookingService.PreviewRescheduleAsync(id, currentUserId, isAdmin, isStaff, request);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("{id:long}/reschedule")]
     [Authorize]
     public async Task<IActionResult> RescheduleBooking(long id, [FromBody] RescheduleBookingRequest request)

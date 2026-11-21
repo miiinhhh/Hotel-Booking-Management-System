@@ -544,61 +544,85 @@ public class BookingServices : IBookingService
         return ApiResponse<bool>.SuccessResult(true, $"Cập nhật trạng thái đơn đặt phòng sang '{newStatus}' thành công.");
     }
 
-    public async Task<ApiResponse<BookingResponseDto>> RescheduleBookingAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request)
+    /// <summary>Kiểm tra quyền/trạng thái/ngày và tính lại giá cho yêu cầu đổi lịch (dùng chung cho xem trước và thực hiện).</summary>
+    private async Task<(string? Error, Booking? Booking, BookingPriceCalculationResultDto? Pricing, decimal Paid)> PrepareRescheduleAsync(
+        long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request)
     {
         var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
-        if (booking == null)
-        {
-            return ApiResponse<BookingResponseDto>.FailureResult("Không tìm thấy đơn đặt phòng.");
-        }
+        if (booking == null) return ("Không tìm thấy đơn đặt phòng.", null, null, 0m);
 
-        // 1. Phân quyền
         if (!isAdmin)
         {
             if (isStaff)
             {
-                bool isAssigned = await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, currentUserId);
-                if (!isAssigned)
-                    return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền đổi lịch đơn đặt phòng ngoài phân khu được phân công.");
+                if (!await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, currentUserId))
+                    return ("Bạn không có quyền đổi lịch đơn đặt phòng ngoài phân khu được phân công.", null, null, 0m);
             }
             else if (booking.CustomerId != currentUserId)
             {
-                return ApiResponse<BookingResponseDto>.FailureResult("Bạn không có quyền chỉnh sửa đơn đặt phòng của khách hàng khác.");
+                return ("Bạn không có quyền chỉnh sửa đơn đặt phòng của khách hàng khác.", null, null, 0m);
             }
         }
 
-        // 2. Trạng thái cho phép đổi lịch: Pending hoặc Confirmed
         if (booking.BookingStatus is not (BookingStatus.Pending or BookingStatus.Confirmed))
-        {
-            return ApiResponse<BookingResponseDto>.FailureResult($"Không thể đổi lịch cho đơn đặt phòng đang ở trạng thái: {booking.BookingStatus}.");
-        }
+            return ("Chỉ đổi lịch được đơn đang chờ xác nhận hoặc đã xác nhận (chưa nhận phòng).", null, null, 0m);
 
-        // 3. Kiểm tra ngày nhận và trả phòng mới
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         if (request.NewCheckInDate < today || request.NewCheckOutDate <= request.NewCheckInDate)
-        {
-            return ApiResponse<BookingResponseDto>.FailureResult("Ngày nhận phòng mới không thể trong quá khứ và ngày trả phòng phải sau ngày nhận phòng.");
-        }
+            return ("Ngày nhận phòng mới không được ở quá khứ và ngày trả phòng phải sau ngày nhận phòng.", null, null, 0m);
+
+        if (request.NewCheckInDate == booking.CheckInDate && request.NewCheckOutDate == booking.CheckOutDate
+            && (request.NewRoomIds == null || request.NewRoomIds.Count == 0))
+            return ("Ngày mới trùng với lịch hiện tại.", null, null, 0m);
 
         var targetRoomIds = request.NewRoomIds != null && request.NewRoomIds.Count > 0
             ? request.NewRoomIds.Distinct().ToList()
             : booking.BookingDetails.Select(d => d.RoomId).Distinct().ToList();
 
-        // 4. Tính toán lại chi phí máy chủ
         BookingPriceCalculationResultDto pricing;
         try
         {
             pricing = await _pricingService.CalculateAuthoritativePriceAsync(
-                request.NewCheckInDate,
-                request.NewCheckOutDate,
-                targetRoomIds,
-                booking.Voucher?.Code,
-                booking.PaymentMethod);
+                request.NewCheckInDate, request.NewCheckOutDate, targetRoomIds, booking.Voucher?.Code, booking.PaymentMethod);
         }
         catch (InvalidOperationException ex)
         {
-            return ApiResponse<BookingResponseDto>.FailureResult(ex.Message);
+            return (ex.Message, null, null, 0m);
         }
+
+        var paid = _paymentRepository != null ? await _paymentRepository.GetTotalPaidAmountAsync(bookingId) : 0m;
+        return (null, booking, pricing, paid);
+    }
+
+    public async Task<ApiResponse<ReschedulePreviewDto>> PreviewRescheduleAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request)
+    {
+        var (error, booking, pricing, paid) = await PrepareRescheduleAsync(bookingId, currentUserId, isAdmin, isStaff, request);
+        if (error != null) return ApiResponse<ReschedulePreviewDto>.FailureResult(error);
+
+        var available = await _bookingRepository.AreRoomsAvailableForRescheduleAsync(
+            booking!.BookingId, pricing!.RoomBreakdowns.Select(r => r.RoomId).ToList(), request.NewCheckInDate, request.NewCheckOutDate);
+
+        return ApiResponse<ReschedulePreviewDto>.SuccessResult(new ReschedulePreviewDto
+        {
+            OldCheckInDate = booking.CheckInDate,
+            OldCheckOutDate = booking.CheckOutDate,
+            NewCheckInDate = request.NewCheckInDate,
+            NewCheckOutDate = request.NewCheckOutDate,
+            OldTotalAmount = booking.TotalAmount,
+            NewTotalAmount = pricing.TotalAmount,
+            PaidAmount = paid,
+            NewRemainingAmount = paid > 0m ? Math.Max(0m, pricing.TotalAmount - paid) : pricing.TotalAmount,
+            OverpaidAmount = Math.Max(0m, paid - pricing.TotalAmount),
+            NewDepositAmount = paid > 0m ? paid : pricing.DepositAmount,
+            RoomsAvailable = available
+        });
+    }
+
+    public async Task<ApiResponse<BookingResponseDto>> RescheduleBookingAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request)
+    {
+        var (error, booking, pricing, paid) = await PrepareRescheduleAsync(bookingId, currentUserId, isAdmin, isStaff, request);
+        if (error != null) return ApiResponse<BookingResponseDto>.FailureResult(error);
+        booking = booking!; pricing = pricing!;
 
         var oldCheckIn = booking.CheckInDate;
         var oldCheckOut = booking.CheckOutDate;
@@ -611,8 +635,18 @@ public class BookingServices : IBookingService
         booking.FeeAmount = pricing.FeeAmount;
         booking.DiscountAmount = pricing.DiscountAmount;
         booking.TotalAmount = pricing.TotalAmount;
-        booking.DepositAmount = pricing.DepositAmount;
-        booking.RemainingAmount = Math.Max(0m, pricing.TotalAmount - booking.DepositAmount);
+        if (paid > 0m)
+        {
+            // Khách đã trả tiền: giữ nguyên số đã trả; chênh lệch cộng/trừ vào phần còn lại thu khi nhận phòng.
+            booking.DepositAmount = paid;
+            booking.RemainingAmount = Math.Max(0m, pricing.TotalAmount - paid);
+            booking.PaymentStatus = booking.RemainingAmount == 0m ? "Paid" : "PartiallyPaid";
+        }
+        else
+        {
+            booking.DepositAmount = pricing.DepositAmount;
+            booking.RemainingAmount = Math.Max(0m, pricing.TotalAmount - booking.DepositAmount);
+        }
         booking.UpdatedAt = DateTime.UtcNow;
 
         // Cập nhật booking details

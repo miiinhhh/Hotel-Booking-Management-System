@@ -534,6 +534,7 @@ public class VnPayService : IVnPayService
                     booking.PaymentStatus = "Refunded";
                     booking.UpdatedAt = refundedAt;
                     await _bookingRepository.UpdateAsync(booking);
+                    await _bookingRepository.SaveChangesAsync();
                 }
 
                 return new VnPayRefundResultDto

@@ -307,7 +307,8 @@ public class PaymentRepository : IPaymentRepository
                 SELECT 1
                 FROM BookingDetails bd
                 INNER JOIN Rooms r ON bd.RoomId = r.RoomId
-                INNER JOIN StaffAreaAssignments saa ON r.AreaId = saa.AreaId
+                INNER JOIN HotelAreas ha ON r.AreaId = ha.AreaId
+                INNER JOIN StaffAreaAssignments saa ON saa.AreaId = ha.AreaId OR saa.AreaId = ha.ParentAreaId
                 WHERE bd.BookingId = @BookingId
                   AND saa.UserId = @StaffUserId
                   AND saa.IsActive = 1
@@ -437,7 +438,8 @@ public class PaymentRepository : IPaymentRepository
                     SELECT 1
                     FROM BookingDetails bd
                     INNER JOIN Rooms r ON bd.RoomId = r.RoomId
-                    INNER JOIN StaffAreaAssignments saa ON r.AreaId = saa.AreaId
+                    INNER JOIN HotelAreas ha ON r.AreaId = ha.AreaId
+                INNER JOIN StaffAreaAssignments saa ON saa.AreaId = ha.AreaId OR saa.AreaId = ha.ParentAreaId
                     WHERE bd.BookingId = p.BookingId
                       AND saa.UserId = @StaffUserId
                       AND saa.IsActive = 1

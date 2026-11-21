@@ -71,10 +71,7 @@ public class BookingRepository : IBookingRepository
         // Lọc theo phân khu của Nhân viên (nếu có staffUserId)
         if (staffUserId.HasValue && _roomContext != null)
         {
-            var assignedAreaIds = await _roomContext.StaffAreaAssignments
-                .Where(s => s.UserId == staffUserId.Value && s.IsActive)
-                .Select(s => s.AreaId)
-                .ToListAsync();
+            var assignedAreaIds = await GetAssignedAreaIdsAsync(staffUserId.Value);
 
             if (assignedAreaIds.Count == 0)
             {
@@ -138,10 +135,7 @@ public class BookingRepository : IBookingRepository
 
         if (staffUserId.HasValue && _roomContext != null)
         {
-            var assignedAreaIds = await _roomContext.StaffAreaAssignments
-                .Where(s => s.UserId == staffUserId.Value && s.IsActive)
-                .Select(s => s.AreaId)
-                .ToListAsync();
+            var assignedAreaIds = await GetAssignedAreaIdsAsync(staffUserId.Value);
 
             if (assignedAreaIds.Count == 0) return 0;
 
@@ -189,19 +183,28 @@ public class BookingRepository : IBookingRepository
 
         if (bookingRoomIds.Count == 0) return false;
 
+        // Cùng phạm vi với Staff Portal: phân khu được giao + các phân khu con (Zone → Building).
+        var areaIds = await GetAssignedAreaIdsAsync(staffUserId);
+        if (areaIds.Count == 0) return false;
+
         return await _roomContext.Rooms
-            .Where(r => bookingRoomIds.Contains(r.RoomId))
-            .AnyAsync(r => _roomContext.StaffAreaAssignments
-                .Any(saa => saa.AreaId == r.AreaId && saa.UserId == staffUserId && saa.IsActive));
+            .AnyAsync(r => bookingRoomIds.Contains(r.RoomId) && areaIds.Contains(r.AreaId));
     }
 
     public async Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId)
     {
         if (_roomContext == null) return new List<int>();
 
-        return await _roomContext.StaffAreaAssignments
+        var assigned = await _roomContext.StaffAreaAssignments
             .Where(saa => saa.UserId == staffUserId && saa.IsActive)
             .Select(saa => saa.AreaId)
+            .ToListAsync();
+        if (assigned.Count == 0) return assigned;
+
+        // Gồm cả phân khu con (VD: được giao "Khu A" thì quản lý luôn "Tòa A1").
+        return await _roomContext.HotelAreas
+            .Where(a => assigned.Contains(a.AreaId) || (a.ParentAreaId.HasValue && assigned.Contains(a.ParentAreaId.Value)))
+            .Select(a => a.AreaId)
             .ToListAsync();
     }
 
@@ -229,6 +232,8 @@ public class BookingRepository : IBookingRepository
     public Task<bool> TryReserveAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking);
     public Task<ReservationOutcome> TryReserveAsync(Booking booking, Func<Task<bool>> withinTransaction)
         => new RoomInventoryRepository(_context).ReserveWith(booking, withinTransaction);
+    public Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut)
+        => new RoomInventoryRepository(_context).AreFree(roomIds, checkIn, checkOut, bookingId);
     public Task<bool> TrySaveReservedAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking, updating: true);
 
     public Task UpdateAsync(Booking booking)

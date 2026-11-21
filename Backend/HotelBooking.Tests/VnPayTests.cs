@@ -317,6 +317,7 @@ public class VnPayTests
         public Task AddAsync(Booking booking) => Task.CompletedTask;
         public Task<bool> TryReserveAsync(Booking booking) => Task.FromResult(true);
         public Task<bool> TrySaveReservedAsync(Booking booking) => Task.FromResult(true);
+        public Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut) => Task.FromResult(true);
         public Task UpdateAsync(Booking booking) => Task.CompletedTask;
         public Task AddStatusHistoryAsync(BookingStatusHistory history) => Task.CompletedTask;
         public Task SaveChangesAsync() => Task.CompletedTask;

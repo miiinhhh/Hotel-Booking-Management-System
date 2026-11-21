@@ -29,6 +29,9 @@ export const STATUS_OPTIONS: { value: string; label: string }[] = [
  */
 export const UPCOMING_REQUESTS = 'upcoming_requests';
 
+/** Đơn đã hủy đang chờ nhân viên hoàn tiền cho khách. */
+export const REFUND_PENDING = 'refund_pending';
+
 export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
   searchQuery,
   onSearchChange,
@@ -68,6 +71,23 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
           </label>
         )}
 
+        {/* Bộ lọc nhanh nghiệp vụ — cùng hàng với ô tìm kiếm */}
+        {([
+          { id: UPCOMING_REQUESTS, label: 'Khách có ghi chú', icon: 'sticky_note_2', title: 'Khách sắp đến (chưa nhận phòng) có ghi chú khi đặt, xếp theo ngày đến gần nhất', tone: 'text-amber-800', activeTone: 'border-amber-600 bg-amber-50 text-amber-900', badge: 'bg-amber-100' },
+          { id: REFUND_PENDING, label: 'Chờ hoàn tiền', icon: 'currency_exchange', title: 'Đơn đã hủy, khách đã thanh toán và đang chờ hoàn tiền', tone: 'text-error', activeTone: 'border-error bg-error-container/40 text-error', badge: 'bg-error-container/70' },
+        ]).map(q => {
+          const active = selectedStatus === q.id;
+          return (
+            <button key={q.id} type="button" aria-pressed={active} title={q.title} onClick={() => onStatusChange(active ? 'all' : q.id)}
+              className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors ${
+                active ? q.activeTone : `border-outline-variant/60 ${q.tone} hover:bg-surface-container-low`}`}>
+              <span className="material-symbols-outlined text-[18px]">{q.icon}</span>
+              {q.label}
+              <span className={`rounded-full px-1.5 text-xs font-semibold ${q.badge}`}>{statusCounts[q.id] ?? 0}</span>
+            </button>
+          );
+        })}
+
         {filtered && (
           <button type="button" onClick={onResetFilters}
             className="inline-flex h-10 items-center gap-1 rounded-full px-3 text-sm font-semibold text-primary hover:bg-surface-container">
@@ -90,22 +110,6 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
             </button>
           );
         })}
-        <span className="mx-1 w-px shrink-0 self-stretch bg-outline-variant/50" aria-hidden="true" />
-        {(() => {
-          const active = selectedStatus === UPCOMING_REQUESTS;
-          return (
-            <button type="button" aria-pressed={active} onClick={() => onStatusChange(active ? 'all' : UPCOMING_REQUESTS)}
-              title="Đơn chưa nhận phòng, ngày đến từ hôm nay, khách có ghi yêu cầu đặc biệt"
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                active ? 'bg-amber-600 text-white' : 'text-amber-800 hover:bg-amber-50'}`}>
-              <span className="material-symbols-outlined text-[16px]">sticky_note_2</span>
-              Sắp đến · có yêu cầu
-              {statusCounts[UPCOMING_REQUESTS] != null && (
-                <span className={`rounded-full px-1.5 text-xs ${active ? 'bg-white/25' : 'bg-amber-100'}`}>{statusCounts[UPCOMING_REQUESTS]}</span>
-              )}
-            </button>
-          );
-        })()}
       </div>
     </section>
   );

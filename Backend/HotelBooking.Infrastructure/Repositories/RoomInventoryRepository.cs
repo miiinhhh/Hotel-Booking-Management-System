@@ -32,6 +32,12 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         var locks = db.Set<RoomEmergencyLock>().Where(x => !x.IsReleased && x.StartsAt < end && x.EndsAt > start).Select(x => x.RoomId);
         return bookings.Union(locks);
     }
+    /// <summary>Các phòng có trống trong khoảng ngày mới không (bỏ qua chính đơn đang đổi lịch).</summary>
+    public async Task<bool> AreFree(IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut, long excludeBookingId)
+    {
+        var busy = Busy(checkIn.ToDateTime(TimeOnly.MinValue), checkOut.ToDateTime(TimeOnly.MinValue), excludeBookingId);
+        return !await busy.AnyAsync(id => roomIds.Contains(id));
+    }
     private async Task Hotel(int hotelId, CancellationToken ct)
     {
         if (!await db.Set<InventoryHotel>().AnyAsync(x => x.HotelId == hotelId && x.IsActive, ct)) throw new NotFoundException("Active hotel not found.");
@@ -132,6 +138,14 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         var candidates = await Stock().Where(x => ids.Contains(x.RoomId) && !busy.Contains(x.RoomId)).ToListAsync(ct);
         if (candidates.Count != ids.Length || booking.NumberOfGuests <= 0 || candidates.Sum(x => x.Capacity) < booking.NumberOfGuests || candidates.Select(x => x.HotelId).Distinct().Count() != 1) return false;
         if (!updating) db.Bookings.Add(booking);
+        else if (db.Entry(booking).State == EntityState.Detached)
+        {
+            // Đơn được tải AsNoTracking → gắn lại để EF ghi thay đổi; xóa chi tiết phòng cũ không còn trong đơn (đổi lịch).
+            var keep = booking.BookingDetails.Where(d => d.BookingDetailId != 0).Select(d => d.BookingDetailId).ToList();
+            var stale = await db.BookingDetails.Where(d => d.BookingId == booking.BookingId && !keep.Contains(d.BookingDetailId)).ToListAsync(ct);
+            db.BookingDetails.RemoveRange(stale);
+            db.Bookings.Update(booking);
+        }
         await db.SaveChangesAsync(ct);
         if (tx is not null) await tx.CommitAsync(ct);
         return true;

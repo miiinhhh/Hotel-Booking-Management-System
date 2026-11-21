@@ -373,7 +373,7 @@ public class PaymentsController : BaseAPIController
 
         if (!result.Success)
         {
-            return BadRequest(new { success = false, data = result });
+            return BadRequest(new { success = false, message = result.Message, data = result });
         }
 
         return Ok(new { success = true, data = result });
@@ -391,7 +391,11 @@ public class PaymentsController : BaseAPIController
         [FromServices] IPaymentRepository paymentRepo)
     {
         var booking = await bookingRepo.GetByIdAsync(bookingId);
-        if (booking == null) return NotFound(new { success = false, message = "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n Ä‘áº·t phÃ²ng." });
+        if (booking == null) return NotFound(new { success = false, message = "Không tìm thấy đơn đặt phòng." });
+        if (booking.PaymentStatus == "Refunded")
+            return BadRequest(new { success = false, message = "Đơn này đã được hoàn tiền trước đó." });
+        if (booking.PaymentStatus != "RefundPending")
+            return BadRequest(new { success = false, message = "Chỉ xác nhận hoàn tiền cho đơn đã hủy đang chờ hoàn tiền." });
 
         var payments = (await paymentRepo.GetByBookingIdAsync(bookingId))?.ToList() ?? new List<Payment>();
         var refundPayment = payments.FirstOrDefault(p => p.PaymentType == PaymentType.Refund && p.Status == PaymentStatus.RefundPending)
@@ -406,8 +410,9 @@ public class PaymentsController : BaseAPIController
         booking.PaymentStatus = "Refunded";
         booking.UpdatedAt = refundedAt;
         await bookingRepo.UpdateAsync(booking);
+        await bookingRepo.SaveChangesAsync();
 
-        return Ok(new { success = true, message = "XÃ¡c nháº­n hoÃ n cá»c thÃ nh cÃ´ng.", bookingId, refundedAt });
+        return Ok(new { success = true, message = "Xác nhận hoàn tiền thành công.", bookingId, refundedAt });
     }
 
         /// <summary>
@@ -449,6 +454,7 @@ public class PaymentsController : BaseAPIController
         booking.RemainingAmount = 0;
         booking.UpdatedAt = now;
         await bookingRepo.UpdateAsync(booking);
+        await bookingRepo.SaveChangesAsync();
 
         return Ok(new
         {

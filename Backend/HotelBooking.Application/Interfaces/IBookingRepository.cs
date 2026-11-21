@@ -28,6 +28,7 @@ public interface IBookingRepository
         return await withinTransaction() ? ReservationOutcome.Reserved : ReservationOutcome.Rejected;
     }
     Task<bool> TrySaveReservedAsync(Booking booking);
+    Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut);
     Task UpdateAsync(Booking booking);
     Task AddStatusHistoryAsync(BookingStatusHistory history);
     Task SaveChangesAsync();

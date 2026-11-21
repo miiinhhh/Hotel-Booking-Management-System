@@ -213,3 +213,34 @@ export async function createBooking(input: {
   }
   return result.data;
 }
+
+export interface RescheduleRequest {
+  newCheckInDate: string;
+  newCheckOutDate: string;
+  newRoomIds?: number[];
+  reason?: string;
+}
+
+export interface ReschedulePreview {
+  oldCheckInDate: string;
+  oldCheckOutDate: string;
+  newCheckInDate: string;
+  newCheckOutDate: string;
+  oldTotalAmount: number;
+  newTotalAmount: number;
+  paidAmount: number;
+  newDepositAmount: number;
+  newRemainingAmount: number;
+  overpaidAmount: number;
+  roomsAvailable: boolean;
+}
+
+/** Xem trước giá và phòng trống khi đổi ngày lưu trú. */
+export async function previewReschedule(bookingId: number, request: RescheduleRequest): Promise<ApiResponse<ReschedulePreview>> {
+  return apiClient<ReschedulePreview>(`/api/bookings/${bookingId}/preview-reschedule`, { method: 'POST', body: JSON.stringify(request) });
+}
+
+/** Đổi ngày lưu trú (khách cho đơn của mình, hoặc Staff/Admin). */
+export async function rescheduleBooking(bookingId: number, request: RescheduleRequest): Promise<ApiResponse<unknown>> {
+  return apiClient<unknown>(`/api/bookings/${bookingId}/reschedule`, { method: 'POST', body: JSON.stringify(request) });
+}

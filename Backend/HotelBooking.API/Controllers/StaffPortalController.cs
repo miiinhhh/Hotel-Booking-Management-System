@@ -188,7 +188,8 @@ public class StaffPortalController(
     }
 
     [HttpGet("bookings"), RequirePermission(SystemPermissions.BookingView)]
-    public async Task<IActionResult> GetBookings(CancellationToken ct)
+    public async Task<IActionResult> GetBookings(
+        [FromServices] HotelBooking.Application.Interfaces.IPaymentRepository paymentRepo, CancellationToken ct)
     {
         var allowedRoomIds = await GetAllowedRoomIdsAsync(ct);
         if (allowedRoomIds is { Count: 0 })
@@ -219,6 +220,15 @@ public class StaffPortalController(
         var customers = await roomDb.Users.AsNoTracking()
             .Where(x => customerIds.Contains(x.UserId))
             .ToDictionaryAsync(x => x.UserId, ct);
+
+        // Số tiền hoàn thật (theo chính sách hủy) cho các đơn đã hủy có hoàn tiền.
+        var refundAmounts = new Dictionary<long, decimal>();
+        foreach (var b in bookings.Where(x => x.PaymentStatus is "RefundPending" or "Refunded"))
+        {
+            var refund = (await paymentRepo.GetByBookingIdAsync(b.BookingId))?
+                .FirstOrDefault(p => p.PaymentType == HotelBooking.Domain.Enums.PaymentType.Refund);
+            if (refund != null) refundAmounts[b.BookingId] = refund.Amount;
+        }
 
         var result = bookings.Select(booking =>
         {
@@ -253,6 +263,7 @@ public class StaffPortalController(
                 paidAmount = Math.Max(0, booking.TotalAmount - booking.RemainingAmount),
                 booking.RemainingAmount,
                 booking.DepositAmount,
+                refundAmount = refundAmounts.TryGetValue(booking.BookingId, out var ra) ? ra : (decimal?)null,
                 booking.SpecialRequests,
                 booking.CreatedAt,
                 booking.UpdatedAt

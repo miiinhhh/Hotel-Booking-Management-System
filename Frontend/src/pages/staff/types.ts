@@ -35,6 +35,8 @@ export interface StaffBooking {
   nightsLabel: string;
   totalAmount: number;
   paidAmount: number;
+  /** Số tiền hoàn cho khách theo chính sách hủy. */
+  refundAmount?: number;
   remainingAmount: number;
   depositStatus: StaffDepositStatus;
   depositStatusLabel: string;

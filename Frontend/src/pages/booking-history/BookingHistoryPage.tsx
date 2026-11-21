@@ -6,6 +6,7 @@ import { BookingStatsRow } from './components/BookingStatsRow';
 import { AssuranceBanner } from './components/AssuranceBanner';
 import { BookingTabs } from './components/BookingTabs';
 import { BookingTicketCard } from './components/BookingTicketCard';
+import { RescheduleDialog } from '../../components/booking/RescheduleDialog';
 import { CancelBookingModal } from './components/CancelBookingModal';
 import { ReviewStayModal } from './components/ReviewStayModal';
 import { FloatingSupport } from './components/FloatingSupport';
@@ -34,6 +35,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
 
   // Modal states
   const [cancelModalBooking, setCancelModalBooking] = useState<BookingItem | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<BookingItem | null>(null);
   const [reviewModalBooking, setReviewModalBooking] = useState<BookingItem | null>(null);
 
   // Booking nào đã có đánh giá trong CSDL (để hiển thị "Sửa đánh giá")
@@ -173,6 +175,13 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
           {/* Main Content Container */}
           <div className="max-w-[1440px] mx-auto w-full px-margin-mobile md:px-margin py-space-lg flex flex-col gap-space-lg">
             {/* Notification Toast */}
+            {rescheduleTarget && (
+              <RescheduleDialog open bookingId={Number(rescheduleTarget.id)} bookingCode={rescheduleTarget.bookingCode}
+                checkInDate={rescheduleTarget.checkInDate} checkOutDate={rescheduleTarget.checkOutDate}
+                onClose={() => setRescheduleTarget(null)}
+                onDone={(msg) => { setRescheduleTarget(null); showToast(msg); void refetch(); }} />
+            )}
+
             {toastMessage && (
               <div className="fixed top-24 right-6 z-50 bg-inverse-surface text-inverse-on-surface px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-fadeIn">
                 <span className="material-symbols-outlined text-primary text-[24px]">
@@ -263,6 +272,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                     onOpenReviewModal={(b) => setReviewModalBooking(b)}
                     onPayNow={handlePayNow}
                     onRebook={() => onNavigateSearch?.()}
+                    onReschedule={(b) => setRescheduleTarget(b)}
                   />
                 ))
               ) : (
