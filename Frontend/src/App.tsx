@@ -270,6 +270,7 @@ function App() {
           <InformationPage
             page={activeTab as InformationPageId}
             onNavigateHome={() => navigateCustomerTab('kham-pha')}
+            onNavigatePage={navigateInformationPage}
           />
         )}
 
