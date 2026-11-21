@@ -263,7 +263,7 @@ function App() {
         )}
 
         {activeTab === 'kham-pha' && (
-          <Dashboard onNavigateSearch={handleSearchFromDashboard} />
+          <Dashboard onNavigateSearch={handleSearchFromDashboard} onRegister={() => setActiveTab('dang-ky')} onLogin={() => setActiveTab('dang-nhap')} />
         )}
 
         {informationTabs.includes(activeTab as InformationPageId) && (

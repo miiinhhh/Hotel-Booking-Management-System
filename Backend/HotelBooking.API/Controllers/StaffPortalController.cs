@@ -413,10 +413,8 @@ public class StaffPortalController(
                 name = u.FullName,
                 initials,
                 tier,
-                country = "Việt Nam",
                 phone = u.Phone ?? "Chưa cập nhật",
                 email = u.Email,
-                identityCard = string.Empty,
                 birthDate = u.DateOfBirth.HasValue ? u.DateOfBirth.Value.ToString("yyyy-MM-dd") : string.Empty,
                 isStaying = activeStay != null,
                 currentRoom,
@@ -430,10 +428,6 @@ public class StaffPortalController(
                     .Distinct()
                     .Take(3)
                     .ToList(),
-                preferences = new[]
-                {
-                    new { icon = "Sparkles", text = "Khách hàng thân thiết", colorClass = "text-amber-600 bg-amber-50" }
-                },
                 recentBookings,
                 memberSinceYear = u.CreatedAt.Year.ToString()
             };

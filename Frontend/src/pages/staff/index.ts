@@ -9,7 +9,6 @@ export * from './components/StaffPagination';
 export * from './components/BookingDetailDrawer';
 export * from './components/StaffCustomerMetrics';
 export * from './components/StaffCustomerDrawer';
-export * from './components/StaffAddCustomerModal';
 export * from './components/StaffCustomersView';
 export * from './components/EmergencyLockModal';
 export * from './components/StaffCalendarView';

@@ -78,25 +78,15 @@ export interface CustomerRecentBooking {
   isActive?: boolean;
 }
 
-export interface CustomerPreference {
-  icon: string;
-  text: string;
-  colorClass?: string;
-  isWarning?: boolean;
-}
-
 export interface StaffCustomer {
   id: string;
   customerCode: string;
   name: string;
   initials: string;
   tier: CustomerTier;
-  country: string;
   phone: string;
   email: string;
-  identityCard: string;
   birthDate: string;
-  company?: string;
   isStaying: boolean;
   currentRoom?: string;
   lastStayInfo: string;
@@ -104,20 +94,8 @@ export interface StaffCustomer {
   totalSpendFormatted: string;
   totalCompletedBookings: number;
   serviceNotesTags: string[];
-  preferences: CustomerPreference[];
   recentBookings: CustomerRecentBooking[];
   memberSinceYear: string;
-  nfcChipOk?: boolean;
-}
-
-export interface CustomerCRMStats {
-  returnRatePercent: number;
-  returnRateTrend: string;
-  adrAmount: string;
-  adrSegment: string;
-  verifiedCccdPercent: number;
-  verifiedCccdNote: string;
-  totalStoredCount: number;
 }
 
 // ==========================================

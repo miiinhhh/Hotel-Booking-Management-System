@@ -34,24 +34,24 @@ export const HeroBanner: React.FC = () => {
 
         {/* Subtitle */}
         <p className="mt-4 font-body-lg text-body-lg md:font-body-xl md:text-body-xl text-on-surface-variant max-w-2xl font-light">
-          Khám phá bộ sưu tập khách sạn và khu nghỉ dưỡng cao cấp với giá ưu đãi độc quyền dành riêng cho bạn.
+          Tìm phòng trống theo ngày, xem giá rõ ràng và đặt cọc trực tuyến chỉ trong vài bước.
         </p>
 
         {/* Stat Badges */}
         <div className="mt-8 flex items-center justify-center gap-6 text-on-surface-variant font-label-md text-label-md flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
-            <span>Tuyển chọn khắt khe</span>
+            <span className="material-symbols-outlined text-primary text-[18px]">event_available</span>
+            <span>Phòng trống cập nhật theo ngày</span>
           </div>
           <span className="w-1 h-1 rounded-full bg-outline-variant" />
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[18px]">lock_reset</span>
-            <span>Đảm bảo giá tốt nhất</span>
+            <span className="material-symbols-outlined text-primary text-[18px]">lock</span>
+            <span>Thanh toán an toàn qua VNPay</span>
           </div>
           <span className="w-1 h-1 rounded-full bg-outline-variant hidden sm:inline-block" />
           <div className="hidden sm:flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[18px]">support_agent</span>
-            <span>Hỗ trợ VIP 24/7</span>
+            <span className="material-symbols-outlined text-primary text-[18px]">receipt_long</span>
+            <span>Theo dõi đơn ngay trên tài khoản</span>
           </div>
         </div>
       </div>
