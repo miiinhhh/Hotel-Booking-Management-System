@@ -411,6 +411,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
       <div className="lg:pl-72">
         {/* INTEGRATED STAFF TOP BAR (HEADER) */}
         <StaffHeader
+          assignedAreas={assignedAreas}
           searchQuery={searchQuery}
           onSearchChange={(q) => {
             setSearchQuery(q);

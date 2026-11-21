@@ -138,116 +138,206 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
     room.roomNumber.toLowerCase().includes(search.trim().toLowerCase()) &&
     (status === 'all' || room.status === status));
 
-  return <section className="space-y-5">
-    <header className="flex flex-wrap items-start justify-between gap-3">
-      <div><h1 className="text-3xl font-semibold">Phân khu & Buồng phòng</h1><p className="text-outline">Chuyển nhanh giữa các phân khu được giao để theo dõi và vận hành phòng.</p></div>
-      <button type="button" disabled={loading} onClick={() => setRevision(value => value + 1)} className="rounded-full bg-surface-container px-4 py-2 disabled:opacity-40">Làm mới</button>
-    </header>
+  const STATUS_UI: Record<string, { label: string; className: string }> = {
+    Available: { label: 'Sẵn sàng', className: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' },
+    Occupied: { label: 'Có khách', className: 'bg-primary-fixed/50 text-primary ring-primary/20' },
+    Maintenance: { label: 'Bảo trì', className: 'bg-amber-50 text-amber-800 ring-amber-600/20' },
+    Inactive: { label: 'Ngừng hoạt động', className: 'bg-surface-container-high text-on-surface-variant ring-outline/20' },
+  };
+  const roomsByFloor = filteredRooms.slice().sort((a, b) => a.floor - b.floor || a.roomNumber.localeCompare(b.roomNumber))
+    .reduce<Record<number, RoomDto[]>>((acc, room) => { (acc[room.floor] ||= []).push(room); return acc; }, {});
+  const pickArea = (areaId: number) => { setSelectedMapAreaId(areaId); setSearch(''); setStatus('all'); setDetailsOpen(false); };
 
-    {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
-    {loading && <p role="status">Đang tải phân khu được giao…</p>}
-    {!loading && !clusters.length && !error && <p className="rounded-lg bg-surface-container-low p-5">Bạn chưa được phân công phụ trách phân khu nào.</p>}
+  return <section className="flex flex-col gap-6">
+    {/* Đầu trang */}
+    <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
+      <div>
+        <h1 className="font-headline-sm text-3xl font-semibold tracking-tight text-on-surface">Phân khu &amp; phòng</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">Cấu trúc khu vực bạn phụ trách và tình trạng từng phòng.</p>
+      </div>
+      <button type="button" title="Tải lại" aria-label="Tải lại" disabled={loading} onClick={() => setRevision(value => value + 1)}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container disabled:opacity-40">
+        <span className={`material-symbols-outlined ${loading ? 'animate-spin' : ''}`}>refresh</span>
+      </button>
+    </div>
 
-    {!!clusters.length && <>
-      <section aria-label="Phân khu được giao">
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div><h2 className="text-xl font-semibold">Cụm phân khu được giao</h2><p className="text-sm text-outline">Chọn một cụm để xem đúng danh sách phòng thuộc phạm vi phụ trách.</p></div>
-          <span className="text-sm text-outline">{clusters.length} cụm</span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {clusters.map(cluster => {
-            const selected = cluster.key === selectedClusterKey;
-            return <button key={cluster.key} type="button" aria-pressed={selected}
-              onClick={() => { setSelectedClusterKey(cluster.key); setSearch(''); setStatus('all'); setDetailsOpen(false); }}
-              className={`rounded-2xl border p-4 text-left transition ${selected ? 'border-primary bg-primary-container text-on-primary-container shadow-sm' : 'border-outline-variant/40 bg-surface-container-lowest hover:border-primary/60'}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div><span className="text-xs font-semibold uppercase tracking-wide opacity-70">{cluster.hotelName}</span><h3 className="mt-1 text-lg font-semibold">{cluster.areaType === 'Zone' ? cluster.name : cluster.parentName || 'Zone chưa xác định'}</h3><p className="mt-1 text-sm opacity-75">{cluster.areaType === 'Zone' ? `Zone · ${areas.filter(area => area.parentAreaId === cluster.areaId).length} Building` : `Building · ${cluster.name}`}</p></div>
-                <span className={`rounded-full px-3 py-1 text-sm ${selected ? 'bg-primary/10' : 'bg-surface-container'}`}>{cluster.roomCount} phòng</span>
-              </div>
-            </button>;
-          })}
-        </div>
-      </section>
+    {error && <p role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-error-container p-4 text-on-error-container">{error}<button type="button" onClick={() => setRevision(v => v + 1)} className="font-semibold">Thử lại</button></p>}
+    {loading && !clusters.length && <p role="status" className="rounded-2xl bg-surface-container-lowest p-10 text-center text-sm text-on-surface-variant shadow-sm">Đang tải phân khu được giao…</p>}
+    {!loading && !clusters.length && !error && (
+      <div className="rounded-2xl bg-surface-container-lowest p-10 text-center shadow-sm">
+        <span className="material-symbols-outlined text-5xl text-outline-variant">apartment</span>
+        <p className="mt-2 font-semibold">Bạn chưa được phân công phân khu nào</p>
+        <p className="mt-1 text-sm text-on-surface-variant">Liên hệ quản trị viên để được giao khu vực phụ trách.</p>
+      </div>
+    )}
 
-      {selectedCluster && <section className="space-y-4" aria-label="Sơ đồ phân khu">
-        <div className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/20 px-5 py-4">
-            <div><h2 className="text-xl font-semibold">Cấu trúc khu vực được giao</h2><p className="text-sm text-outline">Khách sạn → Zone → Building → Phòng</p></div>
-            <span className="material-symbols-outlined rounded-full bg-primary-container p-2 text-on-primary-container">account_tree</span>
-          </div>
-          <div className="bg-surface-container-low p-5">
-            <div className="rounded-2xl border-2 border-outline-variant/40 bg-surface-container-lowest p-4">
-              <div className="mb-4 flex items-center gap-3 border-b border-outline-variant/20 pb-4">
-                <span className="material-symbols-outlined rounded-full bg-primary-container p-2 text-on-primary-container">hotel</span>
-                <div><span className="text-xs font-semibold uppercase tracking-wide text-outline">Khách sạn</span><h3 className="text-lg font-semibold">{selectedCluster.hotelName}</h3><p className="text-sm text-outline">{selectedCluster.hotelAddress || 'Chưa cập nhật địa chỉ'}</p></div>
-              </div>
-
-              <div className="rounded-2xl border border-primary/30 bg-primary-fixed/20 p-4">
-                <button type="button" disabled={selectedCluster.areaType !== 'Zone'}
-                  onClick={() => { if (selectedZone) { setSelectedMapAreaId(selectedZone.areaId); setSearch(''); setStatus('all'); setDetailsOpen(false); } }}
-                  className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${selectedMapArea?.areaType === 'Zone' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-surface-container-lowest'} disabled:cursor-default`}>
-                  <span className="material-symbols-outlined">location_on</span>
-                  <div><span className="text-xs font-semibold uppercase opacity-70">Zone</span><h3 className="font-semibold">{selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</h3><p className="text-sm opacity-75">{selectedZone?.locationDescription || selectedZone?.description || 'Khu vực chứa các tòa nhà được giao'}</p></div>
-                </button>
-
-                <div className="ml-5 mt-3 border-l-2 border-primary/25 pl-5">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-outline">Building thuộc Zone</div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {zoneBuildings.map(building => {
-                      const active = building.areaId === selectedMapArea?.areaId;
-                      const buildingRoomCount = rooms.filter(room => room.hotelId === building.hotelId && room.areaId === building.areaId).length;
-                      return <button key={building.areaId} type="button" onClick={() => { setSelectedMapAreaId(building.areaId); setSearch(''); setStatus('all'); setDetailsOpen(false); }}
-                        className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 ${active ? 'border-primary bg-primary-container text-on-primary-container shadow-sm' : 'border-outline-variant/40 bg-surface-container-lowest'}`}>
-                        <div className="flex items-center gap-2"><span className="material-symbols-outlined">apartment</span><div><span className="text-xs uppercase opacity-70">Building</span><h4 className="font-semibold">{building.areaName}</h4></div></div>
-                        <p className="mt-2 text-sm opacity-75">{building.locationDescription || building.description || 'Chưa cập nhật vị trí trong Zone.'}</p>
-                        <span className="mt-3 inline-block rounded-full bg-surface-container/70 px-3 py-1 text-xs">{buildingRoomCount} phòng</span>
-                      </button>;
-                    })}
-                    {!zoneBuildings.length && <p className="rounded-xl bg-surface-container-lowest p-4 text-sm text-outline">Chưa có Building được giao trong Zone này.</p>}
-                  </div>
-                </div>
+    {!!clusters.length && selectedCluster && (
+      <div className="grid items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        {/* ===== Trái: cây khu vực ===== */}
+        <aside className="space-y-4 lg:sticky lg:top-20">
+          {clusters.length > 1 && (
+            <label className="flex items-center gap-2 rounded-full bg-surface-container-lowest py-1 pl-4 pr-1 text-sm shadow-sm">
+              <span className="material-symbols-outlined text-[18px] text-primary">hotel</span>
+              <select aria-label="Cụm phân khu" value={selectedClusterKey}
+                onChange={e => { setSelectedClusterKey(e.target.value); setSearch(''); setStatus('all'); setDetailsOpen(false); }}
+                className="min-w-0 flex-1 rounded-full bg-transparent py-1.5 pr-2 font-semibold outline-none">
+                {clusters.map(c => <option key={c.key} value={c.key}>{c.hotelName} · {c.areaType === 'Zone' ? c.name : c.parentName || c.name}</option>)}
+              </select>
+            </label>
+          )}
+          <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-sm">
+            <div className="mb-2 flex items-center gap-3 rounded bg-surface-container-low px-3 py-2.5">
+              <span className="material-symbols-outlined text-[20px] text-primary">hotel</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-outline">Khách sạn</p>
+                <p className="truncate text-sm font-semibold">{selectedCluster.hotelName}</p>
               </div>
             </div>
+            {selectedZone && (
+              <button type="button" disabled={selectedCluster.areaType !== 'Zone'} onClick={() => pickArea(selectedZone.areaId)}
+                className={`ml-4 flex w-[calc(100%-1rem)] items-center gap-3 rounded px-3 py-2.5 text-left transition-colors disabled:cursor-default ${
+                  selectedMapArea?.areaId === selectedZone.areaId ? 'bg-primary-container text-on-primary' : 'hover:bg-surface-container'}`}>
+                <span className="material-symbols-outlined text-[20px]">location_city</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">Zone</span>
+                  <span className="block truncate text-sm font-semibold">{selectedZone.areaName}</span>
+                </span>
+              </button>
+            )}
+            <div className="mt-1 space-y-1">
+              {zoneBuildings.map(b => {
+                const active = b.areaId === selectedMapArea?.areaId;
+                const count = rooms.filter(r => r.hotelId === b.hotelId && r.areaId === b.areaId).length;
+                return (
+                  <button key={b.areaId} type="button" onClick={() => pickArea(b.areaId)}
+                    className={`ml-9 flex w-[calc(100%-2.25rem)] items-center gap-3 rounded px-3 py-2.5 text-left transition-colors ${active ? 'bg-primary-container text-on-primary' : 'hover:bg-surface-container'}`}>
+                    <span className="material-symbols-outlined text-[20px]">apartment</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide opacity-70">Building</span>
+                      <span className="block truncate text-sm font-semibold">{b.areaName}</span>
+                    </span>
+                    <span className={`text-xs ${active ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>{count} phòng</span>
+                  </button>
+                );
+              })}
+              {!zoneBuildings.length && <p className="ml-9 px-3 py-2 text-xs text-on-surface-variant">Chưa có Building được giao.</p>}
+            </div>
           </div>
-        </div>
+        </aside>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface-container-lowest p-4 shadow-sm">
-          <div className="flex items-center gap-3"><span className="material-symbols-outlined rounded-full bg-primary-container p-2 text-on-primary-container">{selectedMapArea?.areaType === 'Building' ? 'apartment' : 'location_on'}</span><div><span className="text-xs font-semibold uppercase text-primary">Khu vực đang chọn</span><h2 className="font-semibold">{selectedMapArea?.areaName || selectedCluster.name}</h2><p className="text-sm text-outline">{selectedCluster.hotelName} · Zone {selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</p></div></div>
-          <div className="flex flex-wrap items-center gap-2 text-sm"><span className="rounded-full bg-surface-container px-3 py-1">{areaRoomSummary.total} phòng</span><span className="rounded-full bg-primary-fixed px-3 py-1 text-primary">{areaRoomSummary.available} khả dụng</span><button type="button" onClick={() => setDetailsOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 font-semibold text-on-primary"><span className="material-symbols-outlined text-[18px]">info</span>Thông tin & chỉ đường</button></div>
-        </div>
+        {/* ===== Phải: khu vực đang chọn ===== */}
+        <section className="min-w-0 rounded-2xl bg-surface-container-lowest shadow-sm">
+          <header className="border-b border-outline-variant/40 p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary">{selectedMapArea?.areaType === 'Building' ? 'Building' : 'Zone'}</p>
+                <h2 className="mt-0.5 text-2xl font-semibold">{selectedMapArea?.areaName || selectedCluster.name}</h2>
+                <p className="mt-1 text-sm text-on-surface-variant">{selectedMapArea?.locationDescription || selectedMapArea?.description || selectedCluster.hotelName}</p>
+              </div>
+              <button type="button" onClick={() => setDetailsOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant px-4 py-2 text-sm font-semibold hover:bg-surface-container">
+                <span className="material-symbols-outlined text-[18px]">info</span>Thông tin &amp; chỉ đường
+              </button>
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ['Tổng phòng', areaRoomSummary.total, 'text-on-surface'],
+                ['Sẵn sàng', areaRoomSummary.available, 'text-emerald-700'],
+                ['Có khách', areaRoomSummary.occupied, 'text-primary'],
+                ['Bảo trì', areaRoomSummary.maintenance, 'text-amber-800'],
+              ].map(([k, v, c]) => (
+                <div key={k as string} className="rounded bg-surface-container-low px-4 py-3">
+                  <dt className="text-xs text-on-surface-variant">{k}</dt>
+                  <dd className={`text-xl font-bold ${c}`}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </header>
 
-        {detailsOpen && selectedMapArea && <>
-          <button type="button" aria-label="Đóng thông tin khu vực" onClick={() => setDetailsOpen(false)} className="fixed inset-0 z-[60] bg-inverse-surface/25 backdrop-blur-[1px]" />
-          <aside role="dialog" aria-modal="true" aria-label={`Thông tin khu vực ${selectedMapArea.areaName}`} className="fixed bottom-0 right-0 top-16 z-[70] w-full max-w-[460px] overflow-y-auto rounded-l-2xl border-l border-outline-variant/30 bg-surface-container-lowest p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-3"><div><span className="text-xs font-semibold uppercase tracking-wide text-primary">{selectedMapArea.areaType === 'Zone' ? 'Zone' : 'Building'}</span><h2 className="mt-1 text-2xl font-semibold">{selectedMapArea.areaName}</h2><p className="mt-1 text-sm text-outline">{selectedCluster.hotelName} · {selectedZone?.areaName || selectedCluster.parentName || selectedCluster.name}</p></div><button type="button" onClick={() => setDetailsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container" aria-label="Đóng"><span className="material-symbols-outlined">close</span></button></div>
-            <dl className="mt-6 space-y-4 text-sm"><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Địa chỉ khách sạn</dt><dd className="mt-1 font-medium">{selectedCluster.hotelAddress || 'Chưa cập nhật'}</dd></div><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Vị trí nội bộ</dt><dd className="mt-1 font-medium">{selectedMapArea.locationDescription || 'Chưa cập nhật'}</dd></div><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Mô tả</dt><dd className="mt-1 font-medium">{selectedMapArea.description || 'Chưa cập nhật'}</dd></div><div className="rounded-xl bg-surface-container-low p-4"><dt className="text-outline">Số tầng</dt><dd className="mt-1 font-medium">{selectedMapArea.floorCount || 'Chưa cập nhật'}</dd></div></dl>
-            <div className="mt-6 grid grid-cols-2 gap-3 text-center text-sm"><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl">{areaRoomSummary.total}</strong>Tổng phòng</div><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl text-primary">{areaRoomSummary.available}</strong>Khả dụng</div><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl">{areaRoomSummary.occupied}</strong>Có khách</div><div className="rounded-xl bg-surface-container-low p-3"><strong className="block text-xl">{areaRoomSummary.maintenance}</strong>Bảo trì</div></div>
-            <button type="button" onClick={() => { const query = [selectedCluster.hotelName, selectedCluster.hotelAddress, selectedMapArea.areaName, selectedMapArea.locationDescription].filter(Boolean).join(', '); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer'); }} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 font-semibold text-on-primary"><span className="material-symbols-outlined text-[19px]">directions</span>Mở chỉ đường</button>
-          </aside>
-        </>}
-      </section>}
-
-      {selectedMapArea?.areaType !== 'Building' ? <div className="rounded-2xl border border-dashed border-primary/40 bg-primary-fixed/20 p-8 text-center">
-        <span className="material-symbols-outlined mb-2 text-4xl text-primary">apartment</span>
-        <h2 className="text-xl font-semibold">Chọn một Building để xem phòng</h2>
-        <p className="mt-1 text-outline">Zone {selectedZone?.areaName || selectedCluster?.name} chỉ hiển thị tổng quan. Danh sách phòng được tách theo từng tòa nhà.</p>
-      </div> : <>
-      <div className="sticky top-24 z-20 flex flex-wrap items-center gap-3 rounded-xl bg-surface-container-low/95 p-4 shadow-sm backdrop-blur">
-        <div className="mr-auto min-w-48"><span className="text-xs font-semibold uppercase text-primary">Danh sách phòng</span><h2 className="font-semibold">{selectedMapArea?.areaName || selectedCluster?.name}</h2><p className="text-xs text-outline">{filteredRooms.length}/{clusterRooms.length} phòng phù hợp</p></div>
-        <input aria-label="Số phòng" placeholder="Tìm số phòng…" value={search} onChange={event => setSearch(event.target.value)} className="min-w-52 flex-1 rounded-lg bg-surface-container-lowest p-3" />
-        <select aria-label="Trạng thái phòng" value={status} onChange={event => setStatus(event.target.value)} className="rounded-lg bg-surface-container-lowest p-3">
-          <option value="all">Mọi trạng thái</option><option value="Available">Available</option><option value="Occupied">Occupied</option><option value="Maintenance">Maintenance</option><option value="Inactive">Inactive</option>
-        </select>
+          {selectedMapArea?.areaType !== 'Building' ? (
+            <div className="p-10 text-center">
+              <span className="material-symbols-outlined text-4xl text-outline-variant">touch_app</span>
+              <p className="mt-2 font-semibold">Chọn một Building để xem danh sách phòng</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Zone chỉ hiển thị số liệu tổng quan; phòng được quản lý theo từng tòa.</p>
+            </div>
+          ) : (
+            <div className="p-5 md:p-6">
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <label className="relative min-w-[180px] flex-1">
+                  <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">search</span>
+                  <input aria-label="Tìm số phòng" placeholder="Số phòng…" value={search} onChange={e => setSearch(e.target.value)}
+                    className="h-10 w-full rounded-full bg-surface-container-low pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
+                </label>
+                <select aria-label="Trạng thái phòng" value={status} onChange={e => setStatus(e.target.value)} className="h-10 rounded-full bg-surface-container-low px-4 text-sm outline-none">
+                  <option value="all">Mọi trạng thái</option>
+                  {Object.entries(STATUS_UI).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <span className="text-sm text-on-surface-variant">{filteredRooms.length}/{clusterRooms.length} phòng</span>
+              </div>
+              {!filteredRooms.length ? (
+                <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Không có phòng phù hợp.</p>
+              ) : (
+                <div className="space-y-5">
+                  {Object.entries(roomsByFloor).map(([floor, list]) => (
+                    <div key={floor}>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-outline">Tầng {floor} · {list.length} phòng</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                        {list.map(room => {
+                          const ui = STATUS_UI[room.isActive ? room.status : 'Inactive'] ?? STATUS_UI.Inactive;
+                          return (
+                            <article key={room.roomId} className={`rounded border border-outline-variant/40 p-3 ${room.isActive ? '' : 'opacity-60'}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-lg font-bold text-on-surface">{room.roomNumber}</p>
+                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${ui.className}`}>{ui.label}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-on-surface-variant">{room.capacity} khách · {room.price.toLocaleString('vi-VN')} ₫/đêm</p>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
       </div>
+    )}
 
-      {!filteredRooms.length ? <p>Không có phòng phù hợp trong phân khu đang chọn.</p> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredRooms.map(room => <article key={room.roomId} className="rounded-lg bg-surface-container-lowest p-5 shadow-sm">
-          <h2 className="text-xl font-semibold">Phòng {room.roomNumber}</h2>
-          <p>{areas.find(area => area.hotelId === room.hotelId && area.areaId === room.areaId)?.areaName} · Tầng {room.floor}</p>
-          <p>{room.status} · {room.capacity} khách</p><p className="mt-2 text-primary">{room.price.toLocaleString('vi-VN')} ₫ / đêm</p>
-        </article>)}
-      </div>}
-      </>}
+    {/* Thông tin & chỉ đường */}
+    {detailsOpen && selectedMapArea && selectedCluster && <>
+      <button type="button" aria-label="Đóng thông tin khu vực" onClick={() => setDetailsOpen(false)} className="fixed inset-0 z-[60] bg-inverse-surface/30 backdrop-blur-[1px]" />
+      <aside role="dialog" aria-modal="true" aria-label={`Thông tin khu vực ${selectedMapArea.areaName}`}
+        className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-md flex-col bg-surface-container-lowest shadow-2xl animate-in slide-in-from-right duration-200">
+        <header className="flex items-start justify-between gap-3 border-b border-outline-variant/40 px-6 py-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">{selectedMapArea.areaType === 'Zone' ? 'Zone' : 'Building'}</p>
+            <h2 className="mt-0.5 text-xl font-semibold">{selectedMapArea.areaName}</h2>
+            <p className="mt-0.5 text-sm text-on-surface-variant">{selectedCluster.hotelName}</p>
+          </div>
+          <button type="button" onClick={() => setDetailsOpen(false)} aria-label="Đóng"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <dl className="flex-1 space-y-4 overflow-y-auto px-6 py-5 text-sm">
+          {[
+            ['Địa chỉ khách sạn', selectedCluster.hotelAddress],
+            ['Vị trí nội bộ', selectedMapArea.locationDescription],
+            ['Mô tả', selectedMapArea.description],
+            ['Số tầng', selectedMapArea.floorCount ? String(selectedMapArea.floorCount) : ''],
+          ].map(([k, v]) => (
+            <div key={k}><dt className="text-xs text-on-surface-variant">{k}</dt><dd className="mt-0.5 font-medium text-on-surface">{v || 'Chưa cập nhật'}</dd></div>
+          ))}
+        </dl>
+        <footer className="border-t border-outline-variant/40 px-6 py-4">
+          <button type="button" onClick={() => { const query = [selectedCluster.hotelName, selectedCluster.hotelAddress, selectedMapArea.areaName, selectedMapArea.locationDescription].filter(Boolean).join(', '); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer'); }}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 font-semibold text-on-primary hover:opacity-90">
+            <span className="material-symbols-outlined text-[19px]">directions</span>Mở chỉ đường (Google Maps)
+          </button>
+        </footer>
+      </aside>
     </>}
   </section>;
 };
