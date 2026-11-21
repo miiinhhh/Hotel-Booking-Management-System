@@ -70,7 +70,12 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
                     <div className="flex items-center gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-fixed/50 text-xs font-bold text-primary">{b.customerInitials}</span>
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-on-surface">{b.customerName}</p>
+                        <p className="flex items-center gap-1 font-medium text-on-surface">
+                          <span className="truncate">{b.customerName}</span>
+                          {b.specialRequests?.trim() && (
+                            <span className="material-symbols-outlined shrink-0 text-[16px] text-amber-700" title={`Yêu cầu: ${b.specialRequests}`} aria-label="Có yêu cầu đặc biệt">sticky_note_2</span>
+                          )}
+                        </p>
                         <p className="truncate text-xs text-on-surface-variant">{b.customerPhone}</p>
                       </div>
                     </div>

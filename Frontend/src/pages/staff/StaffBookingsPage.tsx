@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
 import { StaffHeader } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
-import { StaffFilterBar } from './components/StaffFilterBar';
+import { StaffFilterBar, UPCOMING_REQUESTS } from './components/StaffFilterBar';
 import { StaffBookingTable } from './components/StaffBookingTable';
 import { StaffPagination } from './components/StaffPagination';
 import { BookingDetailDrawer } from './components/BookingDetailDrawer';
@@ -25,6 +25,18 @@ import { roomApi } from '../../services/roomApi';
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
 }
+
+/** Hôm nay theo giờ máy, dạng yyyy-MM-dd (so sánh trực tiếp với checkInDate). */
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** Đơn chưa nhận phòng (chờ xác nhận / đã xác nhận), ngày đến từ hôm nay, có yêu cầu đặc biệt. */
+const isUpcomingWithRequest = (b: StaffBooking) =>
+  (b.status === 'pending_deposit' || b.status === 'confirmed_deposit')
+  && Boolean(b.specialRequests?.trim())
+  && b.checkInDate.slice(0, 10) >= todayIso();
 
 
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
@@ -191,14 +203,16 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
   // Filtered bookings
   const filteredBookings = useMemo(() => {
-    return bookings.filter((b) => {
+    const list = bookings.filter((b) => {
       // Zone filter — một đơn có thể thuộc nhiều phân khu ("A, B")
       if (selectedZone !== 'all' && !b.zone.split(', ').includes(selectedZone)) {
         return false;
       }
 
-      // Status filter
-      if (selectedStatus !== 'all' && b.status !== selectedStatus) {
+      // Status filter ("Sắp đến · có yêu cầu" là bộ lọc nghiệp vụ riêng)
+      if (selectedStatus === UPCOMING_REQUESTS) {
+        if (!isUpcomingWithRequest(b)) return false;
+      } else if (selectedStatus !== 'all' && b.status !== selectedStatus) {
         return false;
       }
 
@@ -215,6 +229,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
       return true;
     });
+    // Đơn sắp đến: khách tới sớm nhất lên trước để chuẩn bị theo thứ tự.
+    if (selectedStatus === UPCOMING_REQUESTS) list.sort((a, b) => a.checkInDate.localeCompare(b.checkInDate));
+    return list;
   }, [bookings, selectedZone, selectedStatus, searchQuery]);
 
   // Paginated bookings
@@ -235,6 +252,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     const counts: Record<string, number> = { all: base.length };
     for (const b of base) counts[b.status] = (counts[b.status] ?? 0) + 1;
     for (const s of ['pending_deposit', 'confirmed_deposit', 'checked_in', 'staying', 'cancelled']) counts[s] ??= 0;
+    counts[UPCOMING_REQUESTS] = base.filter(isUpcomingWithRequest).length;
     return counts;
   }, [bookings, selectedZone, searchQuery]);
   // Reset filters

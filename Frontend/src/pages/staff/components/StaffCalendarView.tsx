@@ -143,7 +143,7 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
   }, 0);
   const lockedRooms = filteredSchedules.reduce((sum, item) => sum + (item.days[0]?.lockedCount || 0), 0);
   const occupancy = totalRooms > 0 ? Math.round(todayBusy * 1000 / totalRooms) / 10 : 0;
-  const assignedAreaLabel = areaOptions.length ? areaOptions.map(item => item.label).join(' · ') : 'Chưa có phân khu được giao';
+  const assignedAreaLabel = areaOptions.length ? areaOptions.map(item => item.label).join(', ') : 'Chưa có phân khu được giao';
   const lockableSchedules = filteredSchedules;
   const lockHotelIds = Array.from(new Set(lockableSchedules.map(item => item.hotelId)));
   const lockRoomIds = Array.from(new Set(lockableSchedules.flatMap(item => item.roomIds)));
@@ -151,45 +151,27 @@ export const StaffCalendarView: React.FC<StaffCalendarViewProps> = ({ onShowToas
   return (
     <div className="flex flex-col w-full gap-6">
       {/* SECTION 1: TOP OPERATIONAL HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-2">
-        <div className="flex flex-col gap-2 max-w-3xl">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
-              <span className="w-2 h-2 rounded-full bg-primary" />
-              Khu vực phụ trách: {assignedAreaLabel}
-            </span>
-            <span className="inline-flex items-center gap-1 text-primary font-label-sm text-label-sm px-2.5 py-0.5 rounded-full bg-primary-container/10">
-              <span className="material-symbols-outlined text-[14px]">sync</span>
-              Dữ liệu trực tiếp từ hệ thống
-            </span>
-          </div>
-          <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-            Lịch Tình Trạng Phòng &amp; Khóa Bán
-          </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Theo dõi tình trạng trống phòng theo ngày, công suất buồng phòng và xử lý khóa đóng bán phòng khẩn cấp theo
-            phân khu được phân công.
+      {/* Đầu trang gọn: tiêu đề + khu vực phụ trách, thao tác bên phải (đồng bộ với trang Đặt phòng) */}
+      <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
+        <div className="min-w-0">
+          <h1 className="font-headline-sm text-3xl font-semibold tracking-tight text-on-surface">Lịch phòng &amp; khóa bán</h1>
+          <p className="mt-1 flex items-start gap-1 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined mt-px text-[16px] text-primary">apartment</span>
+            <span>{assignedAreaLabel}</span>
           </p>
         </div>
-
-        {/* Top Action Group */}
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={handleExportCapacityReport}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-container-lowest text-on-surface font-label-lg text-label-lg shadow-sm hover:bg-surface-container transition-all duration-200 border border-[#eae8e5] cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[19px] text-secondary">file_download</span>
-            <span>Xuất báo cáo công suất</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={handleExportCapacityReport}
+            className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container">
+            <span className="material-symbols-outlined text-[18px]">download</span>Xuất CSV
           </button>
-          {canManageInventory && <button
-            type="button"
-            onClick={() => handleOpenLockModal(selectedZone === 'all' ? 'Tất cả phân khu được giao' : areaOptions.find(item => item.key === selectedZone)?.label || 'Phân khu được giao', '', lockHotelIds.length === 1 ? lockHotelIds[0] : undefined, lockRoomIds)}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-[0_8px_20px_-4px_rgba(194,65,12,0.35)] hover:bg-primary transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer font-semibold"
-          >
-            <span className="material-symbols-outlined text-[20px]">shield_lock</span>
-            <span>+ Khóa phòng khẩn cấp</span>
-          </button>}
+          {canManageInventory && (
+            <button type="button"
+              onClick={() => handleOpenLockModal(selectedZone === 'all' ? 'Tất cả phân khu được giao' : areaOptions.find(item => item.key === selectedZone)?.label || 'Phân khu được giao', '', lockHotelIds.length === 1 ? lockHotelIds[0] : undefined, lockRoomIds)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:opacity-90">
+              <span className="material-symbols-outlined text-[18px]">lock</span>Khóa bán phòng
+            </button>
+          )}
         </div>
       </div>
 

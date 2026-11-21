@@ -1,15 +1,26 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StaffCustomer } from '../types';
 import { StaffCustomerMetrics } from './StaffCustomerMetrics';
 import { StaffCustomerDrawer } from './StaffCustomerDrawer';
+import { TierBadge } from './staffUi';
 import { getStaffCustomers } from '../../../services/staffPortalApi';
 
 interface StaffCustomersViewProps {
   onShowToast?: (message: string) => void;
 }
 
-type CustomerFilterTab = 'all' | 'staying' | 'vip' | 'notes' | 'international';
+/** Bỏ bộ lọc "Khách quốc tế": máy chủ hiện luôn trả quốc tịch "Việt Nam" nên bộ lọc luôn rỗng. */
+type CustomerFilterTab = 'all' | 'staying' | 'vip' | 'notes';
 type CustomerSortOption = 'recent' | 'spend_high' | 'bookings_high' | 'name_asc';
+
+const FILTERS: { id: CustomerFilterTab; label: string; match: (c: StaffCustomer) => boolean }[] = [
+  { id: 'all', label: 'Tất cả', match: () => true },
+  { id: 'staying', label: 'Đang lưu trú', match: c => c.isStaying },
+  { id: 'vip', label: 'Khách VIP', match: c => c.tier === 'GOLD' || c.tier === 'PLATINUM' },
+  { id: 'notes', label: 'Có ghi chú khi đặt', match: c => c.serviceNotesTags.length > 0 },
+];
+
+const PAGE_SIZES = [10, 25, 50];
 
 export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowToast }) => {
   const [customers, setCustomers] = useState<StaffCustomer[]>([]);
@@ -19,521 +30,219 @@ export const StaffCustomersView: React.FC<StaffCustomersViewProps> = ({ onShowTo
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilterTab, setActiveFilterTab] = useState<CustomerFilterTab>('all');
   const [sortOption, setSortOption] = useState<CustomerSortOption>('recent');
-
-  useEffect(() => {
-    setLoading(true);
-    setError('');
-    getStaffCustomers().then((data) => {
-      setCustomers(data);
-      setSelectedCustomer(data[0] ?? null);
-    }).catch((reason) => {
-      setCustomers([]);
-      setSelectedCustomer(null);
-      setError(reason instanceof Error ? reason.message : 'Không tải được hồ sơ khách hàng.');
-    }).finally(() => setLoading(false));
-  }, []);
-
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
-
+  const [pageSize, setPageSize] = useState(10);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcut listener for Command+K / Ctrl+K
+  const load = () => {
+    setLoading(true);
+    setError('');
+    getStaffCustomers()
+      .then(data => setCustomers(data))
+      .catch(reason => { setCustomers([]); setError(reason instanceof Error ? reason.message : 'Không tải được hồ sơ khách hàng.'); })
+      .finally(() => setLoading(false));
+  };
+  // Không tự mở hồ sơ khách đầu tiên khi vào trang (trước đây panel che kín trang ngay khi tải).
+  useEffect(load, []);
+
+  // Ctrl/⌘ + K để nhảy tới ô tìm kiếm
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); searchInputRef.current?.focus(); searchInputRef.current?.select(); }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Filter & Search Logic
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((cust) => {
-      // Filter tab
-      if (activeFilterTab === 'staying' && !cust.isStaying) return false;
-      if (activeFilterTab === 'vip' && cust.tier !== 'GOLD' && cust.tier !== 'PLATINUM') return false;
-      if (activeFilterTab === 'notes' && cust.serviceNotesTags.length === 0) return false;
-      if (activeFilterTab === 'international' && cust.country === 'Việt Nam') return false;
+  const searched = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return customers;
+    return customers.filter(c => [c.name, c.phone, c.email, c.customerCode].some(v => v.toLowerCase().includes(q)));
+  }, [customers, searchQuery]);
 
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = cust.name.toLowerCase().includes(q);
-        const matchPhone = cust.phone.toLowerCase().includes(q);
-        const matchEmail = cust.email.toLowerCase().includes(q);
-        const matchCccd = cust.identityCard.toLowerCase().includes(q);
-        const matchCode = cust.customerCode.toLowerCase().includes(q);
-        return matchName || matchPhone || matchEmail || matchCccd || matchCode;
-      }
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map(f => [f.id, searched.filter(f.match).length])) as Record<CustomerFilterTab, number>, [searched]);
 
-      return true;
-    });
-  }, [customers, activeFilterTab, searchQuery]);
-
-  // Sorted list
   const sortedCustomers = useMemo(() => {
-    const list = [...filteredCustomers];
-    if (sortOption === 'spend_high') {
-      list.sort((a, b) => b.totalSpend - a.totalSpend);
-    } else if (sortOption === 'bookings_high') {
-      list.sort((a, b) => b.totalCompletedBookings - a.totalCompletedBookings);
-    } else if (sortOption === 'name_asc') {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    }
+    const list = searched.filter(FILTERS.find(f => f.id === activeFilterTab)!.match);
+    if (sortOption === 'spend_high') list.sort((a, b) => b.totalSpend - a.totalSpend);
+    else if (sortOption === 'bookings_high') list.sort((a, b) => b.totalCompletedBookings - a.totalCompletedBookings);
+    else if (sortOption === 'name_asc') list.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
     return list;
-  }, [filteredCustomers, sortOption]);
+  }, [searched, activeFilterTab, sortOption]);
 
-  // Paginated list
-  const paginatedCustomers = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sortedCustomers.slice(start, start + pageSize);
-  }, [sortedCustomers, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(sortedCustomers.length / pageSize) || 1;
-
-  const handleSelectCustomer = (cust: StaffCustomer) => {
-    setSelectedCustomer(cust);
-  };
+  const totalPages = Math.max(1, Math.ceil(sortedCustomers.length / pageSize));
+  const page = Math.min(currentPage, totalPages);
+  const paginated = sortedCustomers.slice((page - 1) * pageSize, page * pageSize);
 
   const handleExportData = () => {
     const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
     const csv = [
-      ['Mã khách', 'Họ tên', 'Điện thoại', 'Email', 'Hạng', 'Đang lưu trú', 'Tổng chi tiêu', 'Số booking hoàn tất'],
-      ...sortedCustomers.map((item) => [item.customerCode, item.name, item.phone, item.email, item.tier, item.isStaying ? 'Có' : 'Không', item.totalSpend, item.totalCompletedBookings]),
+      ['Mã khách', 'Họ tên', 'Điện thoại', 'Email', 'Hạng', 'Đang lưu trú', 'Tổng chi tiêu', 'Số lượt hoàn tất'],
+      ...sortedCustomers.map(c => [c.customerCode, c.name, c.phone, c.email, c.tier, c.isStaying ? 'Có' : 'Không', c.totalSpend, c.totalCompletedBookings]),
     ].map(row => row.map(escape).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a'); link.href = url; link.download = `staff-customers-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = `khach-hang-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
     onShowToast?.(`Đã xuất ${sortedCustomers.length} hồ sơ khách hàng.`);
   };
 
-  const completedBookings = customers.reduce((sum, item) => sum + item.totalCompletedBookings, 0);
-  const totalSpend = customers.reduce((sum, item) => sum + item.totalSpend, 0);
-  const returningCustomers = customers.filter(item => item.totalCompletedBookings > 1).length;
-  const customerStats = {
-    returnRatePercent: customers.length ? Math.round(returningCustomers * 100 / customers.length) : 0,
-    returnRateTrend: 'Tính từ dữ liệu booking hiện tại',
-    adrAmount: completedBookings ? `${Math.round(totalSpend / completedBookings).toLocaleString('vi-VN')} ₫` : '0 ₫',
-    adrSegment: 'Trung bình trên booking hoàn tất',
-    verifiedCccdPercent: customers.length ? Math.round(customers.filter(item => item.identityCard).length * 100 / customers.length) : 0,
-    verifiedCccdNote: 'Theo dữ liệu hồ sơ đã lưu',
-    totalStoredCount: customers.length,
-  };
+  const resetPage = () => setCurrentPage(1);
 
   return (
-    <div className="flex flex-col w-full gap-6">
-      {/* Top Bar & Breadcrumbs / Header */}
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <nav className="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
-              <span>Nhân viên</span>
-              <span className="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-              <span className="text-primary font-semibold">Hồ sơ khách hàng &amp; Sở thích phục vụ</span>
-            </nav>
-            <div className="flex items-center gap-3">
-              <h1 className="font-headline-md text-headline-md text-on-surface tracking-tight">
-                Quản lý Hồ sơ Khách hàng
-              </h1>
-              <span className="bg-surface-container px-3 py-1 rounded-full font-label-sm text-label-sm text-on-surface-variant font-medium">
-                Tổng cộng: {customers.length} khách trong phạm vi phụ trách
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleExportData}
-              className="flex items-center gap-2 bg-surface-container-low hover:bg-surface-container text-on-surface px-4 py-2.5 rounded-full font-label-lg text-label-lg shadow-sm transition-all border border-[#eae8e5] cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">file_download</span>
-              <span>Xuất tệp</span>
-            </button>
-          </div>
+    <div className="flex w-full flex-col gap-6">
+      {/* Đầu trang */}
+      <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
+        <div>
+          <h1 className="font-headline-sm text-3xl font-semibold tracking-tight text-on-surface">Khách hàng</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">Khách đã đặt phòng tại các khu vực bạn phụ trách.</p>
         </div>
+        <div className="flex items-center gap-2">
+          <button type="button" title="Tải lại" aria-label="Tải lại" onClick={load} disabled={loading}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container disabled:opacity-40">
+            <span className={`material-symbols-outlined ${loading ? 'animate-spin' : ''}`}>refresh</span>
+          </button>
+          <button type="button" onClick={handleExportData} disabled={!sortedCustomers.length}
+            className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40">
+            <span className="material-symbols-outlined text-[18px]">download</span>Xuất CSV
+          </button>
+        </div>
+      </div>
 
-        {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
-        {loading && <p role="status" className="rounded-lg bg-surface-container-low p-4 text-on-surface-variant">Đang tải khách hàng trong phạm vi được phân công…</p>}
-        {!loading && !error && customers.length === 0 && <p className="rounded-lg bg-surface-container-low p-4 text-on-surface-variant">Chưa có khách hàng phát sinh booking trong phạm vi được phân công.</p>}
+      <StaffCustomerMetrics customers={customers} loading={loading && !customers.length} />
 
-        {/* Search & Fast Filters Bar */}
-        <div className="bg-surface-container-lowest p-3 rounded-lg shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 border border-[#eae8e5]">
-          {/* Search Input with Command-K indicator */}
-          <div className="flex items-center gap-3 bg-surface-container-low px-4 py-2.5 rounded-full flex-1 max-w-xl transition-all focus-within:bg-surface-container-lowest focus-within:shadow-sm border border-[#eae8e5] focus-within:border-primary">
-            <span className="material-symbols-outlined text-[20px] text-outline">search</span>
-            <input
-              ref={searchInputRef}
-              className="bg-transparent border-none outline-none font-body-md text-body-md text-on-surface placeholder:text-outline w-full"
-              placeholder="Tìm khách hàng theo Tên, SĐT, Email hoặc Mã CCCD/Hộ chiếu..."
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="text-outline hover:text-on-surface text-sm"
-              >
-                <span className="material-symbols-outlined text-[16px]">close</span>
+      {error && (
+        <p role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-error-container p-4 text-on-error-container">
+          {error}<button type="button" onClick={load} className="font-semibold">Thử lại</button>
+        </p>
+      )}
+
+      {/* Bộ lọc */}
+      <section className="space-y-3 rounded-2xl bg-surface-container-lowest p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="relative min-w-[240px] flex-1">
+            <span className="material-symbols-outlined pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[19px] text-outline">search</span>
+            <input ref={searchInputRef} type="search" aria-label="Tìm khách hàng" value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); resetPage(); }}
+              placeholder="Tên, số điện thoại, email hoặc mã khách…"
+              className="h-10 w-full rounded-full bg-surface-container-low pl-10 pr-14 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded bg-surface-container-high px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant sm:inline">Ctrl K</kbd>
+          </label>
+          <label className="flex h-10 items-center gap-2 rounded-full bg-surface-container-low pl-3.5 pr-1 text-sm">
+            <span className="material-symbols-outlined text-[18px] text-primary">sort</span>
+            <select aria-label="Sắp xếp" value={sortOption} onChange={e => setSortOption(e.target.value as CustomerSortOption)}
+              className="h-8 rounded-full bg-transparent pr-2 font-medium outline-none">
+              <option value="recent">Mặc định</option>
+              <option value="spend_high">Chi tiêu cao nhất</option>
+              <option value="bookings_high">Nhiều lượt ở nhất</option>
+              <option value="name_asc">Tên A → Z</option>
+            </select>
+          </label>
+        </div>
+        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Lọc khách hàng">
+          {FILTERS.map(f => {
+            const active = activeFilterTab === f.id;
+            return (
+              <button key={f.id} type="button" aria-pressed={active} onClick={() => { setActiveFilterTab(f.id); resetPage(); }}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  active ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}>
+                {f.label}
+                <span className={`rounded-full px-1.5 text-xs ${active ? 'bg-on-primary/20' : 'bg-surface-container-high'}`}>{counts[f.id]}</span>
               </button>
-            )}
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 bg-surface-container-high px-2 py-0.5 rounded text-[11px] font-label-sm text-on-surface-variant font-mono">
-              ⌘K
-            </kbd>
-          </div>
-
-          {/* Quick Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 xl:pb-0 scrollbar-none">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilterTab('all');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm shrink-0 transition-all cursor-pointer ${
-                activeFilterTab === 'all'
-                  ? 'bg-primary-container text-on-primary shadow-sm font-semibold'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              Tất cả khách ({customers.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilterTab('staying');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm shrink-0 transition-all cursor-pointer ${
-                activeFilterTab === 'staying'
-                  ? 'bg-primary-container text-on-primary shadow-sm font-semibold'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              Khách đang lưu trú ({customers.filter((c) => c.isStaying).length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilterTab('vip');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm shrink-0 transition-all cursor-pointer ${
-                activeFilterTab === 'vip'
-                  ? 'bg-primary-container text-on-primary shadow-sm font-semibold'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              Khách VIP ({customers.filter((c) => c.tier === 'GOLD' || c.tier === 'PLATINUM').length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilterTab('notes');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm shrink-0 transition-all cursor-pointer ${
-                activeFilterTab === 'notes'
-                  ? 'bg-primary-container text-on-primary shadow-sm font-semibold'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              Có ghi chú đặc biệt ({customers.filter((c) => c.serviceNotesTags.length > 0).length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilterTab('international');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm shrink-0 transition-all cursor-pointer ${
-                activeFilterTab === 'international'
-                  ? 'bg-primary-container text-on-primary shadow-sm font-semibold'
-                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-              }`}
-            >
-              Khách quốc tế ({customers.filter((c) => c.country !== 'Việt Nam').length})
-            </button>
-          </div>
-
-          {/* Sort Selection */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="font-label-sm text-label-sm text-on-surface-variant">Sắp xếp:</span>
-            <div className="relative">
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as CustomerSortOption)}
-                className="appearance-none bg-surface-container-low px-3.5 py-1.5 pr-8 rounded-full text-on-surface font-label-sm text-label-sm cursor-pointer hover:bg-surface-container border border-[#eae8e5] outline-none"
-              >
-                <option value="recent">Lần lưu trú: Mới nhất</option>
-                <option value="spend_high">Chi tiêu: Cao nhất</option>
-                <option value="bookings_high">Số lượt hoàn tất: Nhiều nhất</option>
-                <option value="name_asc">Tên khách: A - Z</option>
-              </select>
-              <span className="material-symbols-outlined text-[16px] text-outline absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                expand_more
-              </span>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* Main Content Workspace (Split Layout: 65% Table / Cards + 35% Guest Drawer) */}
-      <div className="flex min-w-0 flex-col gap-6">
-        {/* Left Column: Master Guest Directory Table (65% / 7 columns) */}
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="bg-surface-container-lowest rounded-lg shadow-sm overflow-hidden border border-[#eae8e5]">
-            {/* Table Scroller */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] table-fixed text-left border-collapse">
-                <colgroup>
-                  <col className="w-[20%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[15%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[11%]" />
-                </colgroup>
-                <thead>
-                  <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-[11px] uppercase tracking-wider">
-                    <th className="py-3.5 pl-6 pr-3 whitespace-nowrap">Khách hàng</th>
-                    <th className="py-3.5 px-3 whitespace-nowrap">Liên lạc</th>
-                    <th className="py-3.5 px-3 whitespace-nowrap">Lần nghỉ gần nhất</th>
-                    <th className="py-3.5 px-3 whitespace-nowrap">Tổng đơn / Chi tiêu</th>
-                    <th className="py-3.5 px-3 whitespace-nowrap">Ghi chú phục vụ</th>
-                    <th className="py-3.5 pr-6 pl-3 text-right whitespace-nowrap">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f2f0ed] text-on-surface font-body-md text-body-md">
-                  {paginatedCustomers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-12 text-center text-on-surface-variant">
-                        <span className="material-symbols-outlined text-[36px] text-outline block mb-1">
-                          person_off
-                        </span>
-                        Không tìm thấy khách hàng nào phù hợp với bộ lọc hiện tại.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedCustomers.map((cust) => {
-                      const isSelected = selectedCustomer?.id === cust.id;
-                      return (
-                        <tr
-                          key={cust.id}
-                          onClick={() => handleSelectCustomer(cust)}
-                          className={`transition-colors cursor-pointer ${
-                            isSelected
-                              ? 'bg-primary-fixed/30 hover:bg-primary-fixed/40'
-                              : 'bg-surface-container-lowest hover:bg-surface-container-low'
-                          }`}
-                        >
-                          <td className="py-4 pl-6 pr-3">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`relative w-10 h-10 rounded-full flex items-center justify-center font-headline-sm text-sm font-bold shadow-sm shrink-0 ${
-                                  isSelected
-                                    ? 'bg-primary-container text-on-primary'
-                                    : 'bg-surface-container-high text-on-surface'
-                                }`}
-                              >
-                                {cust.initials}
-                                {cust.isStaying && (
-                                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-600 ring-2 ring-surface-container-lowest" />
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5 font-label-lg text-label-lg font-bold text-on-surface">
-                                  <span className="leading-snug">{cust.name}</span>
-                                  {cust.tier === 'PLATINUM' && (
-                                    <span className="bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded-full text-[10px] font-label-sm font-bold">
-                                      💎 PLATINUM
-                                    </span>
-                                  )}
-                                  {cust.tier === 'GOLD' && (
-                                    <span className="bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded-full text-[10px] font-label-sm font-bold">
-                                      ★ GOLD
-                                    </span>
-                                  )}
-                                  {cust.tier === 'SILVER' && (
-                                    <span className="bg-stone-200 text-stone-700 px-1.5 py-0.2 rounded-full text-[10px] font-label-sm font-semibold">
-                                      SILVER
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="font-label-sm text-[11px] text-on-surface-variant flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-[13px] text-outline">flag</span>
-                                  {cust.country}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="py-4 px-3">
-                            <div className="flex min-w-0 flex-col gap-1 text-[13px] leading-tight">
-                              <span className="font-semibold text-on-surface whitespace-nowrap">{cust.phone}</span>
-                              <span className="text-on-surface-variant text-[12px] truncate" title={cust.email}>
-                                {cust.email}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="py-4 px-3">
-                            <div className="flex min-w-0 flex-col gap-1">
-                              {cust.isStaying && cust.currentRoom ? (
-                                <>
-                                  <span className="inline-flex items-center gap-1 text-emerald-800 font-semibold text-[12px] bg-emerald-100/70 px-2 py-0.5 rounded-full w-max">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                                    {cust.currentRoom}
-                                  </span>
-                                  <span className="truncate text-on-surface-variant text-[11px]" title={cust.lastStayInfo}>
-                                    {cust.lastStayInfo}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-on-surface font-medium text-[12px]">
-                                    {cust.lastStayInfo.split('(')[0]}
-                                  </span>
-                                  <span className="text-on-surface-variant text-[11px]">
-                                    {cust.lastStayInfo.includes('(')
-                                      ? cust.lastStayInfo.slice(cust.lastStayInfo.indexOf('('))
-                                      : 'Đã check-out'}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </td>
-
-                          <td className="py-4 px-3">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-bold text-primary text-[13px] whitespace-nowrap">
-                                {cust.totalSpendFormatted}
-                              </span>
-                              <span className="text-on-surface-variant text-[11px]">
-                                {cust.totalCompletedBookings} lượt hoàn tất
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="py-4 px-3">
-                            {cust.serviceNotesTags.length ? <p className="line-clamp-3 text-[12px] leading-relaxed text-on-surface-variant" title={cust.serviceNotesTags.join('; ')}>{cust.serviceNotesTags.join('; ')}</p> : <span className="text-[12px] text-outline">Không có ghi chú</span>}
-                          </td>
-
-                          <td className="py-4 pr-6 pl-3 text-right">
-                            {isSelected ? (
-                              <span className="inline-flex items-center gap-1 whitespace-nowrap bg-primary-container text-on-primary font-label-sm text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-sm">
-                                <span className="material-symbols-outlined text-[14px]">visibility</span>
-                                Đang xem
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSelectCustomer(cust);
-                                }}
-                                className="whitespace-nowrap text-secondary hover:text-primary font-label-sm text-[11px] font-semibold px-2.5 py-1 rounded-full hover:bg-surface-container transition-all cursor-pointer"
-                              >
-                                Xem hồ sơ
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Table Pagination Footer */}
-            <div className="p-4 bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-3 text-on-surface-variant font-label-md text-label-md border-t border-[#eae8e5]">
-              <div className="flex items-center gap-3">
-                <span>
-                  Hiển thị{' '}
-                  <strong className="text-on-surface font-semibold">
-                    {sortedCustomers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} -{' '}
-                    {Math.min(currentPage * pageSize, sortedCustomers.length)}
-                  </strong>{' '}
-                  trong số <strong className="text-on-surface font-semibold">{sortedCustomers.length}</strong> khách
-                </span>
-                <div className="flex items-center gap-1.5 bg-surface-container-lowest px-2.5 py-1 rounded-full text-[12px] border border-[#eae8e5]">
-                  <span>Hiển thị:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="bg-transparent border-none outline-none font-semibold text-on-surface p-0 cursor-pointer text-[12px]"
-                  >
-                    <option value={5}>5 hàng</option>
-                    <option value={10}>10 hàng</option>
-                    <option value={25}>25 hàng</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Page Buttons */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-outline hover:bg-surface-container disabled:opacity-30 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">chevron_left</span>
-                </button>
-                {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pg) => (
-                  <button
-                    key={pg}
-                    type="button"
-                    onClick={() => setCurrentPage(pg)}
-                    className={`w-8 h-8 rounded-full text-[13px] flex items-center justify-center cursor-pointer transition-colors ${
-                      currentPage === pg
-                        ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
-                        : 'hover:bg-surface-container text-on-surface'
-                    }`}
-                  >
-                    {pg}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container disabled:opacity-30 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick KPI Strip for Customer Relations */}
-          <StaffCustomerMetrics stats={customerStats} />
+      {/* Danh sách */}
+      <section className="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm">
+            <thead className="border-b border-outline-variant/40 bg-surface-container-low text-xs text-on-surface-variant">
+              <tr>
+                <th scope="col" className="py-3 pl-5 pr-3 font-semibold">Khách hàng</th>
+                <th scope="col" className="px-3 py-3 font-semibold">Liên hệ</th>
+                <th scope="col" className="px-3 py-3 font-semibold">Lần lưu trú gần nhất</th>
+                <th scope="col" className="px-3 py-3 text-right font-semibold">Chi tiêu</th>
+                <th scope="col" className="px-3 py-3 font-semibold">Ghi chú khi đặt</th>
+                <th scope="col" className="py-3 pl-3 pr-5"><span className="sr-only">Mở hồ sơ</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/30">
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-14 text-center">
+                    <span className="material-symbols-outlined text-4xl text-outline-variant">{loading ? 'hourglass_empty' : 'person_search'}</span>
+                    <p className="mt-2 font-medium text-on-surface">
+                      {loading ? 'Đang tải khách hàng…' : customers.length ? 'Không có khách phù hợp' : 'Chưa có khách đặt phòng tại khu vực bạn phụ trách'}
+                    </p>
+                  </td>
+                </tr>
+              ) : paginated.map(c => (
+                <tr key={c.id} onClick={() => setSelectedCustomer(c)} className="cursor-pointer transition-colors hover:bg-surface-container-low/60">
+                  <td className="py-3.5 pl-5 pr-3">
+                    <div className="flex items-center gap-3">
+                      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-fixed/50 text-xs font-bold text-primary">
+                        {c.initials}
+                        {c.isStaying && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-600 ring-2 ring-surface-container-lowest" title="Đang lưu trú" />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 font-medium text-on-surface"><span className="truncate">{c.name}</span><TierBadge tier={c.tier} /></p>
+                        <p className="text-xs text-on-surface-variant">{c.customerCode}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <p className="whitespace-nowrap text-on-surface">{c.phone}</p>
+                    <p className="max-w-[200px] truncate text-xs text-on-surface-variant" title={c.email}>{c.email}</p>
+                  </td>
+                  <td className="px-3 py-3.5">
+                    {c.isStaying
+                      ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />Đang ở{c.currentRoom ? ` · ${c.currentRoom}` : ''}</span>
+                      : <span className="text-on-surface">{c.lastStayInfo || '—'}</span>}
+                  </td>
+                  <td className="px-3 py-3.5 text-right">
+                    <p className="whitespace-nowrap font-semibold tabular-nums text-on-surface">{c.totalSpendFormatted}</p>
+                    <p className="text-xs text-on-surface-variant">{c.totalCompletedBookings} lượt hoàn tất</p>
+                  </td>
+                  <td className="max-w-[240px] px-3 py-3.5">
+                    {c.serviceNotesTags.length
+                      ? <p className="line-clamp-2 text-xs leading-5 text-on-surface-variant" title={c.serviceNotesTags.join('; ')}>{c.serviceNotesTags.join('; ')}</p>
+                      : <span className="text-xs text-outline">—</span>}
+                  </td>
+                  <td className="py-3.5 pl-3 pr-5 text-right">
+                    <span className="material-symbols-outlined text-[20px] text-outline" aria-hidden="true">chevron_right</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Right Column: Guest Profile Detail Drawer (35% / 5 columns) */}
-        {selectedCustomer && <StaffCustomerDrawer
-          customer={selectedCustomer}
-          onClose={() => setSelectedCustomer(null)}
-          onOpenZaloChat={(phone) => onShowToast?.(`Đang mở cổng trò chuyện Zalo OA với số điện thoại ${phone}...`)}
-          onEditCustomer={(c) => onShowToast?.(`Mở biểu mẫu chỉnh sửa hồ sơ khách hàng ${c.name}...`)}
-          onViewAllBookings={(id) => onShowToast?.(`Chuyển hướng sang danh sách đầy đủ các booking của khách #${id}...`)}
-        />}
-      </div>
+        {/* Phân trang */}
+        {sortedCustomers.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/40 px-5 py-3 text-sm text-on-surface-variant">
+            <div className="flex items-center gap-3">
+              <span>{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sortedCustomers.length)} / {sortedCustomers.length} khách</span>
+              <select aria-label="Số dòng mỗi trang" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); resetPage(); }}
+                className="rounded-full bg-surface-container-low px-2.5 py-1 text-xs outline-none">
+                {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / trang</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label="Trang trước" disabled={page <= 1} onClick={() => setCurrentPage(page - 1)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container disabled:opacity-30">
+                <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+              </button>
+              <span className="px-2 text-on-surface">Trang {page} / {totalPages}</span>
+              <button type="button" aria-label="Trang sau" disabled={page >= totalPages} onClick={() => setCurrentPage(page + 1)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container disabled:opacity-30">
+                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
 
+      {selectedCustomer && <StaffCustomerDrawer customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />}
     </div>
   );
 };

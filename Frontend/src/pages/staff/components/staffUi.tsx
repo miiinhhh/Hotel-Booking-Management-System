@@ -40,6 +40,19 @@ export const StatusBadge: React.FC<{ status: StaffBookingStatus }> = ({ status }
   );
 };
 
+const TIER_UI: Record<string, { label: string; className: string }> = {
+  PLATINUM: { label: 'Platinum', className: 'bg-slate-100 text-slate-800 ring-slate-400/30' },
+  GOLD: { label: 'Gold', className: 'bg-amber-50 text-amber-800 ring-amber-500/30' },
+  SILVER: { label: 'Silver', className: 'bg-stone-100 text-stone-700 ring-stone-400/30' },
+};
+
+/** Hạng khách theo tổng chi tiêu (máy chủ tính). Khách hạng thường không gắn nhãn. */
+export const TierBadge: React.FC<{ tier: string }> = ({ tier }) => {
+  const ui = TIER_UI[tier];
+  if (!ui) return null;
+  return <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${ui.className}`}>{ui.label}</span>;
+};
+
 /** Thanh tiến độ thanh toán: đã thu / tổng tiền. */
 export const PaidBar: React.FC<{ paid: number; total: number }> = ({ paid, total }) => {
   const ratio = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
