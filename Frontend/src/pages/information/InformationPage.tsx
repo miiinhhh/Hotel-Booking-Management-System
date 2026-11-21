@@ -446,7 +446,7 @@ const HelpPage: React.FC<InformationPageProps> = ({ page, onNavigateHome, onNavi
             <button key={c.id} type="button" onClick={() => pickCategory(c.id)} aria-pressed={category === c.id}
               className={`group rounded-2xl border p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${
                 category === c.id ? 'border-primary bg-primary-fixed/30' : 'border-outline-variant/50 bg-surface-container-lowest'}`}>
-              <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${category === c.id ? 'bg-primary text-on-primary' : 'bg-primary-fixed/50 text-primary'}`}>
+              <span className={`flex h-11 w-11 items-center justify-center rounded ${category === c.id ? 'bg-primary text-on-primary' : 'bg-primary-fixed/50 text-primary'}`}>
                 <Icon name={c.icon} />
               </span>
               <h2 className="mt-4 font-semibold text-on-surface">{c.title}</h2>
@@ -540,7 +540,7 @@ const ContactPage: React.FC<InformationPageProps> = ({ page, onNavigateHome, onN
     window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const field = 'mt-1.5 w-full rounded-xl border bg-surface-container-lowest px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/15';
+  const field = 'mt-1.5 w-full rounded border bg-surface-container-lowest px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/15';
   const channels = [
     { icon: 'call', title: 'Hotline', value: HOTLINE, note: 'Phù hợp khi cần hỗ trợ gấp trước giờ nhận phòng hoặc khi thanh toán gặp sự cố.',
       action: { label: 'Gọi ngay', href: `tel:${HOTLINE.replace(/\s/g, '')}` } },
@@ -565,7 +565,7 @@ const ContactPage: React.FC<InformationPageProps> = ({ page, onNavigateHome, onN
         <section className="grid gap-4 md:grid-cols-3">
           {channels.map((c) => (
             <article key={c.title} className="flex flex-col rounded-2xl border border-outline-variant/50 bg-surface-container-lowest p-6">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-fixed/50 text-primary"><Icon name={c.icon} /></span>
+              <span className="flex h-12 w-12 items-center justify-center rounded bg-primary-fixed/50 text-primary"><Icon name={c.icon} /></span>
               <h2 className="mt-4 text-sm font-semibold uppercase tracking-wider text-on-surface-variant">{c.title}</h2>
               <p className="mt-1 font-headline-sm text-xl font-semibold text-on-surface">{c.value}</p>
               <p className="mt-2 flex-1 text-sm leading-6 text-on-surface-variant">{c.note}</p>

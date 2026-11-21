@@ -246,7 +246,7 @@ export const AdminInventory: React.FC = () => {
     return (
       <div key={area.areaId} role="button" tabIndex={0} onClick={() => selectArea(area.areaId)}
         onKeyDown={(e) => { if (e.key === 'Enter') selectArea(area.areaId); }}
-        className={`group relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${depth === 2 ? 'ml-9' : 'ml-4'} ${
+        className={`group relative flex cursor-pointer items-center gap-3 rounded px-3 py-2.5 transition-colors ${depth === 2 ? 'ml-9' : 'ml-4'} ${
           active ? 'bg-primary-container text-on-primary' : 'hover:bg-surface-container'} ${area.isActive ? '' : 'opacity-55'}`}>
         <span className={`material-symbols-outlined text-[20px] ${active ? '' : 'text-primary'}`}>{area.areaType === 'Zone' ? 'location_city' : 'apartment'}</span>
         <div className="min-w-0 flex-1">
@@ -287,12 +287,12 @@ export const AdminInventory: React.FC = () => {
       </div>
     } />
 
-    {error && <p role="alert" className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-error-container p-4 text-on-error-container">{error}<button onClick={() => setError('')} className="font-semibold">Đóng</button></p>}
+    {error && <p role="alert" className="mb-5 flex items-center justify-between gap-3 rounded bg-error-container p-4 text-on-error-container">{error}<button onClick={() => setError('')} className="font-semibold">Đóng</button></p>}
 
     {/* Chỉ số tổng */}
     <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
       {stats.map(s => (
-        <div key={s.label} className="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm">
+        <div key={s.label} className="flex items-center gap-3 rounded bg-surface-container-lowest p-4 shadow-sm">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-fixed/50 text-primary"><span className="material-symbols-outlined text-[20px]">{s.icon}</span></span>
           <div><p className="text-2xl font-semibold leading-none">{loading ? '–' : s.value}</p><p className="mt-1 text-xs text-on-surface-variant">{s.label} đang hoạt động</p></div>
         </div>
@@ -309,10 +309,10 @@ export const AdminInventory: React.FC = () => {
             <span className="material-symbols-outlined text-[16px]">add</span>Zone</button>}
         </div>
         {loading ? <p role="status" className="px-3 py-6 text-sm text-on-surface-variant">Đang tải phân khu…</p>
-          : !areas.length ? <div className="rounded-xl border border-dashed border-outline-variant p-6 text-center text-sm text-on-surface-variant">Khách sạn chưa có phân khu.<br />Bấm “+ Zone” để bắt đầu.</div>
+          : !areas.length ? <div className="rounded border border-dashed border-outline-variant p-6 text-center text-sm text-on-surface-variant">Khách sạn chưa có phân khu.<br />Bấm “+ Zone” để bắt đầu.</div>
           : <div className="max-h-[calc(100vh-320px)] space-y-1 overflow-y-auto pr-1">
             {/* Gốc của cây: khách sạn đang chọn */}
-            <div className="flex items-center gap-3 rounded-xl bg-surface-container-low px-3 py-2.5">
+            <div className="flex items-center gap-3 rounded bg-surface-container-low px-3 py-2.5">
               <span className="material-symbols-outlined text-[20px] text-primary">hotel</span>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-outline">Khách sạn</p>
@@ -398,12 +398,12 @@ export const AdminInventory: React.FC = () => {
                   <span className="material-symbols-outlined text-[18px]">add</span>Thêm hạng phòng</button>}
               </div>
               {loading ? <p role="status" className="text-sm text-on-surface-variant">Đang tải…</p>
-                : !filtered.length ? <p className="rounded-xl bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">{search ? 'Không có hạng phòng khớp từ khóa.' : 'Phân khu này chưa có hạng phòng.'}</p>
+                : !filtered.length ? <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">{search ? 'Không có hạng phòng khớp từ khóa.' : 'Phân khu này chưa có hạng phòng.'}</p>
                 : <div className="grid gap-3 xl:grid-cols-2">
                   {filtered.map(type => {
                     const count = rooms.filter(r => r.roomTypeId === type.roomTypeId && r.isActive).length;
                     return (
-                      <article key={type.roomTypeId} className={`flex flex-col rounded-xl border border-outline-variant/40 p-4 ${type.isActive ? '' : 'opacity-60'}`}>
+                      <article key={type.roomTypeId} className={`flex flex-col rounded border border-outline-variant/40 p-4 ${type.isActive ? '' : 'opacity-60'}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="truncate font-semibold">{type.name}</h3>
@@ -443,20 +443,20 @@ export const AdminInventory: React.FC = () => {
                   className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary disabled:opacity-40">
                   <span className="material-symbols-outlined text-[18px]">add</span>Thêm phòng</button>}
               </div>
-              {!selectedIsBuilding ? <p className="rounded-xl bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Phòng vật lý được quản lý trong từng Building. Hãy chọn một Building ở cột bên trái.</p>
+              {!selectedIsBuilding ? <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Phòng vật lý được quản lý trong từng Building. Hãy chọn một Building ở cột bên trái.</p>
                 : loading ? <p role="status" className="text-sm text-on-surface-variant">Đang tải…</p>
-                : !filteredRooms.length ? <p className="rounded-xl bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Không có phòng phù hợp.</p>
+                : !filteredRooms.length ? <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Không có phòng phù hợp.</p>
                 : <div className="space-y-5">
                   {Object.entries(roomsByFloor).map(([floor, list]) => (
                     <div key={floor}>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-outline">Tầng {floor} · {list.length} phòng</p>
-                      <div className="divide-y divide-outline-variant/30 overflow-hidden rounded-xl border border-outline-variant/40">
+                      <div className="divide-y divide-outline-variant/30 overflow-hidden rounded border border-outline-variant/40">
                         {list.map(room => {
                           const type = types.find(item => item.roomTypeId === room.roomTypeId);
                           const status: RoomStatus = room.isActive ? room.status : 'Inactive';
                           return (
                             <div key={room.roomId} className={`flex items-center gap-4 px-4 py-3 ${room.isActive ? '' : 'opacity-60'}`}>
-                              <span className="flex h-10 min-w-[52px] items-center justify-center rounded-lg bg-surface-container px-2 text-sm font-bold">{room.roomNumber}</span>
+                              <span className="flex h-10 min-w-[52px] items-center justify-center rounded bg-surface-container px-2 text-sm font-bold">{room.roomNumber}</span>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium">{type?.name || `Hạng #${room.roomTypeId}`}</p>
                                 {room.description && <p className="truncate text-xs text-on-surface-variant">{room.description}</p>}

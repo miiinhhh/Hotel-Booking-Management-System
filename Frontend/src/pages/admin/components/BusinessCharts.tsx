@@ -83,7 +83,7 @@ const RevenueChart: React.FC<{ points: Point[] }> = ({ points }) => {
   const y = (value: number) => top + (maximum - value) * plotHeight / range;
   const zeroY = y(0); const slot = plotWidth / Math.max(1, points.length);
   const barWidth = Math.min(30, Math.max(10, slot * 0.62));
-  return <article className="rounded-xl bg-surface-container-lowest p-5 shadow-sm">
+  return <article className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Doanh thu ròng</h2><p className="text-sm text-on-surface-variant">Thanh toán thành công trừ khoản hoàn thành công.</p></div><div className="flex gap-4 text-xs"><span className="flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-primary-container" />Dương</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-error" />Âm</span></div></div>
     <HoverSummary point={hovered === null ? undefined : points[hovered]} />
     {!points.some(point => point.revenue !== 0) && <p className="mt-3 text-sm text-outline">Chưa có giao dịch thành công trong khoảng này.</p>}
@@ -109,7 +109,7 @@ const LineChart: React.FC<{ points: Point[]; type: 'bookings' | 'occupancy' }> =
   const title = type === 'occupancy' ? 'Công suất phòng' : 'Booking tạo mới';
   const description = type === 'occupancy' ? 'Tỷ lệ đêm phòng đã sử dụng trên số đêm có thể bán.' : 'Số booking được tạo trong từng kỳ.';
   const line = points.map((point, index) => `${x(index)},${y(value(point))}`).join(' ');
-  return <article className="rounded-xl bg-surface-container-lowest p-5 shadow-sm">
+  return <article className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm">
     <div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">{title}</h2><p className="text-sm text-on-surface-variant">{description}</p></div><span className={`flex items-center gap-2 text-xs ${color}`}><i className="h-1 w-8 rounded bg-current" />{type === 'occupancy' ? '%' : 'Booking'}</span></div>
     <HoverSummary point={hovered === null ? undefined : points[hovered]} />
     <div className="mt-3 overflow-x-auto"><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Biểu đồ đường ${title.toLowerCase()}`}>

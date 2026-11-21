@@ -79,27 +79,29 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
   // Map Backend Status to Frontend UI Status
   const mapBackendStatus = (status: string): { status: StaffBookingStatus; label: string } => {
+    // Nhãn dùng chung với bảng/bộ lọc (staffUi.BOOKING_STATUS_UI) và file CSV xuất ra.
     switch (status?.toLowerCase()) {
       case 'checkedin':
-        return { status: 'checked_in', label: 'ĐÃ CHECK-IN' };
+        return { status: 'checked_in', label: 'Đang lưu trú' };
       case 'confirmed':
-        return { status: 'confirmed_deposit', label: 'ĐÃ XÁC NHẬN CỌC' };
+        return { status: 'confirmed_deposit', label: 'Đã xác nhận' };
       case 'cancelled':
-        return { status: 'cancelled', label: 'ĐÃ HỦY' };
+      case 'noshow':
+        return { status: 'cancelled', label: 'Đã hủy' };
       case 'checkedout':
       case 'completed':
-        return { status: 'staying', label: 'ĐÃ HOÀN TẤT' };
+        return { status: 'staying', label: 'Đã trả phòng' };
       case 'pending':
       default:
-        return { status: 'pending_deposit', label: 'CHỜ CỌC' };
+        return { status: 'pending_deposit', label: 'Chờ xác nhận' };
     }
   };
 
   const mapBackendPayment = (pmt: string, paid: number): { status: StaffDepositStatus; label: string } => {
-    if (pmt === 'Paid') return { status: 'paid_100', label: 'Đã trả 100%' };
-    if (pmt === 'RefundPending') return { status: 'refund_pending', label: 'Chờ hoàn cọc' };
-    if (pmt === 'Refunded') return { status: 'refunded', label: 'Đã hoàn cọc' };
-    if (paid > 0) return { status: 'deposited_50', label: `Đã thanh toán ${paid.toLocaleString('vi-VN')}₫` };
+    if (pmt === 'Paid') return { status: 'paid_100', label: 'Đã thanh toán đủ' };
+    if (pmt === 'RefundPending') return { status: 'refund_pending', label: 'Chờ hoàn tiền' };
+    if (pmt === 'Refunded') return { status: 'refunded', label: 'Đã hoàn tiền' };
+    if (paid > 0) return { status: 'deposited_50', label: `Đã thu ${paid.toLocaleString('vi-VN')} ₫` };
     return { status: 'unpaid', label: 'Chưa thanh toán' };
   };
 
@@ -123,7 +125,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         return {
           id: String(b.bookingId),
           bookingCode: b.bookingCode || `#BK-${10000 + b.bookingId}`,
-          createdAt: new Date(b.createdAt).toLocaleString('vi-VN'),
+          createdAt: new Date(b.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           customerName: b.customerName,
           customerInitials: initials,
           customerPhone: b.customerPhone || 'Chưa cập nhật',
@@ -137,16 +139,14 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           roomDetails: `${b.numberOfGuests} khách · ${b.roomNumbers.length} phòng`,
           checkInDate: b.checkInDate,
           checkOutDate: b.checkOutDate,
-          checkInTime: '14:00',
-          checkOutTime: '12:00',
+          // Giờ nhận/trả phòng thực tế theo chính sách khách sạn chưa có trong DTO này → không hiển thị giờ đoán.
           nightsCount: nights,
-          nightsLabel: `${nights} đêm nghỉ`,
+          nightsLabel: `${nights} đêm`,
           totalAmount: b.totalAmount,
           paidAmount: b.paidAmount,
           remainingAmount: b.remainingAmount,
           depositStatus: mappedDep.status,
           depositStatusLabel: mappedDep.label,
-          depositDeadline: '15 phút',
           status: mappedSt.status,
           statusLabel: mappedSt.label,
           specialRequests: b.specialRequests,
@@ -192,8 +192,8 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   // Filtered bookings
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
-      // Zone filter
-      if (selectedZone !== 'all' && b.zone !== selectedZone) {
+      // Zone filter — một đơn có thể thuộc nhiều phân khu ("A, B")
+      if (selectedZone !== 'all' && !b.zone.split(', ').includes(selectedZone)) {
         return false;
       }
 
@@ -226,13 +226,24 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     () => Array.from(new Set(bookings.flatMap(booking => booking.zone.split(', ').filter(Boolean)))),
     [bookings],
   );
+  /** Số đơn theo trạng thái (đã áp phân khu + tìm kiếm, chưa áp trạng thái) để hiện trên nút lọc. */
+  const statusCounts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const base = bookings.filter(b =>
+      (selectedZone === 'all' || b.zone.split(', ').includes(selectedZone))
+      && (!q || [b.bookingCode, b.customerName, b.customerPhone, b.roomNumber, b.roomType].some(v => v.toLowerCase().includes(q))));
+    const counts: Record<string, number> = { all: base.length };
+    for (const b of base) counts[b.status] = (counts[b.status] ?? 0) + 1;
+    for (const s of ['pending_deposit', 'confirmed_deposit', 'checked_in', 'staying', 'cancelled']) counts[s] ??= 0;
+    return counts;
+  }, [bookings, selectedZone, searchQuery]);
   // Reset filters
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedStatus('all');
     setSelectedZone('all');
     setCurrentPage(1);
-    showToast('Đã đặt lại các bộ lọc tìm kiếm.');
+    
   };
 
   // View details in drawer
@@ -241,47 +252,21 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     setIsDrawerOpen(true);
   };
 
-  // Quick check-in
-  const handleCheckIn = async (target: StaffBooking) => {
+  // Check-in: ném lỗi khi máy chủ từ chối để panel chi tiết hiển thị; bảng thì hiện toast.
+  const checkIn = async (target: StaffBooking) => {
     const bookingIdNum = Number(target.id);
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
       const res = await updateBookingStatus(bookingIdNum, {
         newStatus: 'CheckedIn',
         note: `Check-in thành công bởi ${session?.fullName || 'nhân viên khách sạn'} lúc ${new Date().toLocaleTimeString('vi-VN')}`,
       });
-      if (!res.success) {
-        showToast(`Lỗi Check-in: ${res.message || 'Không thể cập nhật trên máy chủ'}`);
-        return;
-      }
+      if (!res.success) throw new Error(`Không check-in được: ${res.message || 'máy chủ từ chối cập nhật.'}`);
     }
 
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === target.id
-          ? {
-              ...b,
-              status: 'checked_in',
-              statusLabel: 'ĐÃ CHECK-IN',
-              checkInTime: `Đã check-in lúc ${new Date().toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}`,
-            }
-          : b
-      )
-    );
-
-    if (selectedBooking && selectedBooking.id === target.id) {
-      setSelectedBooking((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'checked_in',
-              statusLabel: 'ĐÃ CHECK-IN',
-            }
-          : null
-      );
-    }
+    const checkedInAt = `Đã nhận phòng lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+    const apply = (b: StaffBooking): StaffBooking => ({ ...b, status: 'checked_in', statusLabel: 'Đang lưu trú', checkInTime: checkedInAt });
+    setBookings((prev) => prev.map((b) => (b.id === target.id ? apply(b) : b)));
+    setSelectedBooking((prev) => (prev && prev.id === target.id ? apply(prev) : prev));
 
     setMetrics((prev) => ({
       ...prev,
@@ -290,6 +275,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     }));
 
     showToast(`Check-in thành công cho khách ${target.customerName} (Phòng ${target.roomNumber}).`);
+  };
+  const handleCheckIn = (target: StaffBooking) => {
+    checkIn(target).catch((e) => showToast(e instanceof Error ? e.message : 'Không check-in được.'));
   };
 
   // Quick confirm deposit
@@ -309,47 +297,22 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     showToast(`Đã xác nhận booking ${target.bookingCode}. Trạng thái thanh toán được giữ theo giao dịch thực tế.`);
   };
 
-  // Cancel booking
+  // Hủy đơn: trạng thái thanh toán sau khi hủy (chờ hoàn / không cần hoàn) do máy chủ quyết định,
+  // nên tải lại dữ liệu thay vì tự gán "Đã hoàn cọc" như trước.
   const handleCancelBooking = async (target: StaffBooking) => {
     const bookingIdNum = Number(target.id);
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
       const res = await cancelBooking(bookingIdNum, 'Hủy đơn theo yêu cầu của khách tại quầy Lễ tân');
-      if (!res.success) {
-        showToast(`Lỗi hủy đơn: ${res.message || 'Không thể hủy trên máy chủ'}`);
-        return;
-      }
+      if (!res.success) throw new Error(`Không hủy được đơn: ${res.message || 'máy chủ từ chối.'}`);
     }
-
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === target.id
-          ? {
-              ...b,
-              status: 'cancelled',
-              statusLabel: 'ĐÃ HỦY',
-              depositStatus: 'refunded',
-              depositStatusLabel: 'Đã hoàn cọc',
-            }
-          : b
-      )
-    );
-
-    if (selectedBooking && selectedBooking.id === target.id) {
-      setSelectedBooking((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'cancelled',
-              statusLabel: 'ĐÃ HỦY',
-              depositStatus: 'refunded',
-              depositStatusLabel: 'Đã hoàn cọc',
-            }
-          : null
-      );
-    }
-
-    showToast(`Đã hủy booking ${target.bookingCode} và chuyển sang trạng thái hoàn cọc.`);
+    await fetchBookings();
+    showToast(`Đã hủy đơn ${target.bookingCode}.`);
   };
+
+  // Giữ panel chi tiết đồng bộ với dữ liệu vừa tải lại.
+  useEffect(() => {
+    setSelectedBooking((prev) => (prev ? bookings.find((b) => b.id === prev.id) ?? prev : prev));
+  }, [bookings]);
 
   const handleConfirmPayment = (updated: StaffBooking) => {
     setBookings((prev) =>
@@ -446,7 +409,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         <main className="flex min-h-screen w-full flex-col gap-6 px-4 pb-16 pt-20 md:px-8">
           {/* Toast Notification Banner */}
           {toastMessage && (
-            <div className="fixed top-20 right-4 md:right-8 z-50 bg-inverse-surface text-inverse-on-surface px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
+            <div role="status" className="fixed top-20 right-4 md:right-8 z-[70] bg-inverse-surface text-inverse-on-surface px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
               <span className="material-symbols-outlined text-primary-fixed text-[20px]">
                 check_circle
               </span>
@@ -455,7 +418,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           )}
 
           {!staffTab && (
-            <section className="mx-auto mt-16 flex max-w-xl flex-col items-center gap-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-14 text-center">
+            <section className="mx-auto mt-16 flex max-w-xl flex-col items-center gap-3 rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-14 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container text-primary"><span className="material-symbols-outlined text-[28px]">lock_person</span></span>
               <h1 className="font-headline-sm text-headline-sm text-on-surface">Tài khoản chưa được cấp quyền vận hành</h1>
               <p className="font-body-md text-body-md text-on-surface-variant">Vai trò hiện tại của bạn chưa có quyền sử dụng chức năng nào trong Staff Portal. Vui lòng liên hệ quản trị viên để được cấp quyền.</p>
@@ -500,53 +463,38 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           {/* 4. RESERVATIONS VIEW (Quản lý Đặt phòng) */}
           {staffTab === 'reservations' && (
             <>
-              {/* TOP TITLE BAR & ACTION BUTTONS */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
-                <div className="flex flex-col gap-1">
-                  <div className="flex flex-wrap items-center gap-2 text-secondary font-label-sm uppercase tracking-widest text-[11px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
-                    <span>Khu vực phụ trách: {assignedAreas.length ? assignedAreas.map(area => `${area.hotelName} · ${area.areaName}`).join(', ') : 'Chưa được phân công'}</span>
-                    {lastSyncedAt && <>
-                      <span className="text-outline-variant">·</span>
-                      <span className="text-on-surface-variant">Cập nhật: {lastSyncedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </>}
-                  </div>
-                  <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight flex items-baseline flex-wrap gap-2.5">
-                    Quản lý &amp; Tra cứu Đặt phòng
-                    <span className="font-normal text-on-surface-variant text-[22px] tracking-normal font-headline-sm">
-                      (Zone Bookings Management)
+              {/* Tiêu đề + thao tác */}
+              <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
+                <div className="min-w-0">
+                  <h1 className="font-headline-sm text-3xl font-semibold tracking-tight text-on-surface">Đặt phòng</h1>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-on-surface-variant">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px] text-primary">apartment</span>
+                      {assignedAreas.length ? assignedAreas.map(area => `${area.hotelName} · ${area.areaName}`).join(', ') : 'Chưa được phân công khu vực'}
                     </span>
-                  </h1>
-                  <p className="font-body-md text-body-md text-on-surface-variant">
-                    Điều phối lưu trú, đối soát tiền cọc và thực hiện thủ tục check-in theo phân khu
-                    được chỉ định
+                    {lastSyncedAt && <span>· Cập nhật lúc {lastSyncedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                   </p>
                 </div>
-
-                {/* Top Right Action Buttons */}
-                <div className="flex items-center gap-3 shrink-0 self-start lg:self-center">
-                  <button
-                    type="button"
-                    onClick={handleExportExcel}
-                    className="group flex items-center gap-2 px-4 py-2.5 rounded-full bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container transition-all duration-200 border border-[#eae8e5] shadow-sm cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-secondary transition-transform duration-200 group-hover:-translate-y-0.5">
-                      download
-                    </span>
-                    <span>Xuất Excel</span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" title="Tải lại" aria-label="Tải lại" disabled={loadingBookings} onClick={() => void fetchBookings()}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container disabled:opacity-40">
+                    <span className={`material-symbols-outlined ${loadingBookings ? 'animate-spin' : ''}`}>refresh</span>
                   </button>
-                  <button type="button" disabled={loadingBookings} onClick={() => void fetchBookings()} className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md hover:bg-tertiary-container shadow-[0_4px_16px_rgba(194,65,12,0.22)] transition-all duration-200 font-semibold cursor-pointer disabled:opacity-60">
-                    <span className={`material-symbols-outlined text-[19px] ${loadingBookings ? 'animate-spin' : ''}`}>{loadingBookings ? 'progress_activity' : 'refresh'}</span>
-                    <span>{loadingBookings ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu'}</span>
+                  <button type="button" onClick={handleExportExcel} disabled={!filteredBookings.length}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40">
+                    <span className="material-symbols-outlined text-[18px]">download</span>Xuất CSV
                   </button>
                 </div>
               </div>
 
-              {/* OPERATIONAL METRICS & KPI HEADER */}
-              <StaffMetrics metrics={metrics} />
+              <StaffMetrics metrics={metrics} loading={loadingBookings && !bookings.length} />
 
-              {bookingError && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{bookingError}</p>}
-              {loadingBookings && <p role="status" className="rounded-lg bg-surface-container-low p-4 text-on-surface-variant">Đang tải booking trong phạm vi được phân công…</p>}
+              {bookingError && (
+                <p role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-error-container p-4 text-on-error-container">
+                  {bookingError}
+                  <button type="button" onClick={() => void fetchBookings()} className="font-semibold">Thử lại</button>
+                </p>
+              )}
 
               {/* FILTER & ACTIONS BAR */}
               <StaffFilterBar
@@ -567,11 +515,12 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                 }}
                 onResetFilters={handleResetFilters}
                 zoneOptions={zoneOptions}
+                statusCounts={statusCounts}
               />
 
-              {/* COMPREHENSIVE DATA TABLE */}
               <StaffBookingTable
                 bookings={paginatedBookings}
+                loading={loadingBookings && !bookings.length}
                 onViewDetails={handleViewDetails}
                 onQuickCheckIn={handleCheckIn}
                 onQuickConfirmBooking={handleConfirmBooking}
@@ -599,7 +548,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         booking={selectedBooking}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        onCheckIn={handleCheckIn}
+        onCheckIn={checkIn}
         onCancelBooking={handleCancelBooking}
         onRefundBooking={handleRefundBooking}
         onConfirmPayment={handleConfirmPayment}
