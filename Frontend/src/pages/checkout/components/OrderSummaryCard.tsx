@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckoutBookingData, PaymentMethodType } from '../types';
+import { useLanguage, formatMoney } from '../../../i18n/LanguageContext';
 
 interface OrderSummaryCardProps {
   bookingData: CheckoutBookingData;
@@ -10,309 +11,155 @@ interface OrderSummaryCardProps {
   submissionStep: number;
 }
 
+/** Tóm tắt đơn: chỉ hiển thị số liệu thật từ máy chủ (giá, giảm giá, cọc). */
 export const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
-  bookingData,
-  selectedPaymentMethod,
-  onApplyCoupon,
-  onConfirmBooking,
-  isSubmitting,
-  submissionStep,
+  bookingData, selectedPaymentMethod, onApplyCoupon, onConfirmBooking, isSubmitting, submissionStep,
 }) => {
+  const { t, locale } = useLanguage();
+  const money = (n: number) => formatMoney(n, locale);
+  const fmtDate = (iso?: string) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+
   const [couponInput, setCouponInput] = useState(bookingData.couponCode);
   // Đồng bộ ô nhập khi mã được áp dụng từ bên ngoài (vd. chọn ở trang Ưu đãi).
   useEffect(() => { setCouponInput(bookingData.couponCode); }, [bookingData.couponCode]);
-  const [couponMessage, setCouponMessage] = useState<string | null>(null);
+  const [couponState, setCouponState] = useState<'idle' | 'checking' | 'ok' | 'bad'>('idle');
 
   const handleApply = async () => {
     if (!couponInput.trim()) return;
-    setCouponMessage('Đang kiểm tra mã...');
-    const success = await onApplyCoupon(couponInput.trim());
-    if (success) {
-      setCouponMessage(`Đã áp dụng mã ${couponInput.trim().toUpperCase()}`);
-    } else {
-      setCouponMessage('Mã ưu đãi không hợp lệ hoặc đã hết hạn');
-    }
+    setCouponState('checking');
+    setCouponState((await onApplyCoupon(couponInput.trim())) ? 'ok' : 'bad');
   };
 
-  const paymentDueToday =
-    selectedPaymentMethod === 'pay_at_hotel'
-      ? 0
-      : bookingData.depositAmount;
-
-  const paymentDueAtHotel =
-    selectedPaymentMethod === 'pay_at_hotel'
-      ? bookingData.totalPrice
-      : bookingData.remainingAmount;
+  const payAtHotel = selectedPaymentMethod === 'pay_at_hotel';
+  const dueToday = payAtHotel ? 0 : bookingData.depositAmount;
+  const dueAtHotel = payAtHotel ? bookingData.totalPrice : bookingData.remainingAmount;
 
   return (
     <div className="lg:col-span-5 sticky top-28 flex flex-col gap-space-md">
-      <div className="bg-surface-container-lowest rounded-lg p-space-md md:p-space-lg shadow-sm flex flex-col gap-space-md">
-        {/* Hotel & Room Header */}
+      <div className="bg-surface-container-lowest rounded-2xl p-space-md md:p-space-lg shadow-sm flex flex-col gap-space-md">
+        {/* Khách sạn */}
         <div className="flex gap-space-sm items-start">
-          <img
-            src={bookingData.hotelImage}
-            alt={bookingData.hotelName}
-            className="w-24 h-24 rounded-lg object-cover shrink-0 shadow-sm"
-          />
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1 text-primary">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span
-                  key={star}
-                  className="material-symbols-outlined text-[16px]"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  star
+          {bookingData.hotelImage && <img src={bookingData.hotelImage} alt={bookingData.hotelName} className="w-24 h-24 rounded-2xl object-cover shrink-0 shadow-sm" />}
+          <div className="flex flex-col min-w-0">
+            <h3 className="text-on-surface text-lg font-semibold leading-tight">{bookingData.hotelName}</h3>
+            {bookingData.location && (
+              <p className="text-sm text-on-surface-variant mt-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px] text-primary">location_on</span>{bookingData.location}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Phòng */}
+        <div className="bg-surface-container-low/60 rounded-2xl p-space-sm flex flex-col gap-2">
+          <div>
+            <span className="text-xs uppercase tracking-wider text-primary font-semibold">{t('checkout.room')}</span>
+            <h4 className="text-on-surface text-base font-semibold">{bookingData.roomName}</h4>
+          </div>
+          {bookingData.roomAmenities.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap text-xs text-on-surface-variant">
+              {bookingData.roomAmenities.map((amenity) => (
+                <span key={amenity} className="inline-flex items-center gap-1 bg-surface-container-lowest px-2.5 py-1 rounded-full">
+                  <span className="material-symbols-outlined text-[14px] text-primary">check</span>{amenity}
                 </span>
               ))}
-              <span className="font-label-sm text-label-sm ml-1 text-on-surface-variant font-medium">
-                {bookingData.starRatingText}
-              </span>
             </div>
-            <h3 className="font-headline-sm text-on-surface mt-0.5 text-lg leading-tight">
-              {bookingData.hotelName}
-            </h3>
-            <p className="font-body-md text-label-sm text-on-surface-variant mt-1 flex items-center gap-1">
-              <span className="material-symbols-outlined text-[15px] text-tertiary">
-                location_on
-              </span>
-              {bookingData.location}
-            </p>
+          )}
+        </div>
+
+        {/* Ngày */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col p-2.5 rounded-2xl bg-surface-container-low/40">
+            <span className="text-xs text-on-surface-variant uppercase tracking-wider">{t('ticket.checkIn')}</span>
+            <span className="text-on-surface text-sm font-semibold mt-0.5">{fmtDate(bookingData.checkIn)}</span>
+          </div>
+          <div className="flex flex-col p-2.5 rounded-2xl bg-surface-container-low/40">
+            <span className="text-xs text-on-surface-variant uppercase tracking-wider">{t('ticket.checkOut')}</span>
+            <span className="text-on-surface text-sm font-semibold mt-0.5">{fmtDate(bookingData.checkOut)}</span>
           </div>
         </div>
 
-        {/* Room Specifics */}
-        <div className="bg-surface-container-low/60 rounded-md p-space-sm flex flex-col gap-2">
-          <div>
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary font-semibold">
-              Hạng phòng cao cấp
-            </span>
-            <h4 className="font-headline-sm text-on-surface text-base">
-              {bookingData.roomName}
-            </h4>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap font-body-md text-label-sm text-on-surface-variant">
-            {bookingData.roomAmenities.map((amenity, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1 bg-surface-container-lowest px-2.5 py-1 rounded-full"
-              >
-                <span className="material-symbols-outlined text-[14px] text-primary">
-                  {idx === 0 ? 'restaurant' : idx === 1 ? 'local_cafe' : 'pool'}
-                </span>
-                {amenity}
-              </span>
-            ))}
-          </div>
+        <div className="flex items-center justify-between text-sm text-on-surface-variant px-1">
+          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[18px]">bed</span>{t('checkout.nights', { count: bookingData.nightsCount })}</span>
+          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[18px]">group</span>{t('ticket.guests', { count: bookingData.numberOfGuests || 1 })}</span>
         </div>
 
-        {/* Stay Schedule */}
-        <div className="grid grid-cols-2 gap-2 bg-surface-container-lowest py-2">
-          <div className="flex flex-col p-2.5 rounded bg-surface-container-low/40">
-            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-              Nhận phòng
-            </span>
-            <span className="font-headline-sm text-on-surface text-sm mt-0.5">
-              {bookingData.checkInDateText}
-            </span>
-            <span className="font-label-sm text-label-sm text-on-surface-variant">
-              {bookingData.checkInTimeText}
-            </span>
-          </div>
-          <div className="flex flex-col p-2.5 rounded bg-surface-container-low/40">
-            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-              Trả phòng
-            </span>
-            <span className="font-headline-sm text-on-surface text-sm mt-0.5">
-              {bookingData.checkOutDateText}
-            </span>
-            <span className="font-label-sm text-label-sm text-on-surface-variant">
-              {bookingData.checkOutTimeText}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between font-label-md text-label-md text-on-surface-variant px-1">
-          <span className="flex items-center gap-1">
-            <span className="material-symbols-outlined text-[18px]">bed</span>
-            Thời gian: {bookingData.nightsCount} đêm
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="material-symbols-outlined text-[18px]">group</span>
-            {bookingData.guestsText}
-          </span>
-        </div>
-
-        {/* Promo Code Box */}
-        <div className="bg-surface-container-low/50 p-space-sm rounded-lg flex flex-col gap-2">
+        {/* Mã ưu đãi */}
+        <div className="bg-surface-container-low/50 p-space-sm rounded-2xl flex flex-col gap-2">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={couponInput}
-              onChange={(e) => setCouponInput(e.target.value)}
-              placeholder="Mã ưu đãi (vd: LUXE2025)"
-              className="w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-full font-label-md text-label-md uppercase tracking-wider focus:ring-1 focus:ring-primary focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={handleApply}
-              className="px-4 py-2 bg-surface-container-highest hover:bg-surface-dim text-on-surface font-label-md text-label-md rounded-full transition-colors whitespace-nowrap cursor-pointer"
-            >
-              Áp dụng
+            <input type="text" value={couponInput} onChange={(e) => { setCouponInput(e.target.value); setCouponState('idle'); }}
+              placeholder={t('checkout.couponPh')}
+              className="w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-full text-sm uppercase tracking-wider focus:ring-1 focus:ring-primary focus:outline-none" />
+            <button type="button" onClick={() => void handleApply()} disabled={couponState === 'checking'}
+              className="px-4 py-2 bg-surface-container-highest hover:bg-surface-dim text-on-surface text-sm font-semibold rounded-full transition-colors whitespace-nowrap disabled:opacity-50">
+              {t('checkout.apply')}
             </button>
           </div>
-
-          {bookingData.couponDiscount > 0 && (
-            <div className="flex items-center justify-between bg-surface-container-lowest px-3 py-1.5 rounded-full text-primary font-label-sm text-label-sm">
-              <span className="flex items-center gap-1 font-medium">
-                <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                {couponMessage || `Đã áp dụng mã ${bookingData.couponCode}`}
-              </span>
-              <span className="font-bold">
-                -{bookingData.couponDiscount.toLocaleString('vi-VN')}đ
-              </span>
-            </div>
+          {couponState === 'checking' && <p className="px-2 text-xs text-on-surface-variant">{t('checkout.couponChecking')}</p>}
+          {couponState === 'bad' && <p role="alert" className="px-2 text-xs text-error">{t('checkout.couponInvalid')}</p>}
+          {bookingData.couponDiscount > 0 && couponState !== 'bad' && (
+            <p className="flex items-center gap-1 px-2 text-xs font-medium text-primary">
+              <span className="material-symbols-outlined text-[15px]">check_circle</span>{t('checkout.couponApplied', { code: bookingData.couponCode })}
+            </p>
           )}
         </div>
 
-        {/* Price Calculation */}
-        <div className="flex flex-col gap-2.5 py-1">
-          <div className="flex justify-between items-center font-body-md text-body-md text-on-surface-variant">
-            <span>Giá phòng niêm yết ({bookingData.nightsCount} đêm)</span>
-            <span className="text-on-surface font-medium">
-              {bookingData.originalPrice.toLocaleString('vi-VN')}đ
-            </span>
-          </div>
-          <div className="flex justify-between items-center font-body-md text-body-md text-on-surface-variant">
-            <span className="flex items-center gap-1">
-              Thuế GTGT &amp; Phí phục vụ 5%
-              <span className="material-symbols-outlined text-[14px]">info</span>
-            </span>
-            <span className="text-on-surface font-medium">Đã bao gồm</span>
+        {/* Giá */}
+        <div className="flex flex-col gap-2.5 py-1 text-sm">
+          <div className="flex justify-between text-on-surface-variant">
+            <span>{t('checkout.roomPrice', { count: bookingData.nightsCount })}</span>
+            <span className="text-on-surface font-medium">{money(bookingData.originalPrice)}</span>
           </div>
           {bookingData.couponDiscount > 0 && (
-            <div className="flex justify-between items-center font-body-md text-body-md text-primary">
-              <span>Ưu đãi thành viên StayLuxe</span>
-              <span className="font-semibold">
-                -{bookingData.couponDiscount.toLocaleString('vi-VN')}đ
-              </span>
+            <div className="flex justify-between text-primary">
+              <span>{t('checkout.discount', { code: bookingData.couponCode })}</span>
+              <span className="font-semibold">−{money(bookingData.couponDiscount)}</span>
             </div>
           )}
-          <div className="flex justify-between items-center font-body-md text-body-md text-on-surface-variant">
-            <span>Trà chiều hoàng gia &amp; Ăn sáng</span>
-            <span className="text-primary font-medium">Miễn phí đặc quyền</span>
-          </div>
-
           <div className="w-full h-px bg-surface-container-high my-1" />
-
-          <div className="flex justify-between items-baseline pt-1">
-            <div className="flex flex-col">
-              <span className="font-headline-sm text-on-surface">Tổng chi phí</span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">
-                Đã bao gồm toàn bộ thuế &amp; phí
-              </span>
-            </div>
-            <span className="font-headline-lg text-on-surface tracking-tight font-bold">
-              {bookingData.totalPrice.toLocaleString('vi-VN')}đ
+          <div className="flex justify-between items-baseline">
+            <span className="flex flex-col">
+              <span className="text-base font-semibold text-on-surface">{t('checkout.total')}</span>
+              <span className="text-xs text-on-surface-variant">{t('checkout.totalNote')}</span>
             </span>
+            <span className="text-2xl text-on-surface tracking-tight font-bold">{money(bookingData.totalPrice)}</span>
           </div>
-
-          {/* Deposit Breakdown Box */}
-          <div className="bg-secondary-fixed/50 p-space-sm rounded-md flex flex-col gap-1 mt-1">
+          <div className="bg-surface-container-low p-space-sm rounded-2xl flex flex-col gap-1 mt-1">
             <div className="flex justify-between items-center">
-              <span className="font-label-md text-label-md text-on-secondary-fixed font-semibold">
-                {selectedPaymentMethod === 'pay_at_hotel'
-                  ? 'Cần thanh toán hôm nay:'
-                  : `Cần thanh toán hôm nay (${bookingData.depositPercentage}% cọc):`}
-              </span>
-              <span className="font-headline-sm text-primary font-bold">
-                {paymentDueToday.toLocaleString('vi-VN')}đ
-              </span>
+              <span className="text-sm font-semibold text-on-surface">{t('checkout.dueToday')}</span>
+              <span className="text-lg text-primary font-bold">{money(dueToday)}</span>
             </div>
-            <div className="flex justify-between items-center text-on-secondary-fixed-variant font-label-sm text-label-sm">
-              <span>Thanh toán tại resort lúc check-in:</span>
-              <span className="font-semibold">
-                {paymentDueAtHotel.toLocaleString('vi-VN')}đ
-              </span>
+            <div className="flex justify-between items-center text-xs text-on-surface-variant">
+              <span>{t('checkout.dueAtHotel')}</span>
+              <span className="font-semibold">{money(dueAtHotel)}</span>
             </div>
           </div>
         </div>
 
-        {/* Checkout CTA Button */}
-        <button
-          type="button"
-          onClick={onConfirmBooking}
-          disabled={isSubmitting}
-          className="w-full bg-primary-container hover:bg-primary text-on-primary font-label-lg text-label-lg py-4 px-6 rounded-full flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 transform active:scale-[0.99] cursor-pointer disabled:opacity-75 disabled:cursor-wait"
-        >
+        {/* Nút đặt */}
+        <button type="button" onClick={onConfirmBooking} disabled={isSubmitting}
+          className="w-full bg-primary hover:bg-primary-container text-on-primary font-semibold py-4 px-6 rounded-full flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99] disabled:opacity-75 disabled:cursor-wait">
           {isSubmitting ? (
-            submissionStep === 1 ? (
-              <>
-                <span className="material-symbols-outlined text-[20px] animate-spin">
-                  progress_activity
-                </span>
-                <span>Đang tạo mã thanh toán bảo mật...</span>
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-[20px]">done_all</span>
-                <span>Xác nhận thành công! Đang chuyển tiếp...</span>
-              </>
-            )
+            <>
+              <span className={`material-symbols-outlined text-[20px] ${submissionStep === 1 ? 'animate-spin' : ''}`}>{submissionStep === 1 ? 'progress_activity' : 'done_all'}</span>
+              <span>{submissionStep === 1 ? t('checkout.creating') : t('checkout.redirecting')}</span>
+            </>
           ) : (
             <>
               <span className="material-symbols-outlined text-[20px]">lock</span>
-              <span>
-                {selectedPaymentMethod === 'pay_at_hotel'
-                  ? 'Xác nhận đặt giữ phòng · 0đ'
-                  : `Xác nhận đặt phòng · ${paymentDueToday.toLocaleString('vi-VN')}đ`}
-              </span>
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              <span>{payAtHotel ? t('checkout.confirmHold') : t('checkout.confirmPay', { amount: money(dueToday) })}</span>
             </>
           )}
         </button>
 
-        {/* Trust Badges */}
-        <div className="flex flex-col gap-2 pt-1 font-body-md text-label-sm text-on-surface-variant">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-primary">security</span>
-            <span>Bảo mật giao dịch tiêu chuẩn quốc tế PCI-DSS &amp; SSL 256-bit</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-primary">
-              event_available
-            </span>
-            <span>Hủy phòng miễn phí 100% trước 14:00 ngày 14/04/2025</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-primary">
-              electric_bolt
-            </span>
-            <span>Nhận mã phòng xác nhận tức thì qua tin nhắn SMS &amp; Email</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Concierge Hotline Assistant */}
-      <div className="bg-surface-container-low rounded-lg p-space-md flex items-center justify-between gap-space-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary shadow-xs">
-            <span className="material-symbols-outlined text-[20px]">support_agent</span>
-          </div>
-          <div>
-            <p className="font-headline-sm text-sm text-on-surface">Cần trợ giúp riêng?</p>
-            <p className="font-body-md text-label-sm text-on-surface-variant">
-              Quản gia StayLuxe hỗ trợ 24/7
-            </p>
-          </div>
-        </div>
-        <a
-          href="tel:18006868"
-          className="font-label-md text-label-md text-primary font-bold hover:underline flex items-center gap-1"
-        >
-          Gọi 1800 6868
-        </a>
+        {/* Cam kết — chỉ nêu điều hệ thống thực sự làm */}
+        <ul className="flex flex-col gap-2 pt-1 text-xs text-on-surface-variant">
+          <li className="flex items-start gap-2"><span className="material-symbols-outlined text-[16px] text-primary">security</span>{t('checkout.trustVnpay')}</li>
+          <li className="flex items-start gap-2"><span className="material-symbols-outlined text-[16px] text-primary">policy</span>{t('checkout.trustCancel')}</li>
+          <li className="flex items-start gap-2"><span className="material-symbols-outlined text-[16px] text-primary">event_repeat</span>{t('checkout.trustManage')}</li>
+        </ul>
       </div>
     </div>
   );
 };
+export default OrderSummaryCard;

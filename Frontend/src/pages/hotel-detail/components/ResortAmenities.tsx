@@ -1,5 +1,6 @@
 import React from 'react';
 import { ResortAmenity } from '../types';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface ResortAmenitiesProps {
   amenities: ResortAmenity[];
@@ -8,21 +9,15 @@ interface ResortAmenitiesProps {
 export const ResortAmenities: React.FC<ResortAmenitiesProps> = ({
   amenities,
 }) => {
+  const { t } = useLanguage();
   return (
     <section className="flex flex-col gap-space-md bg-surface-container-low/70 rounded-2xl p-space-md md:p-space-lg">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="font-label-sm text-label-sm uppercase tracking-widest text-primary font-bold">
-            Thông tin tiện ích
-          </span>
-          <h2 className="font-headline-sm text-headline-sm text-on-surface mt-0.5">
-            Tiện ích khách sạn
-          </h2>
+          <span className="font-label-sm text-label-sm uppercase tracking-widest text-primary font-bold">{t('detail.amenitiesEyebrow')}</span>
+          <h2 className="font-headline-sm text-headline-sm text-on-surface mt-0.5">{t('detail.amenitiesTitle')}</h2>
         </div>
-        <span className="font-body-md text-body-md text-on-surface-variant max-w-md">
-          Mọi không gian được chăm chút tối giản tinh tế, hòa hợp giữa thiên
-          nhiên nguyên sơ và dịch vụ đẳng cấp thế giới.
-        </span>
+        <span className="font-body-md text-body-md text-on-surface-variant max-w-md">{t('detail.amenitiesIntro')}</span>
       </div>
 
       {/* Amenity Pills Grid */}

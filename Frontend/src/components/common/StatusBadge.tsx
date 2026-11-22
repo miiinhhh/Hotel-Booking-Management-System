@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage, TranslationKey } from '../../i18n/LanguageContext';
 
 export type StatusType =
   | 'Pending'
@@ -48,7 +49,7 @@ const BADGE_CONFIG: Record<string, BadgeStyle> = {
     icon: 'check_circle',
   },
   CheckedIn: {
-    label: 'ĐÃ CHECK-IN',
+    label: 'ĐANG LƯU TRÚ',
     bg: 'bg-blue-50',
     text: 'text-blue-800',
     border: 'border-blue-200',
@@ -85,21 +86,21 @@ const BADGE_CONFIG: Record<string, BadgeStyle> = {
     icon: 'error',
   },
   PartiallyPaid: {
-    label: 'ĐÃ ĐẶT CỌC (70%)',
+    label: 'ĐÃ ĐẶT CỌC',
     bg: 'bg-sky-50',
     text: 'text-sky-800',
     border: 'border-sky-200',
     icon: 'payments',
   },
   Paid: {
-    label: 'ĐÃ TRẢ 100%',
+    label: 'ĐÃ THANH TOÁN ĐỦ',
     bg: 'bg-emerald-50',
     text: 'text-emerald-800',
     border: 'border-emerald-200',
     icon: 'verified',
   },
   RefundPending: {
-    label: 'CHỜ HOÀN CỌC',
+    label: 'CHỜ HOÀN TIỀN',
     bg: 'bg-amber-100',
     text: 'text-amber-900',
     border: 'border-amber-400',
@@ -107,7 +108,7 @@ const BADGE_CONFIG: Record<string, BadgeStyle> = {
     pulse: true,
   },
   Refunded: {
-    label: 'ĐÃ HOÀN CỌC',
+    label: 'ĐÃ HOÀN TIỀN',
     bg: 'bg-purple-50',
     text: 'text-purple-800',
     border: 'border-purple-200',
@@ -177,6 +178,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   customLabel,
   className = '',
 }) => {
+  const { t } = useLanguage();
   const normalizedKey = normalizeStatusKey(status);
   const config = BADGE_CONFIG[normalizedKey] || {
     label: customLabel || status,
@@ -187,7 +189,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     pulse: false,
   };
 
-  const displayText = customLabel || config.label;
+  const displayText = customLabel || (BADGE_CONFIG[normalizedKey] ? t(`status.${normalizedKey}` as TranslationKey) : config.label);
 
   return (
     <span

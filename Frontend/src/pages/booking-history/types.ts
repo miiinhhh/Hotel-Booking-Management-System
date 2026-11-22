@@ -33,6 +33,12 @@ export interface BookingItem {
   paidAmount?: number;
   remainingAmount?: number;
   totalAmount: number;
+  /** Trạng thái gốc từ máy chủ (Pending, CheckedIn...) để hiện badge chính xác. */
+  statusRaw?: string;
+  /** Tiền cọc cần trả để giữ phòng (đơn chưa thanh toán). */
+  depositDue?: number;
+  roomCount?: number;
+  numberOfGuests?: number;
   totalAmountText?: string;
   refundAmount?: number;
   refundedAt?: string;

@@ -8,6 +8,7 @@ import { RoomInventory } from './components/RoomInventory';
 import { HotelPolicies } from './components/HotelPolicies';
 import { RoomDetailModal } from './components/RoomDetailModal';
 import { HotelDetail, Room } from './types';
+import { useLanguage, formatMoney } from '../../i18n/LanguageContext';
 
 interface HotelDetailPageProps {
   hotelData: HotelDetail;
@@ -22,6 +23,7 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
   onNavigateSearch,
   onNavigateCheckout,
 }) => {
+  const { t, locale } = useLanguage();
   const [selectedRoomForModal, setSelectedRoomForModal] = useState<Room | null>(
     null
   );
@@ -39,9 +41,8 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({
       onNavigateCheckout(room, totalPrice ?? (room.packages?.[0]?.pricePerNight || 0) * nights);
       return;
     }
-    const formattedPrice = totalPrice?.toLocaleString('vi-VN') || '';
     setBookingSuccessMessage(
-      `Đã chọn đặt "${room.name}" thành công! Tổng giá: ${formattedPrice}₫ cho ${hotelData.durationNights} đêm.`
+      t('detail.bookedToast', { room: room.name, price: formatMoney(totalPrice ?? 0, locale), nights: hotelData.durationNights })
     );
     setTimeout(() => {
       setBookingSuccessMessage(null);

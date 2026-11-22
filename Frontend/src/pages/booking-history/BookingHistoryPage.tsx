@@ -6,10 +6,10 @@ import { BookingStatsRow } from './components/BookingStatsRow';
 import { AssuranceBanner } from './components/AssuranceBanner';
 import { BookingTabs } from './components/BookingTabs';
 import { BookingTicketCard } from './components/BookingTicketCard';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { RescheduleDialog } from '../../components/booking/RescheduleDialog';
 import { CancelBookingModal } from './components/CancelBookingModal';
 import { ReviewStayModal } from './components/ReviewStayModal';
-import { FloatingSupport } from './components/FloatingSupport';
 import { useBookingsQuery, useCancelBookingMutation } from '../../hooks/useBookingQueries';
 import { createVnPayPayment } from '../../services/paymentApi';
 import { BookingItem, BookingTab, BookingStats } from './types';
@@ -26,6 +26,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   onNavigateSearch,
 }) => {
   // Query & Mutation hooks có cơ chế Invalidate Cache tự động
+  const { t } = useLanguage();
   const { bookings, isLoading, error, refetch } = useBookingsQuery();
   const { cancelBookingAsync } = useCancelBookingMutation();
 
@@ -112,12 +113,12 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   const handleCopyCode = (code: string) => {
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(code).then(() => {
-        showToast(`Đã sao chép mã đặt phòng: ${code}`);
+        showToast(t('history.copied', { code }));
       }).catch(() => {
-        showToast(`Mã đặt phòng: ${code}`);
+        showToast(t('history.codeIs', { code }));
       });
     } else {
-      showToast(`Mã đặt phòng: ${code}`);
+      showToast(t('history.codeIs', { code }));
     }
   };
 
@@ -130,10 +131,10 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
           window.location.href = res.data.paymentUrl;
           return;
         } else {
-          showToast(`Lỗi: ${res.message || 'Không thể tạo liên kết thanh toán VNPay.'}`);
+          showToast(t('history.errorPrefix', { message: res.message || t('checkout.errVnpay') }));
         }
       } catch (err) {
-        showToast(`Lỗi: ${err instanceof Error ? err.message : 'Lỗi kết nối máy chủ'}`);
+        showToast(t('history.errorPrefix', { message: err instanceof Error ? err.message : t('history.errNetwork') }));
       }
     } else {
       onNavigatePayment?.(booking);
@@ -146,22 +147,20 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
       const success = await cancelBookingAsync({ bookingId: bookingIdNum, reason });
       if (!success) {
-        showToast('Lỗi: Không thể hủy đơn đặt phòng trên máy chủ.');
+        showToast(t('history.errorPrefix', { message: t('history.errCancel') }));
         return;
       }
     }
 
     setCancelModalBooking(null);
-    showToast(
-      'Yêu cầu hủy phòng đã được tiếp nhận. Đơn chuyển sang trạng thái "Chờ hoàn cọc" và đang đợi Nhân viên/Kế toán xác nhận hoàn tiền.'
-    );
+    showToast(t('history.cancelled'));
   };
 
   // Submit review confirm
   const handleSubmitReview = (bookingId: string, rating: number, isUpdate: boolean) => {
     setReviewModalBooking(null);
     setReviewedIds((prev) => new Set(prev).add(bookingId));
-    showToast(isUpdate ? `Đã cập nhật đánh giá ${rating} sao. Cảm ơn quý khách!` : `Cảm ơn quý khách đã đánh giá ${rating} sao!`);
+    showToast(isUpdate ? t('history.reviewUpdated', { rating }) : t('history.reviewThanks', { rating }));
   };
 
   return (
@@ -201,12 +200,12 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                 }}
                 className="hover:text-primary transition-colors cursor-pointer"
               >
-                Trang chủ
+                {t('history.breadcrumbHome')}
               </a>
               <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-              <span className="hover:text-primary transition-colors">Tài khoản</span>
+              <span className="hover:text-primary transition-colors">{t('history.breadcrumbAccount')}</span>
               <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-              <span className="text-on-surface font-semibold">Đặt phòng của tôi</span>
+              <span className="text-on-surface font-semibold">{t('history.breadcrumbPage')}</span>
             </nav>
 
             {/* Stats Header Row */}
@@ -252,13 +251,13 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                   <div className="w-14 h-14 rounded-full bg-error-container/20 flex items-center justify-center text-error">
                     <span className="material-symbols-outlined text-[30px]">error</span>
                   </div>
-                  <h3 className="font-headline-sm text-lg text-on-surface">Không thể tải dữ liệu</h3>
+                  <h3 className="font-headline-sm text-lg text-on-surface">{t('history.loadFailed')}</h3>
                   <p className="font-body-md text-sm text-on-surface-variant max-w-md">{error}</p>
                   <button
                     onClick={() => refetch()}
                     className="mt-2 px-5 py-2 rounded-full bg-primary text-on-primary font-label-md text-sm hover:opacity-90 transition-opacity cursor-pointer"
                   >
-                    Thử lại
+                    {t('history.retry')}
                   </button>
                 </div>
               ) : filteredBookings.length > 0 ? (
@@ -282,22 +281,22 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                     <span className="material-symbols-outlined text-[32px]">event_busy</span>
                   </div>
                   <h3 className="font-headline-sm text-lg text-on-surface">
-                    Không có đơn đặt phòng nào
+                    {t('history.emptyTitle')}
                   </h3>
                   <p className="font-body-md text-sm text-on-surface-variant max-w-md">
                     {searchQuery.trim()
-                      ? `Không tìm thấy đơn đặt phòng khớp với từ khóa "${searchQuery}".`
+                      ? t('history.emptySearch', { query: searchQuery })
                       : activeTab === 'upcoming'
-                      ? 'Quý khách chưa có kỳ nghỉ nào sắp diễn ra. Hãy lên kế hoạch cho chuyến đi tiếp theo ngay hôm nay!'
+                      ? t('history.emptyUpcoming')
                       : activeTab === 'completed'
-                      ? 'Chưa có lịch sử các chuyến nghỉ dưỡng đã hoàn tất.'
-                      : 'Quý khách không có đơn đặt phòng nào bị hủy.'}
+                      ? t('history.emptyCompleted')
+                      : t('history.emptyCancelled')}
                   </p>
                   <button
                     onClick={() => onNavigateSearch?.()}
                     className="mt-3 px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
                   >
-                    Tìm kỳ nghỉ dưỡng mới
+                    {t('history.findStay')}
                   </button>
                 </div>
               )}
@@ -321,8 +320,6 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
           onSubmitReview={handleSubmitReview}
         />
 
-        {/* VIP Concierge Floating Support Button */}
-        <FloatingSupport />
       </div>
     </main>
   );

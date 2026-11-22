@@ -5,7 +5,6 @@ export * from './components/BookingTabs';
 export * from './components/BookingTicketCard';
 export * from './components/CancelBookingModal';
 export * from './components/ReviewStayModal';
-export * from './components/FloatingSupport';
 export * from './types';
 export * from './data/mockBookings';
 export { default } from './BookingHistoryPage';

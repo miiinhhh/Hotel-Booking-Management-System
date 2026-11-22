@@ -1,192 +1,80 @@
 import React from 'react';
 import { PaymentMethodType } from '../types';
+import { useLanguage, formatMoney } from '../../../i18n/LanguageContext';
 
 interface PaymentMethodSectionProps {
   selectedMethod: PaymentMethodType;
   onSelectMethod: (method: PaymentMethodType) => void;
   depositAmount: number;
   remainingAmount: number;
+  depositPercentage?: number;
 }
 
-export const PaymentMethodSection: React.FC<PaymentMethodSectionProps> = ({
-  selectedMethod,
-  onSelectMethod,
-  depositAmount,
-  remainingAmount,
-}) => {
+/** Chỉ 2 phương thức hệ thống đang hỗ trợ: cọc qua VNPay và trả tại khách sạn. */
+export const PaymentMethodSection: React.FC<PaymentMethodSectionProps> = ({ selectedMethod, onSelectMethod, depositAmount, remainingAmount, depositPercentage }) => {
+  const { t, locale } = useLanguage();
+  const card = (active: boolean) => `relative flex flex-col p-space-md rounded-2xl cursor-pointer transition-all border ${
+    active ? 'bg-surface-container-low/70 shadow-sm border-primary/30' : 'bg-surface-container-low/30 hover:bg-surface-container-low border-transparent'}`;
+
   return (
-    <section className="bg-surface-container-lowest rounded-lg p-space-md md:p-space-lg shadow-sm flex flex-col gap-space-md">
-      <div className="flex items-center justify-between pb-space-xs">
-        <div className="flex items-center gap-space-sm">
-          <span className="w-7 h-7 rounded-full bg-primary-fixed text-primary font-headline-sm text-headline-sm flex items-center justify-center text-xs">
-            3
-          </span>
-          <h2 className="font-headline-sm text-headline-sm text-on-surface">
-            Phương thức thanh toán
-          </h2>
-        </div>
-        <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
-          <span className="material-symbols-outlined text-[16px] text-tertiary">lock</span>
-          Bảo mật 100%
-        </div>
+    <section className="bg-surface-container-lowest rounded-2xl p-space-md md:p-space-lg shadow-sm flex flex-col gap-space-md">
+      <div className="flex items-center gap-space-sm pb-space-xs">
+        <span className="w-7 h-7 rounded-full bg-primary-fixed text-primary flex items-center justify-center text-xs font-bold">3</span>
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">{t('checkout.paymentTitle')}</h2>
       </div>
 
-      {/* Radio Options */}
-      <div className="flex flex-col gap-space-sm" id="payment-options">
-        {/* Option 1: Napas QR */}
-        <label
-          onClick={() => onSelectMethod('qr_napas')}
-          className={`payment-card relative flex flex-col p-space-md rounded-lg cursor-pointer transition-all ${
-            selectedMethod === 'qr_napas'
-              ? 'bg-surface-container-low/70 shadow-sm border border-primary/20'
-              : 'bg-surface-container-low/30 hover:bg-surface-container-low'
-          }`}
-        >
+      <div className="flex flex-col gap-space-sm">
+        {/* VNPay */}
+        <label className={card(selectedMethod === 'qr_napas')}>
           <div className="flex items-start justify-between gap-space-sm">
             <div className="flex items-start gap-3">
-              <input
-                type="radio"
-                name="payment_method"
-                value="qr_napas"
-                checked={selectedMethod === 'qr_napas'}
-                onChange={() => onSelectMethod('qr_napas')}
-                className="mt-1 w-4 h-4 accent-primary text-primary focus:ring-0 cursor-pointer"
-              />
+              <input type="radio" name="payment_method" checked={selectedMethod === 'qr_napas'} onChange={() => onSelectMethod('qr_napas')}
+                className="mt-1 w-4 h-4 accent-primary cursor-pointer" />
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-headline-sm text-on-surface font-semibold text-base">
-                    Chuyển khoản VietQR / Napas 24/7 (Cọc 30%)
-                  </span>
-                  <span className="px-2.5 py-0.5 bg-primary text-on-primary font-label-sm text-label-sm rounded-full">
-                    Phổ biến nhất
-                  </span>
+                  <span className="text-on-surface font-semibold text-base">{t('checkout.payVnpay')}</span>
+                  <span className="px-2.5 py-0.5 bg-primary-fixed/60 text-primary text-xs font-semibold rounded-full">{t('checkout.payVnpayBadge')}</span>
                 </div>
-                <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-                  Quét mã QR tự động từ mọi ứng dụng ngân hàng hoặc ví MoMo, ZaloPay. Xác nhận phòng tự động trong 30 giây.
-                </p>
+                <p className="text-sm text-on-surface-variant mt-1">{t('checkout.payVnpayDesc')}</p>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shrink-0 shadow-sm">
-              <span className="material-symbols-outlined text-primary text-[22px]">
-                qr_code_scanner
-              </span>
-            </div>
+            <span className="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shrink-0 shadow-sm">
+              <span className="material-symbols-outlined text-primary text-[22px]">account_balance</span>
+            </span>
           </div>
-
-          {/* Deposit breakdown highlight inside card */}
-          <div className="mt-space-sm bg-surface-container-lowest p-space-sm rounded-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[18px]">
-                verified
-              </span>
-              <span className="font-body-md text-body-md text-on-surface">
-                Tiền cọc thanh toán ngay:
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="font-headline-sm text-primary font-bold">
-                {depositAmount.toLocaleString('vi-VN')}đ
-              </span>
-              <span className="block text-on-surface-variant font-label-sm text-label-sm">
-                Còn lại {remainingAmount.toLocaleString('vi-VN')}đ thanh toán khi nhận phòng
-              </span>
-            </div>
+          <div className="mt-space-sm bg-surface-container-lowest p-space-sm rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-sm text-on-surface">
+              <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
+              {t('checkout.depositNow', { percent: depositPercentage ?? 0 })}
+            </span>
+            <span className="text-right">
+              <span className="font-bold text-primary">{formatMoney(depositAmount, locale)}</span>
+              <span className="block text-xs text-on-surface-variant">{t('checkout.remainingAtHotel', { amount: formatMoney(remainingAmount, locale) })}</span>
+            </span>
           </div>
         </label>
 
-        {/* Option 2: Pay at Hotel */}
-        <label
-          onClick={() => onSelectMethod('pay_at_hotel')}
-          className={`payment-card relative flex flex-col p-space-md rounded-lg cursor-pointer transition-all ${
-            selectedMethod === 'pay_at_hotel'
-              ? 'bg-surface-container-low/70 shadow-sm border border-primary/20'
-              : 'bg-surface-container-low/30 hover:bg-surface-container-low'
-          }`}
-        >
+        {/* Tại khách sạn */}
+        <label className={card(selectedMethod === 'pay_at_hotel')}>
           <div className="flex items-start justify-between gap-space-sm">
             <div className="flex items-start gap-3">
-              <input
-                type="radio"
-                name="payment_method"
-                value="pay_at_hotel"
-                checked={selectedMethod === 'pay_at_hotel'}
-                onChange={() => onSelectMethod('pay_at_hotel')}
-                className="mt-1 w-4 h-4 accent-primary text-primary focus:ring-0 cursor-pointer"
-              />
+              <input type="radio" name="payment_method" checked={selectedMethod === 'pay_at_hotel'} onChange={() => onSelectMethod('pay_at_hotel')}
+                className="mt-1 w-4 h-4 accent-primary cursor-pointer" />
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-headline-sm text-on-surface font-semibold text-base">
-                    Thanh toán tại quầy lễ tân Resort
-                  </span>
-                  <span className="px-2.5 py-0.5 bg-surface-container text-on-surface font-label-sm text-label-sm rounded-full font-medium">
-                    Không cần trả trước
-                  </span>
+                  <span className="text-on-surface font-semibold text-base">{t('checkout.payAtHotel')}</span>
+                  <span className="px-2.5 py-0.5 bg-surface-container text-on-surface text-xs font-medium rounded-full">{t('checkout.payAtHotelBadge')}</span>
                 </div>
-                <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-                  Thanh toán 100% bằng tiền mặt hoặc quẹt thẻ tín dụng tại quầy lễ tân khi làm thủ tục nhận phòng.
-                </p>
+                <p className="text-sm text-on-surface-variant mt-1">{t('checkout.payAtHotelDesc')}</p>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shrink-0 shadow-sm">
-              <span className="material-symbols-outlined text-on-surface-variant text-[22px]">
-                payments
-              </span>
-            </div>
-          </div>
-        </label>
-
-        {/* Option 3: Credit Card International */}
-        <label
-          onClick={() => onSelectMethod('card_international')}
-          className={`payment-card relative flex flex-col p-space-md rounded-lg cursor-pointer transition-all ${
-            selectedMethod === 'card_international'
-              ? 'bg-surface-container-low/70 shadow-sm border border-primary/20'
-              : 'bg-surface-container-low/30 hover:bg-surface-container-low'
-          }`}
-        >
-          <div className="flex items-start justify-between gap-space-sm">
-            <div className="flex items-start gap-3">
-              <input
-                type="radio"
-                name="payment_method"
-                value="card_international"
-                checked={selectedMethod === 'card_international'}
-                onChange={() => onSelectMethod('card_international')}
-                className="mt-1 w-4 h-4 accent-primary text-primary focus:ring-0 cursor-pointer"
-              />
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-headline-sm text-on-surface font-semibold text-base">
-                    Thẻ tín dụng / Ghi nợ Quốc tế
-                  </span>
-                  <span className="px-2 py-0.5 bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm rounded-full">
-                    0% phí giao dịch
-                  </span>
-                </div>
-                <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-                  Hỗ trợ Visa, Mastercard, JCB, American Express với cổng thanh toán toàn cầu 3D-Secure.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="px-2 py-0.5 rounded bg-surface-container-lowest font-label-sm text-label-sm font-bold text-on-surface tracking-wide shadow-xs">
-                    VISA
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-surface-container-lowest font-label-sm text-label-sm font-bold text-on-surface tracking-wide shadow-xs">
-                    Mastercard
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-surface-container-lowest font-label-sm text-label-sm font-bold text-on-surface tracking-wide shadow-xs">
-                    JCB
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shrink-0 shadow-sm">
-              <span className="material-symbols-outlined text-on-surface-variant text-[22px]">
-                credit_card
-              </span>
-            </div>
+            <span className="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center shrink-0 shadow-sm">
+              <span className="material-symbols-outlined text-on-surface-variant text-[22px]">payments</span>
+            </span>
           </div>
         </label>
       </div>
     </section>
   );
 };
+export default PaymentMethodSection;

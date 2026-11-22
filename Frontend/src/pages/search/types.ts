@@ -22,6 +22,8 @@ export interface Hotel {
   originalPrice?: number;
   pricePerNight: number;
   isFavorite?: boolean;
+  /** Số phòng còn trống (hiển thị được dịch ở giao diện). */
+  availableRooms?: number;
 }
 
 export type SortOption =

@@ -12,6 +12,16 @@ export const CRITERIA_LABELS: Record<CriteriaKey, string> = {
   value: 'Đáng giá tiền',
 };
 
+/** Tag chọn nhanh: giá trị lưu (tiếng Việt) → khóa dịch để hiển thị. */
+export const REVIEW_TAGS = [
+  { value: 'Không gian yên tĩnh', key: 'review.tag.quiet' },
+  { value: 'Nhân viên nhiệt tình', key: 'review.tag.staff' },
+  { value: 'Phòng sạch sẽ', key: 'review.tag.clean' },
+  { value: 'Vị trí thuận tiện', key: 'review.tag.location' },
+  { value: 'Bữa sáng phong phú', key: 'review.tag.breakfast' },
+] as const;
+export const tagLabelKey = (value: string) => REVIEW_TAGS.find(t => t.value === value)?.key;
+
 export const DEFAULT_CRITERIA: CriteriaRatings = { cleanliness: 5, location: 5, service: 5, facilities: 5, value: 5 };
 
 const CRITERIA_PREFIX = 'Đánh giá chi tiết: ';

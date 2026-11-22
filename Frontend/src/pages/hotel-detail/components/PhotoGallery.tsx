@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface GalleryImages {
   hero: {
@@ -18,13 +19,14 @@ interface PhotoGalleryProps {
 }
 
 export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ gallery }) => {
+  const { t } = useLanguage();
   const [activeModalIndex, setActiveModalIndex] = useState<number | null>(null);
 
   const allImages = [
     { url: gallery.hero.url, caption: gallery.hero.caption },
     ...gallery.thumbnails,
   ];
-  if (gallery.totalCount === 0) return <section className="rounded-xl bg-surface-container-low p-8 text-center"><p>Khách sạn chưa đăng ảnh.</p></section>;
+  if (gallery.totalCount === 0) return <section className="rounded-xl bg-surface-container-low p-8 text-center"><p>{t('detail.noPhotos')}</p></section>;
 
   const handleNextPhoto = () => {
     if (activeModalIndex !== null) {
@@ -91,7 +93,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ gallery }) => {
           <span className="material-symbols-outlined text-[18px] text-primary group-hover:rotate-12 transition-transform">
             photo_library
           </span>
-          <span>Xem tất cả {gallery.totalCount} ảnh</span>
+          <span>{t('detail.viewAllPhotos', { count: gallery.totalCount })}</span>
         </button>
       </section>
 
@@ -111,7 +113,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ gallery }) => {
               onClick={() => setActiveModalIndex(null)}
               className="absolute -top-12 right-0 text-white hover:text-primary transition-colors border-0 bg-transparent cursor-pointer p-2 flex items-center gap-1 font-label-md text-label-md"
             >
-              <span>Đóng</span>
+              <span>{t('detail.close')}</span>
               <span className="material-symbols-outlined text-[24px]">close</span>
             </button>
 

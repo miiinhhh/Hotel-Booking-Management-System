@@ -1,6 +1,8 @@
 import React from 'react';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export const HeroBanner: React.FC = () => {
+  const { t } = useLanguage();
   return (
     <section className="relative w-full -mt-20 pt-32 pb-36 md:pb-44 bg-surface-container-low overflow-hidden">
       {/* Ambient architectural photography overlay */}
@@ -22,36 +24,32 @@ export const HeroBanner: React.FC = () => {
         {/* Refined category pill */}
         <div className="inline-flex items-center gap-space-xs px-4 py-1.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-md shadow-sm mb-6">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span className="font-label-sm text-label-sm uppercase tracking-wider text-secondary">
-            Trải nghiệm nghỉ dưỡng độc bản
-          </span>
+          <span className="font-label-sm text-label-sm uppercase tracking-wider text-secondary">{t('hero.badge')}</span>
         </div>
 
         {/* Headline */}
         <h1 className="font-display-hero-mobile md:font-display-hero text-display-hero-mobile md:text-display-hero text-on-surface max-w-4xl tracking-tight leading-tight">
-          Tìm nơi dừng chân <span className="text-primary italic font-normal">lý tưởng</span>
+          {t('hero.title')} <span className="text-primary italic font-normal">{t('hero.titleAccent')}</span>
         </h1>
 
         {/* Subtitle */}
-        <p className="mt-4 font-body-lg text-body-lg md:font-body-xl md:text-body-xl text-on-surface-variant max-w-2xl font-light">
-          Tìm phòng trống theo ngày, xem giá rõ ràng và đặt cọc trực tuyến chỉ trong vài bước.
-        </p>
+        <p className="mt-4 font-body-lg text-body-lg md:font-body-xl md:text-body-xl text-on-surface-variant max-w-2xl font-light">{t('hero.subtitle')}</p>
 
         {/* Stat Badges */}
         <div className="mt-8 flex items-center justify-center gap-6 text-on-surface-variant font-label-md text-label-md flex-wrap">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[18px]">event_available</span>
-            <span>Phòng trống cập nhật theo ngày</span>
+            <span>{t('hero.point1')}</span>
           </div>
           <span className="w-1 h-1 rounded-full bg-outline-variant" />
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[18px]">lock</span>
-            <span>Thanh toán an toàn qua VNPay</span>
+            <span>{t('hero.point2')}</span>
           </div>
           <span className="w-1 h-1 rounded-full bg-outline-variant hidden sm:inline-block" />
           <div className="hidden sm:flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[18px]">receipt_long</span>
-            <span>Theo dõi đơn ngay trên tài khoản</span>
+            <span>{t('hero.point3')}</span>
           </div>
         </div>
       </div>

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { previewCancelBooking } from '../../../services/bookingApi';
 import { BookingItem } from '../types';
 import { StatusBadge } from '../../../components/common/StatusBadge';
-import { formatVnd, formatDateVi } from '../../../utils/formatters';
 import { useAuth } from '../../../context/AuthContext';
 import { SELF_PERMISSIONS } from '../../../auth/permissions';
+import { useLanguage, formatMoney } from '../../../i18n/LanguageContext';
 
 interface BookingTicketCardProps {
   booking: BookingItem;
@@ -16,16 +16,19 @@ interface BookingTicketCardProps {
   onReschedule?: (booking: BookingItem) => void;
 }
 
+const BTN_PRIMARY = 'w-full py-2.5 px-4 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+const BTN_OUTLINE = 'w-full py-2 px-4 rounded-full border border-outline-variant text-on-surface font-medium text-sm hover:bg-surface-container transition-colors flex items-center justify-center gap-1.5';
+const BTN_SOFT = 'w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-medium text-sm transition-colors flex items-center justify-center gap-1.5';
+
+/** Thẻ một đơn đặt phòng: chỉ hiển thị dữ liệu thật và các thao tác hệ thống hỗ trợ. */
 export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
-  booking,
-  onCopyCode,
-  onOpenCancelModal,
-  onOpenReviewModal,
-  onPayNow,
-  onRebook,
-  onReschedule,
+  booking, onCopyCode, onOpenCancelModal, onOpenReviewModal, onPayNow, onRebook, onReschedule,
 }) => {
   const { hasPermission } = useAuth();
+  const { t, locale } = useLanguage();
+  const money = (n?: number) => formatMoney(n ?? 0, locale);
+  const fmtDate = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+
   const canPay = hasPermission(SELF_PERMISSIONS.paymentManage);
   const canCancel = hasPermission(SELF_PERMISSIONS.bookingCancel);
   const canReview = hasPermission(SELF_PERMISSIONS.reviewManage);
@@ -33,487 +36,162 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
   const isCompleted = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
   const isConfirmed = booking.status === 'confirmed';
+  const nights = Math.max(1, Math.round((Date.parse(booking.checkOutDate) - Date.parse(booking.checkInDate)) / 86_400_000));
 
   // Mức hoàn khi hủy NGAY BÂY GIỜ, do server tính theo chính sách hủy của khách sạn (tải khi rê chuột).
   const [cancelNotice, setCancelNotice] = useState<string | null>(null);
   const loadCancelNotice = async () => {
     if (cancelNotice !== null) return;
-    setCancelNotice('Đang tính mức hoàn tiền…');
+    setCancelNotice(t('ticket.noticeLoading'));
     try {
       const res = await previewCancelBooking(Number(booking.id));
       const p = res.data;
-      if (!res.success || !p) { setCancelNotice('Mức hoàn tiền tính theo chính sách hủy của khách sạn.'); return; }
+      if (!res.success || !p) { setCancelNotice(t('ticket.noticeDefault')); return; }
       const paid = p.totalPaid ?? p.paidAmount ?? 0;
       setCancelNotice(paid <= 0
-        ? 'Đơn chưa thanh toán, hủy không mất phí.'
-        : `Hủy bây giờ: hoàn ${p.refundPercentage}% (${formatVnd(p.refundAmount)})${p.appliedPolicyName ? ` · ${p.appliedPolicyName}` : ''}`);
+        ? t('ticket.noticeUnpaid')
+        : t('ticket.noticeRefund', { percent: p.refundPercentage, amount: money(p.refundAmount), policy: p.appliedPolicyName ? ` · ${p.appliedPolicyName}` : '' }));
     } catch {
-      setCancelNotice('Mức hoàn tiền tính theo chính sách hủy của khách sạn.');
+      setCancelNotice(t('ticket.noticeDefault'));
     }
   };
 
-  return (
-    <div className="relative bg-surface-container-lowest rounded-lg shadow-[0_4px_24px_-2px_rgba(120,53,15,0.06)] hover:shadow-[0_12px_32px_-4px_rgba(120,53,15,0.1)] transition-all overflow-hidden flex flex-col xl:flex-row">
-      {/* Ticket Cut-Out Decorative Holes */}
-      <div className="hidden xl:block absolute right-[320px] top-[-14px] w-7 h-7 rounded-full bg-background z-10" />
-      <div className="hidden xl:block absolute right-[320px] bottom-[-14px] w-7 h-7 rounded-full bg-background z-10" />
-
-      {/* Main Stay Pass Section (Left + Middle) */}
-      <div className="flex-1 p-space-md md:p-space-lg flex flex-col lg:flex-row gap-space-md">
-        {/* Image and Base Metadata */}
-        <div className="lg:w-72 shrink-0 flex flex-col gap-3">
-          <div className="relative w-full h-48 md:h-52 rounded-DEFAULT overflow-hidden">
-            <img
-              src={booking.image}
-              alt={booking.imageAlt || booking.hotelName}
-              className={`w-full h-full object-cover transform hover:scale-105 transition-transform duration-500 ${
-                isCompleted ? 'grayscale-[20%] hover:grayscale-0' : ''
-              }`}
-            />
-            {/* Night Counter Overlay */}
-            <div className="absolute bottom-3 left-3 bg-inverse-surface/85 backdrop-blur-md px-3 py-1 rounded-full text-inverse-on-surface font-label-sm text-label-sm flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">
-                {isCompleted ? 'done_all' : isPending ? 'celebration' : 'bedtime'}
-              </span>
-              <span>{booking.nightsText}</span>
-            </div>
-          </div>
-
-          {/* Booking Reference Code */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5">
-              <span className="font-label-sm text-outline uppercase tracking-wider text-[11px]">
-                MÃ ĐẶT PHÒNG:
-              </span>
-              <span className="font-headline-sm text-[16px] text-on-surface tracking-wide">
-                {booking.bookingCode}
-              </span>
-            </div>
-            <button
-              onClick={() => onCopyCode(booking.bookingCode)}
-              className="text-outline hover:text-primary transition-colors cursor-pointer"
-              title="Sao chép mã"
-            >
-              <span className="material-symbols-outlined text-[18px]">content_copy</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Stay Details & Schedule */}
-        <div className="flex-1 flex flex-col justify-between gap-4">
-          <div>
-            {/* Top Row: Hotel Name & Dual Status Badges */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <span className="font-label-sm text-[10px] uppercase tracking-widest text-primary-container font-semibold">
-                  {booking.hotelCategory}
-                </span>
-                <span className="text-outline">•</span>
-                <span className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-0.5">
-                  <span className="material-symbols-outlined text-[14px] text-primary">
-                    location_on
-                  </span>{' '}
-                  {booking.location}
-                </span>
-              </div>
-
-              {/* Dual Status Badges (BookingStatus & PaymentStatus) */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <StatusBadge status={booking.status} type="booking" />
-                <StatusBadge status={booking.paymentStatus || 'Unpaid'} type="payment" />
-              </div>
-            </div>
-
-            {/* Accommodation Title */}
-            <h2 className="font-headline-md text-[24px] text-on-surface tracking-tight mb-1">
-              {booking.hotelName}
-            </h2>
-            <p className="font-body-md text-body-md text-on-surface-variant font-medium mb-4">
-              {booking.roomType}
-            </p>
-
-            {/* Date Grid Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded bg-surface-container-low mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">login</span>
-                </div>
-                <div>
-                  <span className="font-label-sm text-outline uppercase tracking-wider block text-[10px]">
-                    NHẬN PHÒNG (CHECK-IN)
-                  </span>
-                  <span className="font-headline-sm text-[16px] text-on-surface">
-                    {booking.checkInDate}
-                  </span>
-                  <span className="font-body-md text-[12px] text-on-surface-variant block">
-                    {booking.checkInDetail}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-outline shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">logout</span>
-                </div>
-                <div>
-                  <span className="font-label-sm text-outline uppercase tracking-wider block text-[10px]">
-                    TRẢ PHÒNG (CHECK-OUT)
-                  </span>
-                  <span className="font-headline-sm text-[16px] text-on-surface">
-                    {booking.checkOutDate}
-                  </span>
-                  <span className="font-body-md text-[12px] text-on-surface-variant block">
-                    {booking.checkOutDetail}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Amenity Badges */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              {booking.amenities.map((item, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-[12px] inline-flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
-                  {item.text}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Payment Strip Bottom */}
-          {isConfirmed && (
-            <div className="pt-3 border-t border-dashed border-outline-variant/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-[11px] font-bold">
-                  {booking.depositBadge}
-                </span>
-                <span className="font-body-md text-[13px] text-on-surface-variant">
-                  Đã trả:{' '}
-                  <strong className="text-on-surface">
-                    {formatVnd(booking.paidAmount)}
-                  </strong>{' '}
-                  · Còn lại tại quầy:{' '}
-                  <strong className="text-on-surface">
-                    {formatVnd(booking.remainingAmount)}
-                  </strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-primary-container font-label-sm text-[12px]">
-                <span className="material-symbols-outlined text-[16px]">bolt</span>
-                <span>Check-in ưu tiên 60 giây qua mã QR</span>
-              </div>
-            </div>
-          )}
-
-          {isPending && (
-            <div className="pt-3 border-t border-dashed border-outline-variant/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-[11px] font-bold">
-                  {booking.depositBadge}
-                </span>
-                <span className="font-headline-sm text-[15px] text-error font-semibold">
-                  Tổng cần thanh toán: {formatVnd(booking.totalAmount)}
-                </span>
-              </div>
-              <p className="font-body-md text-[12px] text-on-surface-variant italic">
-                *Vui lòng hoàn tất thanh toán để phòng không bị tự động hủy sau 10 phút.
-              </p>
-            </div>
-          )}
-
-          {isCompleted && (
-            <div className="pt-3 border-t border-dashed border-outline-variant/40 flex items-center justify-between">
-              <span className="font-body-md text-[13px] text-on-surface-variant flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-primary">
-                  sentiment_satisfied
-                </span>
-                Kỳ nghỉ đã kết thúc tốt đẹp. Bạn có muốn lưu lại cảm nhận của mình?
-              </span>
-            </div>
-          )}
-
-          {isCancelled && (
-            <div className="pt-3 border-t border-dashed border-outline-variant/40 flex items-center justify-between">
-              <span className="font-body-md text-[13px] text-on-surface-variant flex items-center gap-1.5">
-                {booking.paymentStatus === 'RefundPending' ? (
-                  <>
-                    <span className="material-symbols-outlined text-[16px] text-amber-600 animate-pulse">pending</span>
-                    <span className="text-amber-800 font-medium">
-                      Đã ghi nhận yêu cầu hủy. Tiền hoàn cọc đang chờ Nhân viên / Kế toán xác nhận hoàn lại.
-                    </span>
-                  </>
-                ) : booking.paymentStatus === 'Refunded' ? (
-                  <>
-                    <span className="material-symbols-outlined text-[16px] text-primary">check_circle</span>
-                    <span>Tiền cọc đã được xử lý hoàn tiền về tài khoản ngân hàng gốc.</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">info</span>
-                    <span>Đơn đặt phòng đã hủy theo quy định chính sách.</span>
-                  </>
-                )}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Ticket Stub Right Section */}
-      <div className="xl:w-[320px] bg-surface-container-low p-space-md md:p-space-lg flex flex-col justify-between items-center text-center border-t xl:border-t-0 xl:border-l border-dashed border-outline-variant/50 relative">
-        <div className="flex flex-col items-center w-full">
-          <span className="font-label-sm text-[11px] text-outline uppercase tracking-wider mb-2">
-            {isConfirmed
-              ? 'Thẻ lên phòng kỹ thuật số'
-              : isPending
-              ? 'Thanh toán VietQR 24/7'
-              : isCompleted
-              ? 'Đánh giá kỳ nghỉ'
-              : 'Đã hủy'}
-          </span>
-
-          {/* Confirmed QR Code */}
-          {isConfirmed && (
-            <div className="p-3 bg-surface-container-lowest rounded-DEFAULT shadow-sm mb-2 flex items-center justify-center">
-              <svg className="w-36 h-36" fill="none" viewBox="0 0 140 140">
-                <rect fill="#1b1c1a" height="34" rx="6" width="34" x="10" y="10" />
-                <rect fill="#ffffff" height="20" rx="3" width="20" x="17" y="17" />
-                <rect fill="#9b2f00" height="10" rx="2" width="10" x="22" y="22" />
-                <rect fill="#1b1c1a" height="34" rx="6" width="34" x="96" y="10" />
-                <rect fill="#ffffff" height="20" rx="3" width="20" x="103" y="17" />
-                <rect fill="#9b2f00" height="10" rx="2" width="10" x="108" y="22" />
-                <rect fill="#1b1c1a" height="34" rx="6" width="34" x="10" y="96" />
-                <rect fill="#ffffff" height="20" rx="3" width="20" x="17" y="103" />
-                <rect fill="#9b2f00" height="10" rx="2" width="10" x="22" y="108" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="8" x="52" y="12" />
-                <rect fill="#1b1c1a" height="6" rx="2" width="14" x="68" y="12" />
-                <rect fill="#1b1c1a" height="16" rx="2" width="6" x="52" y="26" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="8" x="64" y="24" />
-                <rect fill="#1b1c1a" height="12" rx="2" width="8" x="78" y="24" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="10" x="12" y="52" />
-                <rect fill="#1b1c1a" height="6" rx="2" width="14" x="28" y="52" />
-                <rect fill="#1b1c1a" height="14" rx="2" width="8" x="14" y="68" />
-                <rect fill="#1b1c1a" height="6" rx="2" width="12" x="30" y="66" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="8" x="32" y="78" />
-                <rect fill="#1b1c1a" height="6" rx="2" width="12" x="98" y="52" />
-                <rect fill="#1b1c1a" height="10" rx="2" width="12" x="116" y="52" />
-                <rect fill="#1b1c1a" height="14" rx="2" width="8" x="98" y="66" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="16" x="112" y="70" />
-                <rect fill="#1b1c1a" height="12" rx="2" width="10" x="52" y="96" />
-                <rect fill="#1b1c1a" height="6" rx="2" width="14" x="68" y="96" />
-                <rect fill="#1b1c1a" height="12" rx="2" width="14" x="52" y="116" />
-                <rect fill="#1b1c1a" height="18" rx="2" width="10" x="72" y="110" />
-                <rect fill="#1b1c1a" height="6" rx="2" width="14" x="96" y="96" />
-                <rect fill="#1b1c1a" height="10" rx="2" width="12" x="116" y="96" />
-                <rect fill="#1b1c1a" height="18" rx="2" width="10" x="96" y="110" />
-                <rect fill="#1b1c1a" height="14" rx="2" width="16" x="112" y="114" />
-                <circle cx="70" cy="70" fill="#fbf9f6" r="16" stroke="#9b2f00" strokeWidth="2" />
-                <path
-                  d="M66 64L74 64M70 64V76M66 76H74"
-                  stroke="#9b2f00"
-                  strokeLinecap="round"
-                  strokeWidth="2.5"
-                />
-              </svg>
-            </div>
-          )}
-
-          {/* Pending VietQR Code */}
-          {isPending && (
-            <div className="p-3 bg-surface-container-lowest rounded-DEFAULT shadow-sm mb-2 flex items-center justify-center">
-              <svg className="w-36 h-36" fill="none" viewBox="0 0 140 140">
-                <rect fill="#1b1c1a" height="34" rx="6" width="34" x="10" y="10" />
-                <rect fill="#ffffff" height="20" rx="3" width="20" x="17" y="17" />
-                <rect fill="#c2410c" height="10" rx="2" width="10" x="22" y="22" />
-                <rect fill="#1b1c1a" height="34" rx="6" width="34" x="96" y="10" />
-                <rect fill="#ffffff" height="20" rx="3" width="20" x="103" y="17" />
-                <rect fill="#c2410c" height="10" rx="2" width="10" x="108" y="22" />
-                <rect fill="#1b1c1a" height="34" rx="6" width="34" x="10" y="96" />
-                <rect fill="#ffffff" height="20" rx="3" width="20" x="17" y="103" />
-                <rect fill="#c2410c" height="10" rx="2" width="10" x="22" y="108" />
-                <rect fill="#1b1c1a" height="12" rx="2" width="12" x="52" y="18" />
-                <rect fill="#1b1c1a" height="16" rx="2" width="8" x="74" y="14" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="16" x="54" y="38" />
-                <rect fill="#1b1c1a" height="10" rx="2" width="10" x="76" y="34" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="18" x="14" y="54" />
-                <rect fill="#1b1c1a" height="18" rx="2" width="8" x="14" y="70" />
-                <rect fill="#1b1c1a" height="12" rx="2" width="12" x="30" y="66" />
-                <rect fill="#1b1c1a" height="18" rx="2" width="10" x="98" y="54" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="14" x="114" y="58" />
-                <rect fill="#1b1c1a" height="14" rx="2" width="18" x="110" y="74" />
-                <rect fill="#1b1c1a" height="10" rx="2" width="16" x="54" y="98" />
-                <rect fill="#1b1c1a" height="18" rx="2" width="8" x="76" y="98" />
-                <rect fill="#1b1c1a" height="12" rx="2" width="10" x="54" y="116" />
-                <rect fill="#1b1c1a" height="8" rx="2" width="14" x="70" y="120" />
-                <circle cx="70" cy="70" fill="#ffdbcc" r="14" />
-                <text fill="#76340e" fontSize="9" fontWeight="bold" textAnchor="middle" x="70" y="74">
-                  QR PAY
-                </text>
-              </svg>
-            </div>
-          )}
-
-          {/* Completed Icon Box */}
-          {isCompleted && (
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-secondary-fixed/50 flex items-center justify-center text-primary-container mb-2">
-                <span className="material-symbols-outlined text-[32px]">rate_review</span>
-              </div>
-              <h4 className="font-headline-sm text-[18px] text-on-surface mb-1">
-                Đánh giá kỳ nghỉ
-              </h4>
-              <p className="font-body-md text-[12px] text-on-surface-variant">
-                Chia sẻ đánh giá thực tế của bạn để giúp cộng đồng du khách có trải nghiệm tốt hơn.
-              </p>
-            </div>
-          )}
-
-          {/* Cancelled Icon Box */}
-          {isCancelled && (
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-outline mb-2">
-                <span className="material-symbols-outlined text-[32px]">block</span>
-              </div>
-              <h4 className="font-headline-sm text-[18px] text-on-surface mb-1">
-                Đơn đã hủy
-              </h4>
-              <p className="font-body-md text-[12px] text-on-surface-variant text-center max-w-[220px]">
-                {booking.paymentStatus === 'Refunded'
-                  ? `Đã hoàn tiền ${booking.refundAmount ? formatVnd(booking.refundAmount) : ''}${booking.refundedAt ? ` ngày ${formatDateVi(booking.refundedAt)}` : ''}`
-                  : booking.paymentStatus === 'RefundPending'
-                  ? 'Đang chờ ngân hàng xử lý hoàn cọc'
-                  : 'Hủy phòng không hoàn cọc theo chính sách'}
-              </p>
-            </div>
-          )}
-
-          <p className="font-label-sm text-[11px] text-on-surface-variant font-medium mt-1">
-            {booking.qrCaption}
-          </p>
-        </div>
-
-        {/* Ticket Action Buttons */}
-        <div className="w-full flex flex-col gap-2 pt-4">
-          {/* Confirmed actions */}
-          {isConfirmed && (
-            <>
-              {canPay && booking.paymentStatus === 'PartiallyPaid' && (booking.remainingAmount ?? 0) > 0 && (
-                <button
-                  onClick={() => onPayNow?.(booking, 'Full')}
-                  className="w-full py-2.5 px-4 rounded-full bg-secondary text-on-secondary font-label-md text-label-md shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mb-1"
-                >
-                  <span className="material-symbols-outlined text-[18px]">payments</span>
-                  <span>Thanh toán phần còn lại ({formatVnd(booking.remainingAmount)})</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => alert(`Xem chi tiết vé điện tử đơn ${booking.bookingCode}`)}
-                className="w-full py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">confirmation_number</span>
-                <span>Chi tiết đơn &amp; Vé điện tử</span>
-              </button>
-
-              {canCancel && onReschedule && (
-                <button type="button" onClick={() => onReschedule(booking)}
-                  className="w-full py-2 px-4 rounded-full border border-outline-variant text-on-surface font-label-md text-label-md hover:bg-surface-container transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-                  <span className="material-symbols-outlined text-[16px] text-primary">event_repeat</span>
-                  <span>Đổi ngày lưu trú</span>
-                </button>
-              )}
-
-              {canCancel && <div className="relative group w-full" onMouseEnter={() => void loadCancelNotice()} onFocus={() => void loadCancelNotice()}>
-                <button
-                  onClick={() => onOpenCancelModal(booking)}
-                  className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-error">cancel</span>
-                  <span>Hủy đặt phòng</span>
-                </button>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center w-56 z-20 pointer-events-none">
-                  <div className="bg-inverse-surface text-inverse-on-surface font-label-sm text-[11px] p-2 rounded-2xl shadow-lg text-center">
-                    {cancelNotice ?? 'Mức hoàn tiền tính theo chính sách hủy của khách sạn.'}
-                  </div>
-                  <div className="w-2 h-2 bg-inverse-surface rotate-45 -mt-1" />
-                </div>
-              </div>}
-
-            </>
-          )}
-
-          {/* Pending actions */}
-          {isPending && (
-            <>
-              {canPay && <button
-                onClick={() => onPayNow?.(booking, 'Deposit')}
-                className="w-full py-2.5 px-4 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">payment</span>
-                <span>Thanh toán ngay ({formatVnd(booking.totalAmount)})</span>
-              </button>}
-
-              {canCancel && <button
-                onClick={() => onOpenCancelModal(booking)}
-                className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Hủy đặt phòng này</span>
-              </button>}
-            </>
-          )}
-
-          {/* Completed actions */}
-          {isCompleted && (
-            <>
-              {canReview && <button
-                onClick={() => onOpenReviewModal(booking)}
-                className="w-full py-2.5 px-4 rounded-full bg-surface-container-lowest text-primary-container font-label-lg text-label-lg border-2 border-primary-container/20 hover:border-primary-container shadow-sm hover:bg-primary-container hover:text-on-primary transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span
-                  className="material-symbols-outlined text-[18px]"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  star
-                </span>
-                <span>{booking.hasReview ? 'Sửa đánh giá kỳ nghỉ' : 'Viết đánh giá kỳ nghỉ'}</span>
-              </button>}
-
-              <button
-                onClick={() => onRebook?.(booking)}
-                className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">sync</span>
-                <span>Đặt lại chỗ này</span>
-              </button>
-
-              <a
-                href="#vat"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert(`Tải hóa đơn VAT cho đơn ${booking.bookingCode}`);
-                }}
-                className="font-label-sm text-[11px] text-outline hover:text-primary transition-colors flex items-center justify-center gap-1 pt-1"
-              >
-                <span className="material-symbols-outlined text-[14px]">receipt</span> Tải hóa đơn điện tử VAT
-              </a>
-            </>
-          )}
-
-          {/* Cancelled actions */}
-          {isCancelled && (
-            <button
-              onClick={() => onRebook?.(booking)}
-              className="w-full py-2 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">travel_explore</span>
-              <span>Tìm khách sạn khác</span>
-            </button>
-          )}
-        </div>
+  const cancelButton = canCancel && (
+    <div className="relative group w-full" onMouseEnter={() => void loadCancelNotice()} onFocus={() => void loadCancelNotice()}>
+      <button type="button" onClick={() => onOpenCancelModal(booking)} className={BTN_SOFT}>
+        <span className="material-symbols-outlined text-[16px] text-error">cancel</span>{t('ticket.cancel')}
+      </button>
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-60 -translate-x-1/2 flex-col items-center group-hover:flex">
+        <div className="rounded-2xl bg-inverse-surface p-2 text-center text-[11px] text-inverse-on-surface shadow-lg">{cancelNotice ?? t('ticket.noticeDefault')}</div>
+        <div className="-mt-1 h-2 w-2 rotate-45 bg-inverse-surface" />
       </div>
     </div>
   );
+
+  return (
+    <article className="flex flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md lg:flex-row">
+      {/* Ảnh */}
+      <div className="relative h-48 shrink-0 lg:h-auto lg:w-64">
+        <img src={booking.image} alt={booking.imageAlt || booking.hotelName}
+          className={`h-full w-full object-cover ${isCancelled ? 'grayscale-[40%]' : ''}`} />
+        <span className="absolute bottom-3 left-3 rounded-full bg-surface-container-lowest/95 px-3 py-1 text-xs font-semibold text-on-surface shadow-sm">
+          {t('ticket.nights', { count: nights })}
+        </span>
+      </div>
+
+      {/* Thông tin */}
+      <div className="flex flex-1 flex-col gap-4 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-on-surface">{booking.hotelName}</h2>
+            {booking.roomType && <p className="text-sm text-on-surface-variant">{booking.roomType}</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={booking.statusRaw || booking.status} type="booking" />
+            <StatusBadge status={booking.paymentStatus || 'Unpaid'} type="payment" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-on-surface-variant">{t('ticket.code')}:</span>
+          <strong className="tracking-wide text-on-surface">{booking.bookingCode}</strong>
+          <button type="button" onClick={() => onCopyCode(booking.bookingCode)} title={t('ticket.copy')} aria-label={t('ticket.copy')}
+            className="text-outline transition-colors hover:text-primary">
+            <span className="material-symbols-outlined text-[18px]">content_copy</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-surface-container-low p-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs text-on-surface-variant">{t('ticket.checkIn')}</p>
+            <p className="font-semibold text-on-surface">{fmtDate(booking.checkInDate)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-on-surface-variant">{t('ticket.checkOut')}</p>
+            <p className="font-semibold text-on-surface">{fmtDate(booking.checkOutDate)}</p>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-xs text-on-surface-variant">{t('ticket.total')}</p>
+            <p className="font-semibold text-on-surface">{money(booking.totalAmount)}</p>
+            <p className="text-xs text-on-surface-variant">
+              {t('ticket.rooms', { count: booking.roomCount ?? 1 })} · {t('ticket.guests', { count: booking.numberOfGuests ?? 1 })}
+            </p>
+          </div>
+        </div>
+
+        {/* Dòng trạng thái theo từng loại đơn */}
+        {isConfirmed && (
+          <p className="text-sm text-on-surface-variant">
+            {t('ticket.paid')}: <strong className="text-on-surface">{money(booking.paidAmount)}</strong>
+            {(booking.remainingAmount ?? 0) > 0 && <> · {t('ticket.remaining')}: <strong className="text-on-surface">{money(booking.remainingAmount)}</strong></>}
+          </p>
+        )}
+        {isPending && <p className="text-sm text-on-surface-variant">{t('ticket.pendingNote')}</p>}
+        {isCompleted && <p className="flex items-center gap-1.5 text-sm text-on-surface-variant"><span className="material-symbols-outlined text-[18px] text-primary">sentiment_satisfied</span>{t('ticket.completedNote')}</p>}
+        {isCancelled && (
+          <p className="flex items-start gap-1.5 text-sm">
+            {booking.paymentStatus === 'RefundPending' ? (
+              <><span className="material-symbols-outlined text-[18px] text-amber-600">pending</span><span className="text-amber-800">{t('ticket.refundPending')}</span></>
+            ) : booking.paymentStatus === 'Refunded' ? (
+              <><span className="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span>
+                <span className="text-on-surface-variant">{t('ticket.refunded', { amount: money(booking.refundAmount), date: booking.refundedAt ? t('ticket.refundedOn', { date: fmtDate(booking.refundedAt) }) : '' })}</span></>
+            ) : (
+              <><span className="material-symbols-outlined text-[18px] text-on-surface-variant">info</span><span className="text-on-surface-variant">{t('ticket.cancelledNote')}</span></>
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* Thao tác */}
+      <div className="flex shrink-0 flex-col justify-center gap-2 border-t border-outline-variant/30 bg-surface-container-low/50 p-5 lg:w-64 lg:border-l lg:border-t-0">
+        {isConfirmed && (
+          <>
+            {canPay && booking.paymentStatus === 'PartiallyPaid' && (booking.remainingAmount ?? 0) > 0 && (
+              <button type="button" onClick={() => onPayNow?.(booking, 'Full')} className={BTN_PRIMARY}>
+                <span className="material-symbols-outlined text-[18px]">payments</span>{t('ticket.payRemaining', { amount: money(booking.remainingAmount) })}
+              </button>
+            )}
+            {canCancel && onReschedule && (
+              <button type="button" onClick={() => onReschedule(booking)} className={BTN_OUTLINE}>
+                <span className="material-symbols-outlined text-[16px] text-primary">event_repeat</span>{t('ticket.reschedule')}
+              </button>
+            )}
+            {cancelButton}
+          </>
+        )}
+
+        {isPending && (
+          <>
+            {canPay && (
+              <button type="button" onClick={() => onPayNow?.(booking, 'Deposit')} className={BTN_PRIMARY}>
+                <span className="material-symbols-outlined text-[18px]">payment</span>{t('ticket.payNow', { amount: money(booking.depositDue || booking.totalAmount) })}
+              </button>
+            )}
+            {cancelButton}
+          </>
+        )}
+
+        {isCompleted && (
+          <>
+            {canReview && (
+              <button type="button" onClick={() => onOpenReviewModal(booking)} className={BTN_PRIMARY}>
+                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                {booking.hasReview ? t('ticket.editReview') : t('ticket.writeReview')}
+              </button>
+            )}
+            <button type="button" onClick={() => onRebook?.(booking)} className={BTN_SOFT}>
+              <span className="material-symbols-outlined text-[16px]">sync</span>{t('ticket.rebook')}
+            </button>
+          </>
+        )}
+
+        {isCancelled && (
+          <button type="button" onClick={() => onRebook?.(booking)} className={BTN_SOFT}>
+            <span className="material-symbols-outlined text-[16px]">travel_explore</span>{t('ticket.findOther')}
+          </button>
+        )}
+      </div>
+    </article>
+  );
 };
+export default BookingTicketCard;

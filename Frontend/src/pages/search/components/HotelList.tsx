@@ -2,6 +2,7 @@ import React from 'react';
 import { Hotel } from '../types';
 import { HotelCard } from './HotelCard';
 import { Pagination } from './Pagination';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface HotelListProps {
   hotels: Hotel[];
@@ -22,6 +23,7 @@ export const HotelList: React.FC<HotelListProps> = ({
   onSelectHotel,
   onFavoriteToggle,
 }) => {
+  const { t } = useLanguage();
   return (
     <section className="lg:col-span-8 xl:col-span-9 flex flex-col gap-space-md">
       {/* Hotel Cards */}
@@ -30,13 +32,8 @@ export const HotelList: React.FC<HotelListProps> = ({
           <span className="material-symbols-outlined text-[48px] text-outline">
             hotel
           </span>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface">
-            Không tìm thấy nơi nghỉ phù hợp
-          </h3>
-          <p className="font-body-md text-body-md text-on-surface-variant max-w-md">
-            Hãy thử điều chỉnh lại bộ lọc giá, hạng sao hoặc tiện ích để xem thêm
-            kết quả.
-          </p>
+          <h3 className="font-headline-sm text-headline-sm text-on-surface">{t('search.noResults')}</h3>
+          <p className="font-body-md text-body-md text-on-surface-variant max-w-md">{t('search.noResultsHint')}</p>
         </div>
       ) : (
         hotels.map((hotel) => (

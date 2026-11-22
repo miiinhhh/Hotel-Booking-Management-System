@@ -1,5 +1,6 @@
 import React from 'react';
 import { Hotel } from '../types';
+import { useLanguage, formatMoney, ratingLabelKey } from '../../../i18n/LanguageContext';
 
 interface HotelCardProps {
   hotel: Hotel;
@@ -15,6 +16,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
   onFavoriteToggle,
   showFavorite = true,
 }) => {
+  const { t, locale } = useLanguage();
   const isFavorite = hotel.isFavorite ?? false;
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -56,7 +58,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
         {/* Favorite Button */}
         {showFavorite && <button
           type="button"
-          aria-label="Lưu vào danh sách yêu thích"
+          aria-label={t('search.saveToWishlist')}
           onClick={handleFavoriteClick}
           className={`absolute top-3 right-3 w-9 h-9 rounded-full backdrop-blur-md flex items-center justify-center transition-colors border-0 cursor-pointer ${
             isFavorite
@@ -114,6 +116,12 @@ export const HotelCard: React.FC<HotelCardProps> = ({
 
           {/* Amenity Badges */}
           <div className="flex flex-wrap gap-1.5 pt-1">
+            {hotel.availableRooms != null && (
+              <span className="px-2.5 py-1 rounded-full font-label-sm text-label-sm flex items-center gap-1 bg-surface-container-low text-on-surface-variant">
+                <span className="material-symbols-outlined text-[14px] text-primary">hotel</span>
+                {t('search.roomsAvailable', { count: hotel.availableRooms })}
+              </span>
+            )}
             {hotel.amenities.map((item, idx) => (
               <span
                 key={idx}
@@ -140,9 +148,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
         <div className="pt-space-md mt-space-sm flex flex-col sm:flex-row items-start sm:items-end justify-between gap-space-sm border-t border-surface-container/60 sm:border-0">
           {/* Room Details & Rating */}
           <div className="flex flex-col">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline">
-              Hạng phòng nổi bật
-            </span>
+            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline">{t('search.featuredRoom')}</span>
             <span className="font-body-md text-body-md font-medium text-on-surface">
               {hotel.featuredRoomType}
             </span>
@@ -151,10 +157,10 @@ export const HotelCard: React.FC<HotelCardProps> = ({
                 {hotel.ratingScore.toFixed(1)}
               </span>
               <span className="font-label-sm text-label-sm text-primary font-semibold">
-                {hotel.ratingText}
+                {t(ratingLabelKey(hotel.ratingScore))}
               </span>
               <span className="font-label-sm text-label-sm text-outline">
-                ({hotel.reviewCount.toLocaleString('vi-VN')} đánh giá)
+                ({t('rating.reviews', { count: hotel.reviewCount.toLocaleString(locale) })})
               </span>
             </div>
           </div>
@@ -164,7 +170,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
             <div className="flex items-baseline gap-space-xs">
               {hotel.originalPrice && (
                 <span className="font-label-md text-label-md text-outline line-through">
-                  {hotel.originalPrice.toLocaleString('vi-VN')}đ
+                  {formatMoney(hotel.originalPrice, locale)}
                 </span>
               )}
               <span
@@ -172,12 +178,10 @@ export const HotelCard: React.FC<HotelCardProps> = ({
                   hotel.originalPrice ? 'text-primary' : 'text-on-surface'
                 }`}
               >
-                {hotel.pricePerNight.toLocaleString('vi-VN')}đ
+                {formatMoney(hotel.pricePerNight, locale)}
               </span>
             </div>
-            <span className="font-label-sm text-label-sm text-outline-variant mb-space-xs">
-              / đêm · Giá tham khảo
-            </span>
+            <span className="font-label-sm text-label-sm text-outline-variant mb-space-xs">{t('search.perNightIndicative')}</span>
             <button
               type="button"
               onClick={(e) => {
@@ -186,7 +190,7 @@ export const HotelCard: React.FC<HotelCardProps> = ({
               }}
               className="w-full sm:w-auto px-space-lg py-2.5 rounded-full bg-primary-container hover:bg-tertiary-container text-on-primary font-label-lg text-label-lg font-semibold shadow-sm transition-all flex items-center justify-center gap-space-xs cursor-pointer border-0 active:scale-95"
             >
-              <span>Xem phòng</span>
+              <span>{t('search.viewRooms')}</span>
               <span className="material-symbols-outlined text-[18px]">
                 arrow_forward
               </span>

@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useLanguage, formatMoney } from '../../../i18n/LanguageContext';
+import { vi } from '../../../i18n/locales/vi';
 import { BookingItem } from '../types';
 import { previewCancelBooking, CancellationPreviewDto } from '../../../services/bookingApi';
 
@@ -15,7 +17,9 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
   onClose,
   onConfirmCancel,
 }) => {
-  const [cancelReason, setCancelReason] = useState('Thay đổi lịch trình đột xuất');
+  const { t, locale } = useLanguage();
+  const REASONS = ['cancel.reason1', 'cancel.reason2', 'cancel.reason3', 'cancel.reason4'] as const;
+  const [cancelReason, setCancelReason] = useState<string>(vi['cancel.reason1']);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [preview, setPreview] = useState<CancellationPreviewDto | null>(null);
 
@@ -52,7 +56,7 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
         <button
           onClick={onClose}
           className="absolute top-6 right-6 text-outline hover:text-on-surface transition-colors cursor-pointer"
-          aria-label="Đóng"
+          aria-label={t('cancel.close')}
         >
           <span className="material-symbols-outlined text-[24px]">close</span>
         </button>
@@ -63,17 +67,17 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
           </div>
           <div>
             <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider block">
-              Yêu cầu hủy phòng
+              {t('cancel.eyebrow')}
             </span>
             <h3 className="font-headline-sm text-headline-sm text-on-surface">
-              Xác nhận hủy đặt phòng
+              {t('cancel.title')}
             </h3>
           </div>
         </div>
 
         <div className="bg-surface-container-low rounded p-space-md mb-space-md space-y-2">
           <div className="flex justify-between items-center pb-2 border-b border-surface-container">
-            <span className="font-label-md text-label-md text-on-surface-variant">Mã đơn:</span>
+            <span className="font-label-md text-label-md text-on-surface-variant">{t('cancel.code')}</span>
             <span className="font-headline-sm text-[16px] text-primary font-bold">
               {booking.bookingCode}
             </span>
@@ -82,69 +86,60 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
           {loadingPreview ? (
             <p className="text-xs text-outline py-2 flex items-center gap-2">
               <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-              Đang tra cứu chính sách hủy phòng có thẩm quyền từ máy chủ...
-            </p>
+              {t('cancel.loading')}</p>
           ) : preview ? (
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Số tiền đã thanh toán:</span>
-                <span className="font-semibold">{paid.toLocaleString('vi-VN')} ₫</span>
+                <span className="text-on-surface-variant">{t('cancel.paid')}</span>
+                <span className="font-semibold">{formatMoney(paid, locale)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Tỷ lệ hoàn tiền:</span>
+                <span className="text-on-surface-variant">{t('cancel.rate')}</span>
                 <span className="font-bold text-emerald-600">{refundPercent}%</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Số tiền hoàn dự kiến:</span>
-                <strong className="text-emerald-700 font-bold">{refund.toLocaleString('vi-VN')} ₫</strong>
+                <span className="text-on-surface-variant">{t('cancel.refund')}</span>
+                <strong className="text-emerald-700 font-bold">{formatMoney(refund, locale)}</strong>
               </div>
               {penalty > 0 && (
                 <div className="flex justify-between text-xs text-error">
-                  <span>Phí phạt hủy phòng:</span>
-                  <span>{penalty.toLocaleString('vi-VN')} ₫</span>
+                  <span>{t('cancel.penalty')}</span>
+                  <span>{formatMoney(penalty, locale)}</span>
                 </div>
               )}
               {policyDesc && (
                 <p className="text-xs text-outline pt-1 italic">
-                  Chính sách: {policyDesc}
+                  {t('detail.cancelPolicy')}: {policyDesc}
                 </p>
               )}
             </div>
           ) : (
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Số tiền cọc đã ghi nhận:</span>
-                <span className="font-semibold">{(booking.paidAmount || 0).toLocaleString('vi-VN')} ₫</span>
+                <span className="text-on-surface-variant">{t('cancel.recorded')}</span>
+                <span className="font-semibold">{formatMoney(booking.paidAmount || 0, locale)}</span>
               </div>
               <p className="font-body-md text-xs text-on-surface-variant pt-1">
-                Yêu cầu hủy phòng sẽ được tính toán tiền phạt và tiền hoàn tự động dựa trên thời điểm hủy so với ngày nhận phòng theo chính sách lưu trú.
-              </p>
+                {t('cancel.policyNote')}</p>
             </div>
           )}
         </div>
 
         <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
           <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">info</span>
-          <span>
-            Sau khi xác nhận hủy, đơn sẽ chuyển sang trạng thái <strong>Chờ hoàn</strong> để Nhân viên khách sạn xác nhận và chuyển tiền hoàn lại qua cổng thanh toán theo đúng chính sách lưu trú.
-          </span>
+          <span>{t('cancel.afterNote')}</span>
         </div>
 
         <div className="mb-space-lg">
           <label className="block font-label-md text-label-md text-on-surface mb-2 font-medium">
-            Lý do hủy đặt phòng:
+            {t('cancel.reason')}
           </label>
           <select
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
             className="w-full bg-surface rounded-full px-4 py-2.5 text-body-md text-on-surface outline-none focus:bg-surface-container transition-all cursor-pointer border border-outline-variant/30"
           >
-            <option value="Thay đổi lịch trình đột xuất">Thay đổi lịch trình đột xuất</option>
-            <option value="Tìm thấy nơi nghỉ dưỡng phù hợp hơn">
-              Tìm thấy nơi nghỉ dưỡng phù hợp hơn
-            </option>
-            <option value="Lý do sức khỏe cá nhân">Lý do sức khỏe cá nhân</option>
-            <option value="Khác">Khác</option>
+            {REASONS.map(k => <option key={k} value={vi[k]}>{t(k)}</option>)}
           </select>
         </div>
 
@@ -153,13 +148,13 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
             onClick={onClose}
             className="px-6 py-2.5 rounded-full font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
           >
-            Giữ lại đơn
+            {t('cancel.keep')}
           </button>
           <button
             onClick={() => onConfirmCancel(booking.id, cancelReason)}
             className="px-6 py-2.5 rounded-full bg-error text-on-error font-label-lg text-label-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
           >
-            Xác nhận hủy phòng
+            {t('cancel.confirm')}
           </button>
         </div>
       </div>

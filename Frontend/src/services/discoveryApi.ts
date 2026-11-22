@@ -43,9 +43,10 @@ export function ratingFields(rating?: RatingSummary) {
   const text = !score ? 'Chưa có đánh giá' : score >= 4.5 ? 'Tuyệt vời' : score >= 4 ? 'Rất tốt' : score >= 3 ? 'Tốt' : 'Trung bình';
   return { ratingScore: score, ratingText: text, reviewCount: rating?.count ?? 0 };
 }
-export function toHotel(h: HotelCardData, favorite = false, rating?: RatingSummary): Hotel { return { id: String(h.hotelId), name: h.name, location: `${h.address}, ${h.city}`, image: mediaUrl(h.imageUrl), imageAlt: h.name, starRating: 0, ...ratingFields(rating), amenities: [{ icon: 'hotel', text: `${h.availableRooms} phòng khả dụng` }], featuredRoomType: h.roomTypeName, pricePerNight: h.pricePerNight, isFavorite: favorite }; }
+export function toHotel(h: HotelCardData, favorite = false, rating?: RatingSummary): Hotel { return { id: String(h.hotelId), name: h.name, location: `${h.address}, ${h.city}`, image: mediaUrl(h.imageUrl), imageAlt: h.name, starRating: 0, ...ratingFields(rating), amenities: [], availableRooms: h.availableRooms, featuredRoomType: h.roomTypeName, pricePerNight: h.pricePerNight, isFavorite: favorite }; }
 export function toHotelDetail(h: HotelDetailData, selection: DiscoverySelection, rating?: RatingSummary): HotelDetail {
-  const policy = h.policies.cancellationPolicy || 'Khách sạn chưa công bố chính sách hủy. Vui lòng liên hệ trước khi đặt.';
+  // Trống → giao diện tự hiện câu "chưa công bố chính sách" theo ngôn ngữ đang chọn.
+  const policy = h.policies.cancellationPolicy || '';
   const rooms: Room[] = h.rooms.map(r => ({ id: String(r.roomId), roomId: r.roomId, hotelId: h.hotelId, hotelName: h.name, hotelAddress: h.address, checkIn: h.checkIn, checkOut: h.checkOut, requestedGuests: selection.adults + selection.children, name: `${r.name} · ${r.roomNumber}`, tag: 'Còn phòng', floor: `Tầng ${r.floor}`, remainingRooms: 1, image: mediaUrl(r.imageUrl), specs: [{ icon: 'person', text: `${r.capacity} khách` }], features: r.amenities.map(a => ({ icon: 'check', text: a.name })), packages: [{ id: 'base', name: 'Giá tham khảo', description: 'Giá được máy chủ xác nhận khi đặt.', pricePerNight: r.pricePerNight }], cancellationPolicy: policy }));
   const images = [...h.images].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
   return { id: String(h.hotelId), checkIn: h.checkIn, checkOut: h.checkOut, guestsPerRoom: Math.ceil((selection.adults + selection.children) / selection.rooms), name: h.name, address: `${h.address}, ${h.city}`, categoryTag: 'Khách sạn', starRating: 0, distanceToBeach: '', ...ratingFields(rating),

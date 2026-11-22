@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage, ratingLabelKey } from '../../../i18n/LanguageContext';
 
 interface HotelShowcaseProps {
   name: string;
@@ -14,25 +15,24 @@ interface HotelShowcaseProps {
 
 export const HotelShowcase: React.FC<HotelShowcaseProps> = ({
   name,
-  categoryTag = 'Khu Nghỉ Dưỡng Sanctuary',
-  starRating = 5,
-  address = 'Bãi Bắc, Bán đảo Sơn Trà, TP. Đà Nẵng',
-  distanceToBeach = 'Cách biển riêng 50m',
-  ratingScore = 9.6,
-  ratingText = 'Xuất sắc',
-  reviewCount = 1420,
+  starRating = 0,
+  address = '',
+  distanceToBeach = '',
+  ratingScore = 0,
+  reviewCount = 0,
   onOpenMap,
 }) => {
+  const { t, locale } = useLanguage();
   return (
     <header className="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm tracking-widest uppercase font-semibold">
-            {categoryTag}
+            {t('detail.category')}
           </span>
           <div
             className="flex items-center text-primary-container"
-            title={`Tiêu chuẩn ${starRating} sao`}
+            title={t('detail.stars', { count: starRating })}
           >
             {Array.from({ length: starRating }).map((_, idx) => (
               <span
@@ -58,18 +58,16 @@ export const HotelShowcase: React.FC<HotelShowcaseProps> = ({
             <span>{address}</span>
           </div>
 
+          {distanceToBeach && <>
           <span className="w-1.5 h-1.5 rounded-full bg-outline-variant hidden sm:inline-block"></span>
-
           <span className="text-tertiary font-medium">{distanceToBeach}</span>
+          </>}
 
-          <button
+          {onOpenMap && <button
             type="button"
             onClick={onOpenMap}
             className="flex items-center gap-1 text-primary hover:text-tertiary-container font-label-md text-label-md font-semibold underline underline-offset-4 decoration-primary/40 hover:decoration-primary transition-colors cursor-pointer border-0 bg-transparent p-0"
-          >
-            Xem trên bản đồ
-            <span className="material-symbols-outlined text-[16px]">map</span>
-          </button>
+          >{t('detail.viewMap')}<span className="material-symbols-outlined text-[16px]">map</span></button>}
         </div>
       </div>
 
@@ -77,10 +75,10 @@ export const HotelShowcase: React.FC<HotelShowcaseProps> = ({
       <div className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-lowest shadow-sm self-start md:self-auto shrink-0">
         <div className="flex flex-col text-right">
           <span className="font-headline-sm text-headline-sm text-on-surface leading-tight font-bold">
-            {ratingText}
+            {t(ratingLabelKey(ratingScore))}
           </span>
           <span className="font-label-sm text-label-sm text-on-surface-variant">
-            {reviewCount.toLocaleString('vi-VN')} đánh giá thực tế
+            {t('rating.realReviews', { count: reviewCount.toLocaleString(locale) })}
           </span>
         </div>
         <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary flex items-center justify-center font-headline-sm text-headline-sm font-bold shadow-md shadow-primary/20">

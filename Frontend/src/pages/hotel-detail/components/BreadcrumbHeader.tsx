@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { discoveryApi } from '../../../services/discoveryApi';
 import { useAuth } from '../../../context/AuthContext';
 import { SELF_PERMISSIONS } from '../../../auth/permissions';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface BreadcrumbHeaderProps {
   hotelName: string;
@@ -21,15 +22,17 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
   const { session, hasPermission } = useAuth();
   const canUseWishlist = Boolean(session) && hasPermission(SELF_PERMISSIONS.wishlistManage);
   const [isFavorited, setIsFavorited] = useState(isInitiallyFavorited);
-  const [shareText, setShareText] = useState('Chia sẻ');
+  const { t } = useLanguage();
+  // null = nhãn mặc định "Chia sẻ"; chuỗi = trạng thái tạm thời sau khi bấm
+  const [shareText, setShareText] = useState<string | null>(null);
   useEffect(() => { let alive = true; if (!canUseWishlist) return; discoveryApi.wishlist().then(items => { if (alive) setIsFavorited(items.some(item => item.hotelId === hotelId)); }).catch(() => {}); return () => { alive = false; }; }, [hotelId, canUseWishlist]);
 
   const [favoriteError, setFavoriteError] = useState('');
   const handleFavoriteClick = async () => {
     if (!hotelId) return;
-    if (!session) { setFavoriteError('Vui lòng đăng nhập để lưu khách sạn.'); return; }
+    if (!session) { setFavoriteError(t('search.loginToSave')); return; }
     try { await discoveryApi.save(hotelId, !isFavorited); setIsFavorited(!isFavorited); setFavoriteError(''); }
-    catch (error) { setFavoriteError(error instanceof Error ? error.message : 'Không lưu được.'); }
+    catch (error) { setFavoriteError(error instanceof Error ? error.message : t('search.saveFailed')); }
   };
 
   const handleShareClick = async () => {
@@ -37,7 +40,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
       try {
         await navigator.share({
           title: `${hotelName} - StayLuxe`,
-          text: `Khám phá ${hotelName} trên StayLuxe`,
+          text: t('detail.shareText', { name: hotelName }),
           url: window.location.href,
         });
       } catch {
@@ -47,14 +50,14 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
       // Copy URL fallback
       try {
         await navigator.clipboard.writeText(window.location.href);
-        setShareText('Đã sao chép link!');
+        setShareText(t('detail.linkCopied'));
         setTimeout(() => {
-          setShareText('Chia sẻ');
+          setShareText(null);
         }, 2000);
       } catch {
-        setShareText('Không sao chép được');
+        setShareText(t('detail.copyFailed'));
         setTimeout(() => {
-          setShareText('Chia sẻ');
+          setShareText(null);
         }, 2000);
       }
     }
@@ -71,9 +74,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           type="button"
           onClick={onNavigateHome}
           className="hover:text-primary transition-colors cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit"
-        >
-          Trang chủ
-        </button>
+        >{t('detail.home')}</button>
         <span className="material-symbols-outlined text-outline-variant text-[16px]">
           chevron_right
         </span>
@@ -81,15 +82,11 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           type="button"
           onClick={onNavigateSearch}
           className="hover:text-primary transition-colors cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit"
-        >
-          Khách sạn
-        </button>
+        >{t('detail.hotels')}</button>
         <span className="material-symbols-outlined text-outline-variant text-[16px]">
           chevron_right
         </span>
-        <span className="hover:text-primary transition-colors cursor-pointer">
-          Chi tiết
-        </span>
+        <span className="hover:text-primary transition-colors cursor-pointer">{t('detail.details')}</span>
         <span className="material-symbols-outlined text-outline-variant text-[16px]">
           chevron_right
         </span>
@@ -110,7 +107,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
             <span className="material-symbols-outlined text-[16px]">
               arrow_back
             </span>
-            <span>DS Khách sạn</span>
+            <span>{t('detail.backToList')}</span>
           </button>
         )}
 
@@ -120,7 +117,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
           className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-lowest shadow-sm hover:bg-surface-container-low transition-all text-on-surface-variant hover:text-primary active:scale-95 cursor-pointer border-0"
         >
           <span className="material-symbols-outlined text-[18px]">share</span>
-          <span className="font-label-md text-label-md">{shareText}</span>
+          <span className="font-label-md text-label-md">{shareText ?? t('detail.share')}</span>
         </button>
 
         {(!session || canUseWishlist) && <button
@@ -139,7 +136,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
             {isFavorited ? 'favorite' : 'favorite_border'}
           </span>
           <span className="font-label-md text-label-md">
-            {isFavorited ? 'Đã lưu yêu thích' : 'Lưu yêu thích'}
+            {isFavorited ? t('detail.saved') : t('detail.save')}
           </span>
         </button>}
       </div>

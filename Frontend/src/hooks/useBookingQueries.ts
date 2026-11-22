@@ -21,54 +21,46 @@ export function useBookingsQuery() {
   const [error, setError] = useState<string | null>(null);
 
   const mapToBookingItem = useCallback((b: BookingListDto): BookingItem => {
+    const status = b.bookingStatus.toLowerCase();
+    // Số đã trả thật: Paid = toàn bộ, PartiallyPaid = tiền cọc, còn lại = 0 (chưa thanh toán / đã hoàn).
+    const paid = b.paymentStatus === 'Paid' ? b.totalAmount : b.paymentStatus === 'PartiallyPaid' ? b.depositAmount : 0;
     return {
       id: String(b.bookingId),
       bookingCode: b.bookingCode,
-      hotelName: b.hotelName || 'Khách sạn StayLuxe',
-      hotelCategory: 'Khu nghỉ dưỡng & Khách sạn cao cấp',
-      location: 'Việt Nam',
-      roomType: b.roomTypeName || 'Phòng nghỉ cao cấp',
+      hotelName: b.hotelName || '',
+      hotelCategory: '',
+      location: '',
+      roomType: b.roomTypeName || '',
       image: b.imageUrl || '/room-placeholder.svg',
-      imageAlt: b.hotelName || 'StayLuxe Room',
+      imageAlt: b.hotelName || '',
       checkInDate: b.checkInDate,
-      checkInDetail: `Nhận phòng từ 14:00 · ${b.checkInDate}`,
+      checkInDetail: '',
       checkOutDate: b.checkOutDate,
-      checkOutDetail: `Trả phòng trước 12:00 · ${b.checkOutDate}`,
-      nightsText: `${b.roomCount || 1} phòng`,
-      guest: {
-        name: 'Khách hàng',
-        countText: `${b.numberOfGuests} khách`,
-      },
+      checkOutDetail: '',
+      nightsText: '',
+      guest: { name: '', countText: '' },
       status: (
-        b.bookingStatus.toLowerCase() === 'confirmed' ? 'confirmed' :
-        b.bookingStatus.toLowerCase() === 'checkedin' ? 'confirmed' :
+        status === 'confirmed' || status === 'checkedin' ? 'confirmed' :
         // Đơn hết hạn giữ chỗ (không thanh toán kịp) không còn là chuyến đi sắp tới.
-        b.bookingStatus.toLowerCase() === 'cancelled' || b.bookingStatus.toLowerCase() === 'expired' ? 'cancelled' :
-        b.bookingStatus.toLowerCase() === 'completed' || b.bookingStatus.toLowerCase() === 'checkedout' ? 'completed' :
+        status === 'cancelled' || status === 'expired' ? 'cancelled' :
+        status === 'completed' || status === 'checkedout' ? 'completed' :
         'pending'
       ),
-      statusLabel: b.bookingStatus.toUpperCase(),
+      statusRaw: b.bookingStatus,
+      statusLabel: b.bookingStatus,
       paymentStatus: b.paymentStatus,
-      depositBadge: (
-        b.paymentStatus === 'Paid' ? 'ĐÃ THANH TOÁN 100%' :
-        b.paymentStatus === 'PartiallyPaid' ? 'ĐÃ ĐẶT CỌC' :
-        b.paymentStatus === 'Refunded' ? 'ĐÃ HOÀN TIỀN' :
-        b.paymentStatus === 'RefundPending' ? 'ĐANG CHỜ HOÀN TIỀN' :
-        'CHỜ THANH TOÁN CỌC'
-      ),
       totalAmount: b.totalAmount,
-      paidAmount: b.depositAmount,
-      remainingAmount: Math.max(0, b.totalAmount - b.depositAmount),
+      paidAmount: paid,
+      remainingAmount: Math.max(0, b.totalAmount - paid),
+      depositDue: b.depositAmount,
+      roomCount: b.roomCount || 1,
+      numberOfGuests: b.numberOfGuests,
       refundAmount: b.refundAmount,
       refundedAt: b.refundedAt,
-      qrType: b.paymentStatus === 'Paid' ? 'checkin' : 'vietqr',
-      qrCaption: b.paymentStatus === 'Paid' ? 'Mã nhận phòng nhanh' : 'Quét mã thanh toán',
-      amenities: [
-        { icon: 'wifi', text: 'Wi-Fi tốc độ cao' },
-        { icon: 'pool', text: 'Hồ bơi vô cực' },
-        { icon: 'restaurant', text: 'Bữa sáng buffet' }
-      ],
-      isEligibleForReview: b.bookingStatus.toLowerCase() === 'completed',
+      qrType: 'checkin',
+      qrCaption: '',
+      amenities: [],
+      isEligibleForReview: status === 'completed',
     };
   }, []);
 

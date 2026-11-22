@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface AccountShellProps {
   eyebrow: string;
@@ -7,13 +8,15 @@ interface AccountShellProps {
   children: React.ReactNode;
 }
 
-export const AccountShell: React.FC<AccountShellProps> = ({ eyebrow, title, description, children }) => (
+export const AccountShell: React.FC<AccountShellProps> = ({ eyebrow, title, description, children }) => {
+  const { t } = useLanguage();
+  return (
   <main className="min-h-[calc(100vh-5rem)] bg-background pt-20">
     <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-[1440px] lg:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.1fr)]">
       <section className="relative hidden min-h-[680px] overflow-hidden lg:block">
         <img
           src="https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=1400&q=85"
-          alt="Không gian nghỉ dưỡng StayLuxe"
+          alt={t('account.heroAlt')}
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/85 via-inverse-surface/15 to-transparent" />
@@ -21,8 +24,8 @@ export const AccountShell: React.FC<AccountShellProps> = ({ eyebrow, title, desc
           <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary-container text-on-primary">
             <span className="material-symbols-outlined">villa</span>
           </div>
-          <p className="max-w-lg font-headline-md text-3xl font-semibold leading-tight">Mỗi hành trình đáng nhớ bắt đầu từ một nơi lưu trú vừa ý.</p>
-          <p className="mt-4 max-w-md text-sm text-inverse-on-surface/80">Quản lý kỳ nghỉ, thông tin cá nhân và quyền truy cập StayLuxe trong cùng một tài khoản.</p>
+          <p className="max-w-lg font-headline-md text-3xl font-semibold leading-tight">{t('account.heroTitle')}</p>
+          <p className="mt-4 max-w-md text-sm text-inverse-on-surface/80">{t('account.heroText')}</p>
         </div>
       </section>
       <section className="flex items-center px-margin-mobile py-10 md:px-margin lg:px-12 xl:px-20">
@@ -35,7 +38,8 @@ export const AccountShell: React.FC<AccountShellProps> = ({ eyebrow, title, desc
       </section>
     </div>
   </main>
-);
+  );
+};
 
 export const Field: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon: string }> = ({ label, icon, className = '', ...props }) => (
   <label className="block text-sm font-semibold text-on-surface">
@@ -48,6 +52,7 @@ export const Field: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
 );
 
 export const PasswordField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon?: string }> = ({ label, icon = 'lock', className = '', id, ...props }) => {
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
   const generatedId = useId();
   const inputId = id || generatedId;
@@ -56,7 +61,7 @@ export const PasswordField: React.FC<React.InputHTMLAttributes<HTMLInputElement>
     <div className="relative mt-2">
       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-xl text-outline">{icon}</span>
       <input {...props} id={inputId} type={visible ? 'text' : 'password'} className={`h-12 w-full rounded-lg border border-outline-variant/60 bg-surface-container-lowest pl-12 pr-12 font-normal outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 ${className}`} />
-      <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-outline transition hover:bg-surface-container hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20" aria-label={visible ? `Ẩn ${label.toLowerCase()}` : `Hiện ${label.toLowerCase()}`} aria-pressed={visible}>
+      <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-outline transition hover:bg-surface-container hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20" aria-label={visible ? t('account.hide', { label: label.toLowerCase() }) : t('account.show', { label: label.toLowerCase() })} aria-pressed={visible}>
         <span className="material-symbols-outlined text-xl">{visible ? 'visibility_off' : 'visibility'}</span>
       </button>
     </div>

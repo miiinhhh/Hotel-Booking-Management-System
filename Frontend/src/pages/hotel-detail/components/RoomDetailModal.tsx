@@ -1,5 +1,6 @@
 import React from 'react';
 import { Room } from '../types';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface RoomDetailModalProps {
   room: Room | null;
@@ -12,6 +13,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
   onClose,
   onSelectBook,
 }) => {
+  const { t } = useLanguage();
   if (!room) return null;
 
   return (
@@ -33,6 +35,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label={t('detail.close')}
             className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center transition-colors border-0 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -50,17 +53,11 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
             <h3 className="font-headline-sm text-headline-sm text-on-surface">
               {room.name}
             </h3>
-            <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-              Trải nghiệm nghỉ dưỡng đẳng cấp với không gian thiết kế độc bản,
-              view ngoạn mục và các trang thiết bị nội thất sang trọng.
-            </p>
           </div>
 
           {/* Specs */}
           <div>
-            <h4 className="font-label-md text-label-md uppercase text-outline font-semibold mb-2">
-              Thông số phòng
-            </h4>
+            <h4 className="font-label-md text-label-md uppercase text-outline font-semibold mb-2">{t('rooms.specs')}</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-surface-container-low">
               {room.specs.map((spec, idx) => (
                 <div
@@ -78,9 +75,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
 
           {/* Features */}
           <div>
-            <h4 className="font-label-md text-label-md uppercase text-outline font-semibold mb-2">
-              Tiện nghi & Dịch vụ nổi bật
-            </h4>
+            <h4 className="font-label-md text-label-md uppercase text-outline font-semibold mb-2">{t('rooms.features')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {room.features.map((feat, idx) => (
                 <div
@@ -101,7 +96,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
             <span className="material-symbols-outlined text-[18px]">
               verified_user
             </span>
-            <span>{room.cancellationPolicy}</span>
+            <span>{room.cancellationPolicy || t('rooms.policyFallback')}</span>
           </div>
 
           {/* Footer CTA */}
@@ -110,9 +105,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
               type="button"
               onClick={onClose}
               className="px-5 py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold cursor-pointer border-0"
-            >
-              Đóng
-            </button>
+            >{t('detail.close')}</button>
             <button
               type="button"
               onClick={() => {
@@ -120,9 +113,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
                 onSelectBook(room);
               }}
               className="px-6 py-2.5 rounded-full bg-primary-container hover:bg-tertiary-container text-on-primary font-label-md text-label-md font-semibold cursor-pointer border-0 shadow-sm"
-            >
-              Đặt hạng phòng này
-            </button>
+            >{t('rooms.bookThis')}</button>
           </div>
         </div>
       </div>

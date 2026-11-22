@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { offerApi, PublicVoucher } from '../../services/offerApi';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage, TranslationKey } from '../../i18n/LanguageContext';
 
 interface OffersPageProps {
   onNavigateSearch?: () => void;
@@ -15,39 +16,42 @@ const CARD_IMAGES = [
   '1611892440504-42a792e24d32', '1568084680786-a84f91d1153c', '1590490360182-c33d57733427',
 ];
 
-/** 500000 → "500K", 1500000 → "1,5 triệu". */
-const shortMoney = (value: number) => {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu`;
+type T = (key: TranslationKey, vars?: Record<string, string | number>) => string;
+
+/** 500000 → "500K", 1500000 → "1,5 triệu" / "1.5M". */
+const shortMoney = (value: number, t: T, locale: string) => {
+  if (value >= 1_000_000) return t('offers.millions', { value: (value / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 1 }) });
   if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
-  return `${value}đ`;
+  return `${value} ₫`;
 };
 const daysLeft = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
-const badge = (v: PublicVoucher) => (v.voucherType === 'Percentage' ? `-${v.discountValue}%` : `-${shortMoney(v.discountValue)}`);
-const title = (v: PublicVoucher) => v.voucherType === 'Percentage'
-  ? `Giảm ${v.discountValue}% cho kỳ nghỉ của bạn`
-  : `Giảm ngay ${shortMoney(v.discountValue)} khi đặt phòng`;
-const subtitle = (v: PublicVoucher) => {
+const badge = (v: PublicVoucher, t: T, locale: string) => (v.voucherType === 'Percentage' ? `-${v.discountValue}%` : `-${shortMoney(v.discountValue, t, locale)}`);
+const title = (v: PublicVoucher, t: T, locale: string) => v.voucherType === 'Percentage'
+  ? t('offers.titlePercent', { value: v.discountValue })
+  : t('offers.titleAmount', { value: shortMoney(v.discountValue, t, locale) });
+const subtitle = (v: PublicVoucher, t: T, locale: string) => {
   const parts: string[] = [];
-  if (v.voucherType === 'Percentage' && v.maxDiscountAmount != null) parts.push(`Tối đa ${shortMoney(v.maxDiscountAmount)}`);
-  parts.push(v.minimumOrderAmount > 0 ? `đơn từ ${shortMoney(v.minimumOrderAmount)}` : 'áp dụng mọi đơn');
+  if (v.voucherType === 'Percentage' && v.maxDiscountAmount != null) parts.push(t('offers.maxDiscount', { value: shortMoney(v.maxDiscountAmount, t, locale) }));
+  parts.push(v.minimumOrderAmount > 0 ? t('offers.minOrder', { value: shortMoney(v.minimumOrderAmount, t, locale) }) : t('offers.anyOrder'));
   const text = parts.join(', ');
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
-const period = (v: PublicVoucher) => {
+const period = (v: PublicVoucher, t: T, locale: string) => {
   const left = daysLeft(v.endAt);
-  if (left <= 1) return { text: 'Hết hạn hôm nay', urgent: true };
-  if (left <= 7) return { text: `Chỉ còn ${left} ngày`, urgent: true };
-  return { text: `Đến ${new Date(v.endAt).toLocaleDateString('vi-VN')}`, urgent: false };
+  if (left <= 1) return { text: t('offers.expiresToday'), urgent: true };
+  if (left <= 7) return { text: t('offers.daysLeft', { count: left }), urgent: true };
+  return { text: t('offers.until', { date: new Date(v.endAt).toLocaleDateString(locale) }), urgent: false };
 };
 
-const STEPS = [
-  { icon: 'content_copy', title: 'Sao chép mã', text: 'Bấm “Sao chép” trên ưu đãi bạn thích.' },
-  { icon: 'travel_explore', title: 'Chọn phòng', text: 'Tìm khách sạn và hạng phòng phù hợp.' },
-  { icon: 'redeem', title: 'Dán mã khi thanh toán', text: 'Nhập vào ô “Mã ưu đãi” để được giảm giá.' },
+const STEPS: { icon: string; title: TranslationKey; text: TranslationKey }[] = [
+  { icon: 'content_copy', title: 'offers.step1Title', text: 'offers.step1Text' },
+  { icon: 'travel_explore', title: 'offers.step2Title', text: 'offers.step2Text' },
+  { icon: 'redeem', title: 'offers.step3Title', text: 'offers.step3Text' },
 ];
 
 export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavigateHome }) => {
   const { session } = useAuth();
+  const { t, locale } = useLanguage();
   const [vouchers, setVouchers] = useState<PublicVoucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -73,23 +77,23 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
     <main className="min-h-screen bg-background pb-20">
       {/* HERO ẢNH LỚN */}
       <section className="relative flex min-h-[340px] items-end overflow-hidden pt-24 md:min-h-[400px]">
-        <img src={HERO} alt="Hồ bơi khu nghỉ dưỡng" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={HERO} alt={t('offers.heroAlt')} className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-black/10" />
         <div className="relative mx-auto w-full max-w-[1200px] px-5 pb-10 text-white">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur">
-            <span className="material-symbols-outlined text-[16px]">local_offer</span>Ưu đãi độc quyền
+            <span className="material-symbols-outlined text-[16px]">local_offer</span>{t('offers.eyebrow')}
           </span>
-          <h1 className="mt-3 max-w-2xl font-display-hero text-[34px] font-bold leading-tight md:text-display-hero">Nghỉ dưỡng trọn vẹn, chi phí nhẹ nhàng hơn</h1>
+          <h1 className="mt-3 max-w-2xl font-display-hero text-[34px] font-bold leading-tight md:text-display-hero">{t('offers.title')}</h1>
           <p className="mt-2 max-w-xl font-body-lg text-body-lg text-white/85">
-            {loading ? 'Đang tìm ưu đãi tốt nhất cho bạn…' : vouchers.length ? `${vouchers.length} mã giảm giá đang chờ bạn sử dụng.` : 'Các mã giảm giá mới sẽ sớm xuất hiện tại đây.'}
+            {loading ? t('offers.loading') : vouchers.length ? t('offers.count', { count: vouchers.length }) : t('offers.none')}
           </p>
         </div>
       </section>
 
       {/* DANH SÁCH ƯU ĐÃI */}
       <section className="mx-auto max-w-[1200px] px-5 pt-10">
-        <h2 className="font-headline-sm text-headline-sm text-on-surface">Mã giảm giá cho bạn</h2>
-        <p className="mt-1 text-sm text-on-surface-variant">Chỉ cần sao chép và dán mã ở bước thanh toán.</p>
+        <h2 className="font-headline-sm text-headline-sm text-on-surface">{t('offers.listTitle')}</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">{t('offers.listHint')}</p>
 
         {loading ? (
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -98,22 +102,22 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
         ) : failed || !vouchers.length ? (
           <div className="mt-6 flex flex-col items-center gap-3 rounded-[1.5rem] bg-surface-container-lowest px-6 py-16 text-center shadow-sm">
             <span className="material-symbols-outlined text-5xl text-primary">featured_seasonal_and_gifts</span>
-            <p className="font-headline-sm text-lg text-on-surface">{failed ? 'Chưa tải được ưu đãi' : 'Hiện chưa có ưu đãi mới'}</p>
-            <p className="max-w-sm text-sm text-on-surface-variant">Hãy quay lại sau nhé — chúng tôi thường xuyên cập nhật mã giảm giá.</p>
-            {onNavigateHome && <button type="button" onClick={onNavigateHome} className="mt-2 rounded-full bg-primary-container px-6 py-2.5 font-label-lg text-label-lg font-semibold text-on-primary shadow-sm hover:bg-tertiary-container">Khám phá khách sạn</button>}
+            <p className="font-headline-sm text-lg text-on-surface">{failed ? t('offers.loadFailed') : t('offers.empty')}</p>
+            <p className="max-w-sm text-sm text-on-surface-variant">{t('offers.emptyHint')}</p>
+            {onNavigateHome && <button type="button" onClick={onNavigateHome} className="mt-2 rounded-full bg-primary-container px-6 py-2.5 font-label-lg text-label-lg font-semibold text-on-primary shadow-sm hover:bg-tertiary-container">{t('offers.explore')}</button>}
           </div>
         ) : (
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {vouchers.map((v, index) => {
               const isCopied = copied === v.code;
               const usedUp = v.remainingForMe === 0;
-              const time = period(v);
+              const time = period(v, t, locale);
               return (
                 <article key={v.code} className="group flex flex-col overflow-hidden rounded-[1.5rem] bg-surface-container-lowest shadow-[0_10px_30px_-10px_rgba(120,53,15,0.18)] transition-shadow hover:shadow-[0_18px_40px_-12px_rgba(120,53,15,0.28)]">
                   <div className="relative h-44 overflow-hidden">
                     <img src={img(CARD_IMAGES[index % CARD_IMAGES.length])} alt="" loading="lazy" className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 ${usedUp ? 'grayscale' : ''}`} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                    <span className="absolute left-4 top-4 rounded-full bg-primary-container px-3.5 py-1.5 font-headline-sm text-lg font-bold text-on-primary shadow-md">{badge(v)}</span>
+                    <span className="absolute left-4 top-4 rounded-full bg-primary-container px-3.5 py-1.5 font-headline-sm text-lg font-bold text-on-primary shadow-md">{badge(v, t, locale)}</span>
                     {time.urgent && !usedUp && (
                       <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-primary shadow-sm">
                         <span className="material-symbols-outlined text-[14px]">schedule</span>{time.text}
@@ -123,10 +127,10 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
 
                   <div className="flex flex-1 flex-col gap-4 p-5">
                     <div>
-                      <h3 className="font-headline-sm text-[19px] font-semibold leading-snug text-on-surface">{title(v)}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">{subtitle(v)}</p>
+                      <h3 className="font-headline-sm text-[19px] font-semibold leading-snug text-on-surface">{title(v, t, locale)}</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">{subtitle(v, t, locale)}</p>
                       <p className="mt-2 flex items-center gap-1 text-xs text-outline">
-                        <span className="material-symbols-outlined text-[14px]">event</span>{usedUp ? 'Bạn đã sử dụng mã này' : time.text}
+                        <span className="material-symbols-outlined text-[14px]">event</span>{usedUp ? t('offers.used') : time.text}
                       </p>
                     </div>
 
@@ -136,7 +140,7 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
                       <button type="button" disabled={usedUp} onClick={() => void copy(v.code)}
                         className={`m-1 flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isCopied ? 'bg-emerald-600 text-white' : 'bg-primary-container text-on-primary hover:bg-tertiary-container'}`}>
                         <span className="material-symbols-outlined text-[18px]">{isCopied ? 'check' : 'content_copy'}</span>
-                        {isCopied ? 'Đã chép' : 'Sao chép'}
+                        {isCopied ? t('offers.copied') : t('offers.copy')}
                       </button>
                     </div>
                   </div>
@@ -150,7 +154,7 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
       {/* CÁCH SỬ DỤNG */}
       <section className="mx-auto mt-14 max-w-[1200px] px-5">
         <div className="rounded-[1.5rem] bg-surface-container-low px-6 py-8 md:px-10">
-          <h2 className="text-center font-headline-sm text-headline-sm text-on-surface">Dùng mã chỉ với 3 bước</h2>
+          <h2 className="text-center font-headline-sm text-headline-sm text-on-surface">{t('offers.howTitle')}</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-3">
             {STEPS.map((step, i) => (
               <div key={step.title} className="flex items-start gap-4 md:flex-col md:items-center md:text-center">
@@ -159,8 +163,8 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
                   <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-xs font-bold text-on-primary">{i + 1}</span>
                 </span>
                 <div>
-                  <p className="font-semibold text-on-surface">{step.title}</p>
-                  <p className="mt-0.5 text-sm text-on-surface-variant">{step.text}</p>
+                  <p className="font-semibold text-on-surface">{t(step.title)}</p>
+                  <p className="mt-0.5 text-sm text-on-surface-variant">{t(step.text)}</p>
                 </div>
               </div>
             ))}
@@ -168,7 +172,7 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
           {onNavigateSearch && (
             <div className="mt-8 flex justify-center">
               <button type="button" onClick={onNavigateSearch} className="flex items-center gap-2 rounded-full bg-primary-container px-7 py-3 font-label-lg text-label-lg font-semibold text-on-primary shadow-md transition-all hover:bg-tertiary-container active:scale-95">
-                Tìm phòng ngay <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                {t('offers.findRoom')} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>
           )}

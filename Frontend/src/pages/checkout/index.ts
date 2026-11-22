@@ -1,5 +1,4 @@
 export * from './CheckoutPage';
-export * from './components/CheckoutUrgencyBanner';
 export * from './components/CheckoutStepper';
 export * from './components/ContactInfoSection';
 export * from './components/SpecialRequestsSection';

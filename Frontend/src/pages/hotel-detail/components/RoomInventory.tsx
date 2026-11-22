@@ -4,6 +4,7 @@ import { RoomCard } from './RoomCard';
 import { RoomDateRangePicker } from './RoomDateRangePicker';
 import { roomApi, AvailableRoom, localDate } from '../../../services/roomApi';
 import { resolveRoomSelection } from '../../../services/roomSelection';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 interface RoomInventoryProps {
   rooms: Room[]; hotelId?: number; datesText?: string; durationNights?: number; guestsText?: string;
@@ -12,6 +13,7 @@ interface RoomInventoryProps {
   onViewRoomDetail?: (room: Room) => void;
 }
 export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, initialCheckIn, initialCheckOut, initialGuests, onBookRoom, onViewRoomDetail }) => {
+  const { t } = useLanguage();
   const [hotelInput, setHotelInput] = useState(hotelId ? String(hotelId) : '');
   const [checkIn, setCheckIn] = useState(initialCheckIn || localDate());
   const [checkOut, setCheckOut] = useState(initialCheckOut || localDate(1));
@@ -30,7 +32,7 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     const version = ++requestVersion.current;
     setError(''); setChecked(null); setAvailable([]);
     if (!Number.isSafeInteger(hotel) || hotel <= 0 || !arrival || !departure || departure <= arrival) {
-      setLoading(false); setError('Chọn khách sạn và khoảng ngày hợp lệ.'); return;
+      setLoading(false); setError(t('rooms.invalidRange')); return;
     }
     setLoading(true);
     try {
@@ -39,9 +41,9 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
       setAvailable(result.rooms);
       setChecked({ hotel, hotelName: info.hotelName, hotelAddress: info.address, checkIn: arrival, checkOut: departure });
     }
-    catch (reason) { if (version === requestVersion.current) setError(reason instanceof Error ? reason.message : 'Không kiểm tra được phòng trống.'); }
+    catch (reason) { if (version === requestVersion.current) setError(reason instanceof Error ? reason.message : t('rooms.loadFailed')); }
     finally { if (version === requestVersion.current) setLoading(false); }
-  }, []);
+  }, [t]);
   useEffect(() => {
     requestVersion.current++;
     confirmationVersion.current++;
@@ -73,30 +75,30 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     } catch (reason) {
       if (version !== confirmationVersion.current) return;
       setChecked(null); setAvailable([]);
-      const message = reason instanceof Error ? reason.message : 'Không xác nhận được phòng trống.';
+      const message = reason instanceof Error ? reason.message : t('rooms.confirmFailed');
       setError(message);
       throw new Error(message);
     }
     finally { if (version === confirmationVersion.current) setPending(false); }
   };
   const cards: Room[] = validSelection ? available.filter(r => r.capacity >= guests).map(r => ({ id: String(r.roomId), roomId: r.roomId, hotelId: r.hotelId, hotelName: checked.hotelName, hotelAddress: checked.hotelAddress, requestedGuests: guests, checkIn, checkOut,
-    name: `${r.roomTypeName} · Phòng ${r.roomNumber}`, tag: 'Phòng trống', floor: `Tầng ${r.floor}`, remainingRooms: 1,
-    image: rooms.find(room => room.roomId === r.roomId)?.image || '/room-placeholder.svg', specs: [{ icon: 'person', text: `${r.capacity} khách` }], features: rooms.find(room => room.roomId === r.roomId)?.features || [],
-    packages: [{ id: 'base', name: 'Giá trung bình mỗi đêm', description: 'Đã tính giá theo ngày và phụ thu mùa vụ; tổng thanh toán được xác nhận tại checkout.', pricePerNight: r.price }],
-    cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || 'Liên hệ khách sạn để biết chính sách hủy.',
+    name: t('rooms.roomName', { type: r.roomTypeName, number: r.roomNumber }), tag: t('rooms.available'), floor: t('rooms.floor', { floor: r.floor }), remainingRooms: 1,
+    image: rooms.find(room => room.roomId === r.roomId)?.image || '/room-placeholder.svg', specs: [{ icon: 'person', text: t('rooms.capacity', { count: r.capacity }) }], features: rooms.find(room => room.roomId === r.roomId)?.features || [],
+    packages: [{ id: 'base', name: t('rooms.avgPrice'), description: t('rooms.avgPriceNote'), pricePerNight: r.price }],
+    cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || t('rooms.policyFallback'),
   })) : [];
-  return <><section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">Kiểm tra phòng trống</h2>
+  return <><section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">{t('rooms.title')}</h2>
     <form onSubmit={e => { e.preventDefault(); void search(); }} className="flex flex-wrap items-end gap-3"><fieldset disabled={loading || pending} className="flex flex-wrap gap-3">
-      {!hotelId && <label>Khách sạn<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>}
-      <label>Nhận phòng<input type="date" required min={localDate()} value={checkIn} onChange={e => setCheckIn(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
-      <label>Trả phòng<input type="date" required min={checkIn} value={checkOut} onChange={e => setCheckOut(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
-      <label>Số khách<input type="number" min="1" step="1" required value={guests} onChange={e => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value > 0) setGuests(value); }} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
-    </fieldset><button disabled={loading || pending} className="rounded-full bg-primary px-5 py-3 text-on-primary disabled:opacity-50">{loading ? 'Đang kiểm tra…' : 'Tìm phòng trống'}</button></form>
+      {!hotelId && <label>{t('rooms.hotel')}<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>}
+      <label>{t('detail.checkIn')}<input type="date" required min={localDate()} value={checkIn} onChange={e => setCheckIn(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
+      <label>{t('detail.checkOut')}<input type="date" required min={checkIn} value={checkOut} onChange={e => setCheckOut(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
+      <label>{t('rooms.guests')}<input type="number" min="1" step="1" required value={guests} onChange={e => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value > 0) setGuests(value); }} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
+    </fieldset><button disabled={loading || pending} className="rounded-full bg-primary px-5 py-3 text-on-primary disabled:opacity-50">{loading ? t('rooms.checking') : t('rooms.find')}</button></form>
     {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
     {validSelection && <p className="font-semibold">{checked.hotelName} · {checked.hotelAddress}</p>}
-    {pending && <p role="status">Đang xác nhận lại phòng trống…</p>}
-    {validSelection && !loading && !cards.length && <p>Không còn phòng trống cho khoảng ngày này.</p>}
-    {!validSelection && !loading && <p className="text-outline">Chọn khách sạn và ngày lưu trú để xem phòng còn trống.</p>}
+    {pending && <p role="status">{t('rooms.reconfirming')}</p>}
+    {validSelection && !loading && !cards.length && <p>{t('rooms.none')}</p>}
+    {!validSelection && !loading && <p className="text-outline">{t('rooms.prompt')}</p>}
     <div aria-busy={pending} className={pending ? 'pointer-events-none space-y-5 opacity-60' : 'space-y-5'}>{cards.map(room => <RoomCard key={`${room.id}-${checkIn}-${checkOut}`} room={room} durationNights={nights} onBookRoom={(selectedRoom, packageId) => setCalendarRequest({ room: selectedRoom, packageId })} onViewRoomDetail={onViewRoomDetail} />)}</div>
   </section>
   {calendarRequest && <RoomDateRangePicker room={calendarRequest.room} hotelId={Number(calendarRequest.room.hotelId || hotelInput)} initialCheckIn={calendarRequest.room.checkIn} initialCheckOut={calendarRequest.room.checkOut} onClose={() => { confirmationVersion.current++; setPending(false); setCalendarRequest(null); }} onConfirm={confirmRoomDates} />}</>;

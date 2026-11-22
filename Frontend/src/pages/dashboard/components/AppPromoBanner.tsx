@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage, TranslationKey } from '../../../i18n/LanguageContext';
 
 /**
  * Cấu hình qua .env (để trống = chưa phát hành file):
@@ -9,29 +10,31 @@ const APK_URL = (import.meta.env.VITE_ANDROID_APK_URL as string | undefined)?.tr
 const APK_QR = (import.meta.env.VITE_ANDROID_APK_QR as string | undefined)?.trim() || '';
 
 // Tính năng app Android đang có thật.
-const HIGHLIGHTS = ['Đặt phòng trong vài chạm', 'Thanh toán VNPay', 'Quản lý đơn mọi lúc'];
+const HIGHLIGHTS: TranslationKey[] = ['app.point1', 'app.point2', 'app.point3'];
 
 /** Dải giới thiệu ứng dụng Android — bố cục kiểu "Get the app" của các trang đặt phòng lớn. */
-export const AppPromoBanner: React.FC = () => (
+export const AppPromoBanner: React.FC = () => {
+  const { t } = useLanguage();
+  return (
   <section className="mx-auto mt-24 w-full max-w-[1440px] px-5" aria-labelledby="app-promo-title">
     <div className="relative grid items-end gap-6 rounded-2xl bg-gradient-to-r from-primary-fixed/45 via-surface-container-low to-surface-container-low px-8 pt-10 md:grid-cols-[1.15fr_1fr] md:px-14 md:pt-0">
 
       {/* Trái: thông điệp + hành động */}
       <div className="pb-10 md:py-12">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-primary">
-          <span className="material-symbols-outlined text-[20px]">android</span>Ứng dụng StayLuxe cho Android
+          <span className="material-symbols-outlined text-[20px]">android</span>{t('app.eyebrow')}
         </p>
         <h2 id="app-promo-title" className="mt-2 max-w-lg text-3xl font-semibold leading-tight tracking-tight text-on-surface md:text-4xl">
-          Đặt phòng nhanh hơn ngay trên điện thoại
+          {t('app.title')}
         </h2>
         <p className="mt-3 max-w-md text-on-surface-variant">
-          Dùng chung tài khoản với website — đơn đặt phòng và thanh toán luôn được đồng bộ.
+          {t('app.subtitle')}
         </p>
 
         <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
           {HIGHLIGHTS.map(h => (
             <li key={h} className="flex items-center gap-1.5 text-sm font-medium text-on-surface">
-              <span className="material-symbols-outlined text-[18px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>{h}
+              <span className="material-symbols-outlined text-[18px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>{t(h)}
             </li>
           ))}
         </ul>
@@ -42,8 +45,8 @@ export const AppPromoBanner: React.FC = () => (
               className="inline-flex items-center gap-3 rounded-2xl bg-on-surface px-5 py-2.5 text-surface transition-opacity hover:opacity-90">
               <span className="material-symbols-outlined text-[28px]">android</span>
               <span className="leading-tight">
-                <span className="block text-[11px] opacity-80">Tải xuống cho</span>
-                <span className="block text-base font-semibold">Android (APK)</span>
+                <span className="block text-[11px] opacity-80">{t('app.downloadFor')}</span>
+                <span className="block text-base font-semibold">{t('app.downloadName')}</span>
               </span>
             </a>
           ) : (
@@ -51,21 +54,21 @@ export const AppPromoBanner: React.FC = () => (
               className="inline-flex items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest px-5 py-2.5 text-on-surface-variant">
               <span className="material-symbols-outlined text-[28px]">android</span>
               <span className="leading-tight">
-                <span className="block text-[11px]">Sắp phát hành</span>
-                <span className="block text-base font-semibold">File cài đặt Android</span>
+                <span className="block text-[11px]">{t('app.comingSoon')}</span>
+                <span className="block text-base font-semibold">{t('app.comingSoonName')}</span>
               </span>
             </span>
           )}
 
           {APK_URL && APK_QR && (
             <div className="flex items-center gap-3">
-              <img src={APK_QR} alt="Mã QR tải ứng dụng StayLuxe cho Android" width={76} height={76}
+              <img src={APK_QR} alt={t('app.qrAlt')} width={76} height={76}
                 className="h-[76px] w-[76px] rounded-xl bg-white p-1.5 shadow-sm" />
-              <span className="max-w-[120px] text-xs text-on-surface-variant">Quét mã bằng camera điện thoại để tải</span>
+              <span className="max-w-[120px] text-xs text-on-surface-variant">{t('app.qrHint')}</span>
             </div>
           )}
         </div>
-        <p className="mt-3 text-xs text-outline">Yêu cầu Android 7.0 trở lên.</p>
+        <p className="mt-3 text-xs text-outline">{t('app.requirement')}</p>
       </div>
 
       {/* Phải: điện thoại tràn khỏi mép trên của dải */}
@@ -83,15 +86,15 @@ export const AppPromoBanner: React.FC = () => (
               </span>
               <span className="text-[13px] font-bold text-on-surface">StayLuxe</span>
             </div>
-            <p className="mt-3 text-[15px] font-semibold leading-snug text-on-surface">Bạn muốn nghỉ ở đâu?</p>
+            <p className="mt-3 text-[15px] font-semibold leading-snug text-on-surface">{t('app.mockWhere')}</p>
             <div className="mt-2.5 space-y-1.5 rounded-2xl bg-surface-container-lowest p-2.5 shadow-sm">
               <div className="flex items-center gap-1.5 rounded-full bg-surface-container-low px-2.5 py-1.5 text-[10px] text-on-surface-variant">
                 <span className="material-symbols-outlined text-[13px]">location_on</span>Đà Nẵng
               </div>
               <div className="flex items-center gap-1.5 rounded-full bg-surface-container-low px-2.5 py-1.5 text-[10px] text-on-surface-variant">
-                <span className="material-symbols-outlined text-[13px]">calendar_month</span>Nhận phòng · Trả phòng
+                <span className="material-symbols-outlined text-[13px]">calendar_month</span>{t('app.mockDates')}
               </div>
-              <div className="rounded-full bg-primary py-1.5 text-center text-[10px] font-semibold text-on-primary">Tìm phòng</div>
+              <div className="rounded-full bg-primary py-1.5 text-center text-[10px] font-semibold text-on-primary">{t('app.mockSearch')}</div>
             </div>
           </div>
           {/* thẻ khách sạn */}
@@ -111,5 +114,6 @@ export const AppPromoBanner: React.FC = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 export default AppPromoBanner;

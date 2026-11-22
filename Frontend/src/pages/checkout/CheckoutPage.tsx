@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { offerApi } from '../../services/offerApi';
-import { CheckoutUrgencyBanner } from './components/CheckoutUrgencyBanner';
 import { CheckoutStepper } from './components/CheckoutStepper';
 import { ContactInfoSection } from './components/ContactInfoSection';
 import { SpecialRequestsSection } from './components/SpecialRequestsSection';
@@ -8,6 +7,8 @@ import { PaymentMethodSection } from './components/PaymentMethodSection';
 import { OrderSummaryCard } from './components/OrderSummaryCard';
 import { DEFAULT_CHECKOUT_DATA } from './data/mockCheckoutData';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { vi } from '../../i18n/locales/vi';
 import { usePriceCalculationQuery } from '../../hooks/useBookingQueries';
 import { createBooking } from '../../services/bookingApi';
 import { createVnPayPayment } from '../../services/paymentApi';
@@ -30,6 +31,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   onBookingSuccess,
 }) => {
   const { session, profile } = useAuth();
+  const { t } = useLanguage();
   const [error, setError] = useState('');
   // Mã được chọn từ trang Ưu đãi ("Dùng ngay") được tự áp dụng khi vào thanh toán.
   const [bookingData, setBookingData] = useState<CheckoutBookingData>(() => {
@@ -59,11 +61,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   }, [profile, session]);
 
   const [specialRequests, setSpecialRequests] = useState<SpecialRequestOption[]>([
-    { id: 'high_floor', label: 'Tầng cao hướng biển', selected: true },
-    { id: 'non_smoking', label: 'Phòng không hút thuốc', selected: true },
-    { id: 'late_checkin', label: 'Check-in muộn (Sau 18:00)', selected: false },
-    { id: 'king_bed', label: 'Giường King cỡ lớn', selected: false },
-    { id: 'anniversary', label: 'Kỷ niệm ngày cưới / Trăng mật', selected: false },
+    // Mặc định KHÔNG chọn gì — chỉ gửi yêu cầu khi khách tự chọn.
+    { id: 'high_floor', label: vi['checkout.req.high_floor'], selected: false },
+    { id: 'non_smoking', label: vi['checkout.req.non_smoking'], selected: false },
+    { id: 'late_checkin', label: vi['checkout.req.late_checkin'], selected: false },
+    { id: 'king_bed', label: vi['checkout.req.king_bed'], selected: false },
+    { id: 'anniversary', label: vi['checkout.req.anniversary'], selected: false },
   ]);
 
   const [additionalNotes, setAdditionalNotes] = useState('');
@@ -111,7 +114,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         applyPrice(data, bookingData.couponCode);
         setError('');
       } else {
-        setError('Không thể tính toán giá phòng cho ngày đã chọn.');
+        setError(t('checkout.errPrice'));
       }
     });
 
@@ -123,7 +126,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Áp dụng Voucher với Cache Invalidation
   const handleApplyCoupon = async (code: string): Promise<boolean> => {
     if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) {
-      setError('Chọn phòng và ngày lưu trú trước.');
+      setError(t('checkout.errChooseRoom'));
       return false;
     }
 
@@ -150,7 +153,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     });
 
     if (!data) {
-      setError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      setError(t('checkout.errCoupon'));
       return false;
     }
 
@@ -163,15 +166,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     if (isSubmitting || isCalculating) return;
     setError('');
     if (!bookingData.roomId || !bookingData.checkIn || !bookingData.checkOut) {
-      setError('Vui lòng quay lại kiểm tra phòng trống và chọn phòng thực tế.');
+      setError(t('checkout.errRecheck'));
       return;
     }
     if (!contactInfo.fullName.trim() || !contactInfo.email.includes('@') || !contactInfo.phone.trim()) {
-      setError('Nhập đầy đủ họ tên, email và số điện thoại liên hệ.');
-      return;
-    }
-    if (selectedPaymentMethod === 'card_international') {
-      setError('Thanh toán thẻ quốc tế chưa được hỗ trợ. Vui lòng chọn phương thức khác.');
+      setError(t('checkout.errContact'));
       return;
     }
 
@@ -209,19 +208,33 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           window.location.href = vnpayRes.data.paymentUrl;
           return;
         } else {
-          setError(vnpayRes.message || 'Không thể tạo liên kết thanh toán VNPay.');
+          setError(vnpayRes.message || t('checkout.errVnpay'));
           return;
         }
       }
 
       if (onBookingSuccess) onBookingSuccess(result.bookingCode);
-      else alert(`Đã tạo booking ${result.bookingCode}. Vui lòng hoàn tất thanh toán tiền mặt khi nhận phòng.`);
+      else setError(t('checkout.createdCash', { code: result.bookingCode }));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Không tạo được booking.');
+      setError(reason instanceof Error ? reason.message : t('checkout.errCreate'));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!bookingData.roomId) {
+    return (
+      <main className="w-full pt-32 pb-16 bg-background min-h-screen px-5">
+        <div className="mx-auto max-w-lg rounded-2xl bg-surface-container-lowest p-10 text-center shadow-sm">
+          <span className="material-symbols-outlined text-5xl text-outline-variant">bed</span>
+          <p className="mt-3 text-on-surface">{t('checkout.noRoom')}</p>
+          {onNavigateBack && (
+            <button type="button" onClick={onNavigateBack} className="mt-5 rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary">{t('checkout.findRoom')}</button>
+          )}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="w-full pt-20 bg-background min-h-screen">
@@ -234,8 +247,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           {/* Main 1440px Wrapper */}
           <div className="max-w-[1440px] mx-auto w-full px-margin-mobile md:px-margin py-space-md md:py-space-lg flex flex-col gap-space-lg">
             {/* Top Urgency Banner with Live Countdown */}
-            {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
-            <CheckoutUrgencyBanner />
+            {error && <p role="alert" className="rounded-2xl bg-error-container p-4 text-on-error-container">{error}</p>}
 
             {/* Stepper & Headline Area */}
             <CheckoutStepper onBackToHotel={onNavigateBack} />
@@ -264,6 +276,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   onSelectMethod={setSelectedPaymentMethod}
                   depositAmount={bookingData.depositAmount}
                   remainingAmount={bookingData.remainingAmount}
+                  depositPercentage={bookingData.depositPercentage}
                 />
               </div>
 

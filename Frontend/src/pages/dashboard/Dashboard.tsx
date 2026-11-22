@@ -5,6 +5,7 @@ import { SearchCard } from './components/SearchCard';
 import { discoveryApi, defaultSelection, HotelCardData, mediaUrl } from '../../services/discoveryApi';
 import { PrivilegeBanner } from './components/PrivilegeBanner';
 import { AppPromoBanner } from './components/AppPromoBanner';
+import { useLanguage, formatMoney } from '../../i18n/LanguageContext';
 
 interface DashboardProps {
   onNavigateSearch?: (params: DiscoverySelection) => void;
@@ -13,6 +14,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch, onRegister, onLogin }) => {
+  const { t, locale } = useLanguage();
   const [suggestions, setSuggestions] = useState<HotelCardData[]>([]);
   const [suggestionError, setSuggestionError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -44,19 +46,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch, onRegist
         <section className="mx-auto mt-12 w-full max-w-[1440px] px-5">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold text-on-surface md:text-3xl">Khách sạn còn phòng hôm nay</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Giá cho 1 phòng, 2 người lớn, đêm nay</p>
+              <h2 className="text-2xl font-semibold text-on-surface md:text-3xl">{t('hotels.title')}</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">{t('hotels.subtitle')}</p>
             </div>
             {onNavigateSearch && (
               <button type="button" onClick={() => onNavigateSearch(defaultSelection())}
                 className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
-                Xem tất cả<span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                {t('hotels.viewAll')}<span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             )}
           </div>
           {suggestionError && <p role="alert" className="rounded-2xl bg-error-container p-4 text-sm text-on-error-container">{suggestionError}</p>}
           {!loading && !suggestionError && !suggestions.length && (
-            <p className="rounded-2xl bg-surface-container-low p-8 text-center text-sm text-on-surface-variant">Chưa có phòng trống cho hôm nay. Hãy chọn ngày khác.</p>
+            <p className="rounded-2xl bg-surface-container-low p-8 text-center text-sm text-on-surface-variant">{t('hotels.empty')}</p>
           )}
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {loading && Array.from({ length: 4 }).map((_, i) => (
@@ -71,7 +73,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch, onRegist
                 <div className="relative aspect-[4/3] overflow-hidden bg-surface-container">
                   {h.imageUrl && <img src={mediaUrl(h.imageUrl)} alt={h.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}
                   {h.availableRooms <= 3 && (
-                    <span className="absolute left-3 top-3 rounded-full bg-surface-container-lowest/95 px-2.5 py-1 text-xs font-semibold text-error shadow-sm">Chỉ còn {h.availableRooms} phòng</span>
+                    <span className="absolute left-3 top-3 rounded-full bg-surface-container-lowest/95 px-2.5 py-1 text-xs font-semibold text-error shadow-sm">{t('hotels.onlyLeft', { count: h.availableRooms })}</span>
                   )}
                 </div>
                 <div className="flex flex-1 flex-col p-4">
@@ -79,13 +81,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch, onRegist
                   <p className="mt-0.5 flex items-center gap-1 text-sm text-on-surface-variant">
                     <span className="material-symbols-outlined text-[16px]">location_on</span>{h.city}
                   </p>
-                  <p className="mt-2 line-clamp-1 text-xs text-on-surface-variant">{h.roomTypeName} · tối đa {h.capacity} khách</p>
+                  <p className="mt-2 line-clamp-1 text-xs text-on-surface-variant">{t('hotels.roomInfo', { roomType: h.roomTypeName, capacity: h.capacity })}</p>
                   <div className="mt-auto flex items-end justify-between gap-2 pt-4">
-                    <span className="text-xs text-emerald-700">{h.availableRooms} phòng trống</span>
+                    <span className="text-xs text-emerald-700">{t('hotels.available', { count: h.availableRooms })}</span>
                     <span className="text-right">
-                      <span className="block text-[11px] text-on-surface-variant">Từ</span>
-                      <strong className="text-lg text-on-surface">{h.pricePerNight.toLocaleString('vi-VN')} ₫</strong>
-                      <span className="text-xs text-on-surface-variant"> /đêm</span>
+                      <span className="block text-[11px] text-on-surface-variant">{t('hotels.from')}</span>
+                      <strong className="text-lg text-on-surface">{formatMoney(h.pricePerNight, locale)}</strong>
+                      <span className="text-xs text-on-surface-variant"> {t('hotels.perNight')}</span>
                     </span>
                   </div>
                 </div>

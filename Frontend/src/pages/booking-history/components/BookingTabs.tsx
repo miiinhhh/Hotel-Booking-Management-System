@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../../i18n/LanguageContext';
 import { BookingTab, BookingStats } from '../types';
 
 interface BookingTabsProps {
@@ -20,6 +21,7 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
   sortBy,
   onSortChange,
 }) => {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
       {/* Status Tabs (Pill Navigation with Counters) */}
@@ -33,7 +35,7 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
               : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
           }`}
         >
-          <span>Sắp tới (Upcoming)</span>
+          <span>{t('history.tabUpcoming')}</span>
           <span
             className={`px-2 py-0.5 rounded-full font-label-sm text-[11px] font-bold ${
               activeTab === 'upcoming'
@@ -54,7 +56,7 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
               : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
           }`}
         >
-          <span>Hoàn tất (Completed)</span>
+          <span>{t('history.tabCompleted')}</span>
           <span
             className={`px-2 py-0.5 rounded-full font-label-sm text-[11px] ${
               activeTab === 'completed'
@@ -75,7 +77,7 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
               : 'bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
           }`}
         >
-          <span>Đã hủy (Cancelled)</span>
+          <span>{t('history.tabCancelled')}</span>
           <span
             className={`px-2 py-0.5 rounded-full font-label-sm text-[11px] ${
               activeTab === 'cancelled'
@@ -100,7 +102,7 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full bg-surface-container-lowest text-body-md text-on-surface pl-11 pr-4 py-2.5 rounded-full shadow-[0_4px_20px_-2px_rgba(120,53,15,0.04)] outline-none focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline"
-            placeholder="Tìm theo mã đơn hoặc tên resort..."
+            placeholder={t('history.searchPh')}
           />
           {searchQuery && (
             <button
@@ -119,9 +121,9 @@ export const BookingTabs: React.FC<BookingTabsProps> = ({
             onChange={(e) => onSortChange(e.target.value)}
             className="appearance-none bg-surface-container-lowest pl-9 pr-8 py-2.5 rounded-full shadow-[0_4px_20px_-2px_rgba(120,53,15,0.04)] text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors outline-none cursor-pointer"
           >
-            <option value="recent">Gần đây nhất</option>
-            <option value="checkin-asc">Ngày nhận phòng tăng dần</option>
-            <option value="price-desc">Tổng tiền cao nhất</option>
+            <option value="recent">{t('history.sortRecent')}</option>
+            <option value="checkin-asc">{t('history.sortCheckin')}</option>
+            <option value="price-desc">{t('history.sortPrice')}</option>
           </select>
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline pointer-events-none">
             calendar_today

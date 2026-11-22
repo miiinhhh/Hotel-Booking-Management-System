@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLanguage, TranslationKey } from '../../../i18n/LanguageContext';
 import { BookingItem } from '../types';
 import { reviewApi } from '../../../services/reviewApi';
-import { composeReviewComment, CriteriaRatings, DEFAULT_CRITERIA, parseReviewComment } from '../reviewFormat';
+import { composeReviewComment, CriteriaRatings, DEFAULT_CRITERIA, parseReviewComment, REVIEW_TAGS, tagLabelKey } from '../reviewFormat';
 
 export interface ReviewStayModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   onClose,
   onSubmitReview,
 }) => {
+  const { t } = useLanguage();
   // Overall rating
   const [overallRating, setOverallRating] = useState(5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
@@ -62,7 +64,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
         setComment(parsed.comment);
         setSelectedTags(parsed.tags);
       })
-      .catch((error) => { if (alive) setSubmitError(error instanceof Error ? error.message : 'Không tải được đánh giá trước đó.'); })
+      .catch((error) => { if (alive) setSubmitError(error instanceof Error ? error.message : t('review.loadExistingFailed')); })
       .finally(() => { if (alive) setLoadingExisting(false); });
     return () => { alive = false; };
   }, [booking, isOpen]);
@@ -80,15 +82,15 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   const getRatingBadgeText = (score: number) => {
     switch (score) {
       case 5:
-        return '5/5 sao · Tuyệt vời & Vượt mong đợi';
+        return t('review.rate5');
       case 4:
-        return '4/5 sao · Rất hài lòng & Dịch vụ tốt';
+        return t('review.rate4');
       case 3:
-        return '3/5 sao · Hài lòng & Đạt yêu cầu';
+        return t('review.rate3');
       case 2:
-        return '2/5 sao · Cần cải thiện dịch vụ';
+        return t('review.rate2');
       default:
-        return '1/5 sao · Chưa hài lòng';
+        return t('review.rate1');
     }
   };
 
@@ -108,13 +110,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   };
 
   // Quick tag list
-  const availableTags = [
-    'Không gian yên tĩnh',
-    'Nhân viên nhiệt tình',
-    'Phòng sạch sẽ',
-    'Vị trí thuận tiện',
-    'Bữa sáng phong phú',
-  ]
+  const availableTags: string[] = REVIEW_TAGS.map(tag => tag.value);
 
   const handleToggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -134,7 +130,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   const handleSubmit = async () => {
     if (isSubmitting || loadingExisting) return;
     const bookingId = Number(booking.id);
-    if (!Number.isSafeInteger(bookingId) || bookingId <= 0) { setSubmitError('Mã đặt phòng không hợp lệ.'); return; }
+    if (!Number.isSafeInteger(bookingId) || bookingId <= 0) { setSubmitError(t('review.invalidBooking')); return; }
     setIsSubmitting(true);
     setSubmitError('');
     try {
@@ -144,7 +140,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
       else await reviewApi.create(bookingId, overallRating, fullComment);
       onSubmitReview(booking.id, overallRating, isUpdate);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Không gửi được đánh giá. Vui lòng thử lại.');
+      setSubmitError(error instanceof Error ? error.message : t('review.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -154,15 +150,6 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* UNDERLYING CONTEXTUAL AMBIENT BACKGROUND */}
-      <div className="fixed inset-0 z-0 pointer-events-none filter blur-sm scale-[1.01] select-none opacity-40">
-        <div
-          className="h-full w-full bg-cover bg-center"
-          style={{
-            backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuDKJiFktCkZPVtynmzSfxjtPMkS9ieT6CiRpM5pbEUgAZzobcsaNYWYKblTOOVrrSypt7kTHRzh-WCu_2iBrzQL8i3JglnmdfXvaQpulEtgas5H9ASO1od6hNckPpmdnZjtLGxmQ-CaQoIjHf944Yn6VHOX989tTioSEu-_QsDHrna6diiVGVtrMGQIt0VX6xhwrP97MiXmtN0EpwGZ6SkagfWl4H9vroKQrlHlvnqe')`,
-          }}
-        />
-      </div>
 
       {/* Dimmed luxury overlay */}
       <div
@@ -185,14 +172,14 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                   >
                     verified
                   </span>
-                  Đặt phòng đã hoàn thành
+                  {t('review.completedStay')}
                 </span>
                 <span className="text-xs text-outline font-medium">
-                  Mã: {booking.bookingCode}
+                  {t('review.code')} {booking.bookingCode}
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-bold font-headline-sm text-on-surface mt-1.5 tracking-tight">
-                {existingReviewId !== null ? 'Chỉnh sửa đánh giá của bạn' : 'Đánh giá kỳ nghỉ của bạn'}
+                {existingReviewId !== null ? t('review.editTitle') : t('review.newTitle')}
               </h2>
               <p className="text-secondary text-xs sm:text-sm font-body-md mt-0.5 flex items-center gap-1.5">
                 <span
@@ -209,7 +196,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
 
             {/* Close modal button */}
             <button
-              aria-label="Đóng hộp thoại"
+              aria-label={t('review.closeDialog')}
               onClick={onClose}
               className="w-9 h-9 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors shadow-sm focus:outline-none cursor-pointer"
               type="button"
@@ -223,7 +210,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
             {/* SECTION 1: OVERALL RATING */}
             <div className="bg-surface-container-low/70 rounded-2xl p-6 text-center border border-outline-variant/30 flex flex-col items-center">
               <p className="text-xs font-semibold uppercase tracking-wider text-outline mb-2">
-                Trải nghiệm tổng quan
+                {t('review.overall')}
               </p>
 
               {/* 5 Big Star Selector */}
@@ -270,10 +257,10 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-on-surface flex items-center gap-2">
                   <span className="material-symbols-outlined text-base text-primary">tune</span>
-                  Chi tiết theo tiêu chí
+                  {t('review.byCriteria')}
                 </h3>
                 <span className="text-xs text-outline font-medium">
-                  Trung bình: {averageCriteriaScore} / 5.0
+                  {t('review.average')} {averageCriteriaScore} / 5.0
                 </span>
               </div>
 
@@ -285,8 +272,8 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                       <span className="material-symbols-outlined text-base">cleaning_services</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-on-surface">Sạch sẽ &amp; Vệ sinh</p>
-                      <p className="text-[11px] text-outline">Độ tinh tươm, buồng phòng</p>
+                      <p className="text-xs font-semibold text-on-surface">{t('review.crit.cleanliness')}</p>
+                      <p className="text-[11px] text-outline">{t('review.critHint.cleanliness')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 text-primary-container">
@@ -322,8 +309,8 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                       <span className="material-symbols-outlined text-base">landscape</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-on-surface">Vị trí &amp; Cảnh quan</p>
-                      <p className="text-[11px] text-outline">Bãi biển, khu nghỉ dưỡng</p>
+                      <p className="text-xs font-semibold text-on-surface">{t('review.crit.location')}</p>
+                      <p className="text-[11px] text-outline">{t('review.critHint.location')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 text-primary-container">
@@ -359,8 +346,8 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                       <span className="material-symbols-outlined text-base">room_service</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-on-surface">Chất lượng dịch vụ</p>
-                      <p className="text-[11px] text-outline">Thân thiện, hỗ trợ tận tâm</p>
+                      <p className="text-xs font-semibold text-on-surface">{t('review.crit.service')}</p>
+                      <p className="text-[11px] text-outline">{t('review.critHint.service')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 text-primary-container">
@@ -396,8 +383,8 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                       <span className="material-symbols-outlined text-base">pool</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-on-surface">Tiện nghi &amp; Phòng ốc</p>
-                      <p className="text-[11px] text-outline">Hồ bơi riêng, giường ngủ</p>
+                      <p className="text-xs font-semibold text-on-surface">{t('review.crit.facilities')}</p>
+                      <p className="text-[11px] text-outline">{t('review.critHint.facilities')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 text-primary-container">
@@ -433,9 +420,9 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                       <span className="material-symbols-outlined text-base">loyalty</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-on-surface">Đáng giá tiền</p>
+                      <p className="text-xs font-semibold text-on-surface">{t('review.crit.value')}</p>
                       <p className="text-[11px] text-outline">
-                        Xứng đáng với chi phí &amp; tiêu chuẩn 5 sao
+                        {t('review.critHint.value')}
                       </p>
                     </div>
                   </div>
@@ -475,10 +462,10 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                   htmlFor="review-content"
                 >
                   <span className="material-symbols-outlined text-base text-primary">edit_note</span>
-                  Chia sẻ trải nghiệm chi tiết
+                  {t('review.share')}
                 </label>
                 <span className="text-[11px] text-outline" id="char-count">
-                  {comment.length} / 1000 ký tự
+                  {t('review.chars', { count: comment.length })}
                 </span>
               </div>
 
@@ -503,7 +490,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                       >
                         {isSelected ? 'check' : 'add'}
                       </span>
-                      <span>{tag}</span>
+                      <span>{t((tagLabelKey(tag) ?? 'review.tag.quiet') as TranslationKey)}</span>
                     </button>
                   );
                 })}
@@ -517,14 +504,14 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                   maxLength={1000}
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Chia sẻ trải nghiệm của bạn về phòng ốc, dịch vụ, nhân viên hoặc những điều bạn ấn tượng nhất trong kỳ nghỉ..."
+                  placeholder={t('review.placeholder')}
                   className="w-full rounded-2xl border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary p-4 text-on-surface bg-surface-container-low/40 text-xs sm:text-sm placeholder:text-outline/70 leading-relaxed transition resize-none outline-none"
                 />
               </div>
             </div>
 
             {loadingExisting && (
-              <p role="status" className="text-xs text-on-surface-variant">Đang tải đánh giá trước đó…</p>
+              <p role="status" className="text-xs text-on-surface-variant">{t('review.loadingExisting')}</p>
             )}
             {submitError && (
               <p role="alert" className="rounded-xl bg-error-container p-3 text-xs sm:text-sm text-on-error-container">{submitError}</p>
@@ -540,7 +527,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
               >
                 security
               </span>
-              Đánh giá được xác thực bởi thuật toán minh bạch StayLuxe.
+              {t('review.moderationNote')}
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -549,7 +536,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                 onClick={onClose}
                 className="w-1/2 sm:w-auto px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors focus:outline-none cursor-pointer"
               >
-                Hủy &amp; Để sau
+                {t('review.later')}
               </button>
               <button
                 type="button"
@@ -562,11 +549,11 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
                     <span className="material-symbols-outlined text-base animate-spin">
                       progress_activity
                     </span>
-                    <span>Đang gửi...</span>
+                    <span>{t('review.sending')}</span>
                   </>
                 ) : (
                   <>
-                    <span>{existingReviewId !== null ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}</span>
+                    <span>{existingReviewId !== null ? t('review.update') : t('review.submit')}</span>
                     <span className="material-symbols-outlined text-base">send</span>
                   </>
                 )}

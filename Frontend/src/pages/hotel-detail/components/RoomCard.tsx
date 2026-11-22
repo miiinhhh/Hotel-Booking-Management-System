@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Room } from '../types';
+import { useLanguage, formatMoney } from '../../../i18n/LanguageContext';
 
 interface RoomCardProps {
   room: Room;
@@ -14,6 +15,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   onBookRoom,
   onViewRoomDetail,
 }) => {
+  const { t, locale } = useLanguage();
   // Determine initial selected package
   const defaultPackageId =
     room.packages?.find((p) => p.isRecommended)?.id || room.packages?.[0]?.id;
@@ -55,8 +57,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             }`}
           >
             {room.remainingRooms === 1
-              ? 'Chỉ còn 1 phòng cuối'
-              : `Còn ${room.remainingRooms} phòng`}
+              ? t('rooms.lastOne')
+              : t('rooms.left', { count: room.remainingRooms })}
           </span>
 
           {/* Zoom / View Detail Button */}
@@ -66,7 +68,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm flex items-center gap-1 shadow hover:bg-surface-container-lowest transition-colors cursor-pointer border-0 active:scale-95"
           >
             <span className="material-symbols-outlined text-[15px]">zoom_in</span>
-            <span>Xem chi tiết phòng</span>
+            <span>{t('rooms.viewDetail')}</span>
           </button>
         </div>
       </div>
@@ -76,13 +78,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span
-              className={`px-2.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold ${
-                room.tag === 'Biệt thự đắt giá nhất'
-                  ? 'bg-primary-fixed text-on-primary-fixed'
-                  : room.tag === 'Đặc quyền Hoàng Gia'
-                  ? 'bg-tertiary-fixed text-on-tertiary-fixed'
-                  : 'bg-surface-container-high text-on-surface'
-              }`}
+              className="px-2.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold bg-surface-container-high text-on-surface"
             >
               {room.tag}
             </span>
@@ -129,9 +125,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         {/* Package Tiers Selector (if multiple packages available) */}
         {room.packages && room.packages.length > 0 && (
           <div className="flex flex-col gap-2 mt-2">
-            <span className="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider font-semibold">
-              Tùy chọn gói phòng
-            </span>
+            <span className="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider font-semibold">{t('rooms.packages')}</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {room.packages.map((pkg) => {
                 const isSelected = selectedPackageId === pkg.id;
@@ -171,7 +165,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                           isSelected ? 'text-primary' : 'text-secondary'
                         }`}
                       >
-                        {pkg.pricePerNight.toLocaleString('vi-VN')}₫ / đêm
+                        {formatMoney(pkg.pricePerNight, locale)} {t('rooms.perNight')}
                       </span>
                     </div>
                   </label>
@@ -193,10 +187,8 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               </span>
             </div>
             <span className="font-headline-sm text-headline-sm text-primary font-bold shrink-0">
-              {room.allInclusiveDetail.pricePerNight.toLocaleString('vi-VN')}₫{' '}
-              <span className="font-body-md text-body-md text-on-surface-variant font-normal">
-                / đêm
-              </span>
+              {formatMoney(room.allInclusiveDetail.pricePerNight, locale)}{' '}
+              <span className="font-body-md text-body-md text-on-surface-variant font-normal">{t('rooms.perNight')}</span>
             </span>
           </div>
         )}
@@ -205,17 +197,13 @@ export const RoomCard: React.FC<RoomCardProps> = ({
       {/* Right Pricing & Booking Action Column */}
       <div className="xl:w-72 bg-surface-container-low/50 p-space-md md:p-space-lg flex flex-col justify-between items-start xl:items-end gap-4 shrink-0 border-t xl:border-t-0 xl:border-l border-surface-container/60">
         <div className="flex flex-col w-full xl:text-right">
-          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-            Tổng cộng cho {durationNights} đêm
-          </span>
+          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">{t('rooms.totalFor', { count: durationNights })}</span>
           <div className="flex items-baseline justify-start xl:justify-end gap-1 mt-1">
             <span className="font-headline-lg text-headline-lg text-primary font-bold tracking-tight">
-              {totalPrice.toLocaleString('vi-VN')}₫
+              {formatMoney(totalPrice, locale)}
             </span>
           </div>
-          <span className="font-body-md text-body-md text-on-surface-variant text-xs mt-0.5">
-            Giá tham khảo, xác nhận lại khi đặt
-          </span>
+          <span className="font-body-md text-body-md text-on-surface-variant text-xs mt-0.5">{t('rooms.indicative')}</span>
           <span className="inline-flex items-center gap-1 text-tertiary font-label-sm text-label-sm mt-2 xl:self-end">
             <span className="material-symbols-outlined text-[15px]">
               check_circle
@@ -230,7 +218,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             onClick={handleBook}
             className="w-full py-3.5 px-6 rounded-full bg-primary-container hover:bg-tertiary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 group cursor-pointer border-0"
           >
-            <span>Chọn ngày &amp; đặt</span>
+            <span>{t('rooms.chooseAndBook')}</span>
             <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">
               arrow_forward
             </span>
