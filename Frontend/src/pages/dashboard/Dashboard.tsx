@@ -4,6 +4,7 @@ import { HeroBanner } from './components/HeroBanner';
 import { SearchCard } from './components/SearchCard';
 import { discoveryApi, defaultSelection, HotelCardData, mediaUrl } from '../../services/discoveryApi';
 import { PrivilegeBanner } from './components/PrivilegeBanner';
+import { AppPromoBanner } from './components/AppPromoBanner';
 
 interface DashboardProps {
   onNavigateSearch?: (params: DiscoverySelection) => void;
@@ -94,6 +95,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigateSearch, onRegist
         </section>
 
         {/* CURATED PRIVILEGES BANNER */}
+        {/* ỨNG DỤNG ANDROID */}
+        <AppPromoBanner />
+
         <PrivilegeBanner onRegister={onRegister} onLogin={onLogin} />
       </div>
     </main>
