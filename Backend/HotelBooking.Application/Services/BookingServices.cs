@@ -288,6 +288,20 @@ public class BookingServices : IBookingService
             staffUserId
         );
 
+        // Thông tin hiển thị: khách sạn, hạng phòng, ảnh (theo phòng đầu tiên của đơn).
+        var firstRoomIds = bookings.Select(b => b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0).Where(id => id > 0).Distinct().ToList();
+        var display = await _bookingRepository.GetRoomDisplayInfoAsync(firstRoomIds);
+        // Số tiền hoàn thật cho đơn đã/đang hoàn tiền.
+        var refunds = new Dictionary<long, (decimal Amount, DateTime? At)>();
+        if (_paymentRepository != null)
+        {
+            foreach (var b in bookings.Where(x => x.PaymentStatus is "RefundPending" or "Refunded"))
+            {
+                var refund = (await _paymentRepository.GetByBookingIdAsync(b.BookingId))?.FirstOrDefault(p => p.PaymentType == PaymentType.Refund);
+                if (refund != null) refunds[b.BookingId] = (refund.Amount, refund.PaidAt);
+            }
+        }
+
         var listDto = bookings.Select(b => new BookingListDto
         {
             BookingId = b.BookingId,
@@ -301,7 +315,12 @@ public class BookingServices : IBookingService
             TotalAmount = b.TotalAmount,
             DepositAmount = b.DepositAmount,
             RoomCount = b.BookingDetails?.Count ?? 0,
-            CreatedAt = b.CreatedAt
+            CreatedAt = b.CreatedAt,
+            HotelName = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.HotelName,
+            RoomTypeName = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.RoomTypeName,
+            ImageUrl = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.ImageUrl,
+            RefundAmount = refunds.TryGetValue(b.BookingId, out var rf) ? rf.Amount : null,
+            RefundedAt = refunds.TryGetValue(b.BookingId, out var rf2) ? rf2.At : null
         }).ToList();
 
         return ApiResponse<List<BookingListDto>>.SuccessResult(listDto);

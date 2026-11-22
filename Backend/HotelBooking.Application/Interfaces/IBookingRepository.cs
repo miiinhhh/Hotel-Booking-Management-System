@@ -15,6 +15,8 @@ public interface IBookingRepository
     Task<bool> IsRoomBookedAsync(long roomId, DateOnly checkIn, DateOnly checkOut, long? excludeBookingId = null);
     Task<bool> IsStaffAssignedToBookingAsync(long bookingId, long staffUserId);
     Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId);
+    /// <summary>Tên khách sạn, hạng phòng và ảnh đại diện theo RoomId (hiển thị danh sách đơn).</summary>
+    Task<Dictionary<long, BookingRoomDisplay>> GetRoomDisplayInfoAsync(IReadOnlyCollection<long> roomIds);
     Task AddAsync(Booking booking);
     Task<bool> TryReserveAsync(Booking booking);
     /// <summary>
@@ -33,3 +35,5 @@ public interface IBookingRepository
     Task AddStatusHistoryAsync(BookingStatusHistory history);
     Task SaveChangesAsync();
 }
+
+public sealed record BookingRoomDisplay(string HotelName, string RoomTypeName, string? ImageUrl);

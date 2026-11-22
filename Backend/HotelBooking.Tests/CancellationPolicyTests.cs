@@ -209,6 +209,7 @@ public class CancellationPolicyTests
 
         public Task<bool> TrySaveReservedAsync(Booking booking) => Task.FromResult(true);
         public Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut) => Task.FromResult(true);
+        public Task<Dictionary<long, BookingRoomDisplay>> GetRoomDisplayInfoAsync(IReadOnlyCollection<long> roomIds) => Task.FromResult(new Dictionary<long, BookingRoomDisplay>());
 
         public Task UpdateAsync(Booking booking)
         {

@@ -9,6 +9,7 @@ import {
   BookingListDto,
 } from '../services/bookingApi';
 import { BookingItem } from '../pages/booking-history/types';
+import { mediaUrl } from '../services/discoveryApi';
 
 /**
  * Hook truy vấn và đồng bộ danh sách đơn đặt phòng kèm Invalidation Bus
@@ -31,7 +32,7 @@ export function useBookingsQuery() {
       hotelCategory: '',
       location: '',
       roomType: b.roomTypeName || '',
-      image: b.imageUrl || '/room-placeholder.svg',
+      image: mediaUrl(b.imageUrl),
       imageAlt: b.hotelName || '',
       checkInDate: b.checkInDate,
       checkInDetail: '',

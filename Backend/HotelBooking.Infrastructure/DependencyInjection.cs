@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddSingleton<IImageStorage, LocalImageStorage>();
         services.AddHostedService<ImageCleanupWorker>();
         services.AddHostedService<BookingHoldExpirationWorker>();
+        services.AddHostedService<BookingAutoCompleteWorker>();
         services.AddScoped<IHotelAreaRepository, HotelAreaRepository>();
         services.AddScoped<IDiscoveryRepository, DiscoveryRepository>();
 

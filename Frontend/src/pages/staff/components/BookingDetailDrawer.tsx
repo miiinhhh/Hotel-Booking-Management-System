@@ -11,6 +11,8 @@ interface BookingDetailDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onCheckIn: (booking: StaffBooking) => void | Promise<void>;
+  /** Trả phòng: chuyển đơn sang Hoàn tất (khách có thể đánh giá). */
+  onCheckOut?: (booking: StaffBooking) => void | Promise<void>;
   onCancelBooking: (booking: StaffBooking) => void | Promise<void>;
   onUpdateNotes?: (bookingId: string, notes: string, approval: 'accepted' | 'rejected') => void;
   onRefundBooking?: (booking: StaffBooking, message: string) => void;
@@ -20,14 +22,14 @@ interface BookingDetailDrawerProps {
 }
 
 /** Thao tác cần xác nhận trước khi gọi máy chủ. */
-type Pending = 'checkin' | 'cash' | 'refund-vnpay' | 'refund-manual' | 'cancel';
+type Pending = 'checkin' | 'checkout' | 'cash' | 'refund-vnpay' | 'refund-manual' | 'cancel';
 
 /**
  * Panel chi tiết đơn cho lễ tân: khách · lưu trú · thanh toán · yêu cầu đặc biệt,
  * và thanh thao tác dưới cùng chỉ hiện đúng bước kế tiếp theo trạng thái + quyền.
  */
 export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
-  booking, isOpen, onClose, onCheckIn, onCancelBooking, onRefundBooking, onConfirmPayment, onRescheduled,
+  booking, isOpen, onClose, onCheckIn, onCheckOut, onCancelBooking, onRefundBooking, onConfirmPayment, onRescheduled,
 }) => {
   const { hasPermission } = useAuth();
   const canManageBooking = hasPermission(PERMISSIONS.bookingManage);
@@ -72,6 +74,8 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
     try {
       if (pending === 'checkin') {
         await onCheckIn(booking);
+      } else if (pending === 'checkout') {
+        await onCheckOut?.(booking);
       } else if (pending === 'cancel') {
         await onCancelBooking(booking);
       } else if (pending === 'cash') {
@@ -103,6 +107,14 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
         : <p>Xác nhận khách <b>{booking.customerName}</b> đã nhận phòng.</p>,
       cta: owing ? 'Vẫn check-in' : 'Check-in',
     },
+    checkout: {
+      title: `Check-out phòng ${booking.roomNumber}?`,
+      body: owing
+        ? <p className="rounded bg-amber-50 p-3 text-amber-900"><b>Chưa thu đủ tiền:</b> đơn còn thiếu <b>{vnd(booking.remainingAmount)}</b>. Hãy thu tiền trước khi trả phòng, hoặc xác nhận vẫn check-out.</p>
+        : <p>Xác nhận khách <b>{booking.customerName}</b> đã trả phòng. Đơn chuyển sang <b>Đã trả phòng</b> và khách có thể viết đánh giá kỳ nghỉ.</p>,
+      cta: owing ? 'Vẫn check-out' : 'Check-out',
+      danger: owing,
+    },
     cash: {
       title: 'Xác nhận đã thu tiền tại quầy',
       body: <dl className="space-y-1.5 rounded bg-surface-container-low p-3">
@@ -129,14 +141,18 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
     },
   };
 
+  const canCheckOut = booking.status === 'checked_in' && canManageBooking && Boolean(onCheckOut);
+
   /** Thao tác chính ở thanh dưới, theo đúng bước kế tiếp. */
   const primary: { label: string; icon: string; action: Pending } | null =
     refundPending && canManagePayment ? { label: 'Hoàn tiền qua VNPay', icon: 'currency_exchange', action: 'refund-vnpay' }
       : booking.status === 'confirmed_deposit' && canManageBooking ? { label: `Check-in · ${booking.roomNumber}`, icon: 'key', action: 'checkin' }
       : owing && canManagePayment ? { label: `Thu ${vnd(booking.remainingAmount)}`, icon: 'point_of_sale', action: 'cash' }
+      : canCheckOut ? { label: `Check-out · ${booking.roomNumber}`, icon: 'logout', action: 'checkout' }
       : null;
 
   const secondary: { label: string; icon: string; action: Pending; danger?: boolean }[] = [];
+  if (canCheckOut && primary?.action !== 'checkout') secondary.push({ label: 'Check-out', icon: 'logout', action: 'checkout' });
   if (refundPending && canManagePayment) secondary.push({ label: 'Đã hoàn tiền thủ công', icon: 'receipt_long', action: 'refund-manual' });
   if (owing && canManagePayment && primary?.action !== 'cash') secondary.push({ label: `Thu ${vnd(booking.remainingAmount)}`, icon: 'point_of_sale', action: 'cash' });
   if (canManageBooking && (booking.status === 'pending_deposit' || booking.status === 'confirmed_deposit')) secondary.push({ label: 'Hủy đơn', icon: 'block', action: 'cancel', danger: true });

@@ -191,6 +191,40 @@ public class BookingRepository : IBookingRepository
             .AnyAsync(r => bookingRoomIds.Contains(r.RoomId) && areaIds.Contains(r.AreaId));
     }
 
+    public async Task<Dictionary<long, BookingRoomDisplay>> GetRoomDisplayInfoAsync(IReadOnlyCollection<long> roomIds)
+    {
+        if (_roomContext == null || roomIds.Count == 0) return new Dictionary<long, BookingRoomDisplay>();
+        var rooms = await _roomContext.Rooms.AsNoTracking()
+            .Where(r => roomIds.Contains(r.RoomId))
+            .Select(r => new { r.RoomId, r.RoomType.HotelId, r.RoomType.RoomTypeName })
+            .ToListAsync();
+        var hotelIds = rooms.Select(r => r.HotelId).Distinct().ToList();
+        // Entity khách sạn trong context này không ánh xạ cột tên → đọc trực tiếp bằng Dapper.
+        var hotelNames = hotelIds.Count == 0 ? new Dictionary<int, string>() : (await Dapper.SqlMapper.QueryAsync<(int HotelId, string HotelName)>(
+                _roomContext.Database.GetDbConnection(),
+                "SELECT HotelId, HotelName FROM Hotels WHERE HotelId IN @Ids", new { Ids = hotelIds }))
+            .ToDictionary(h => h.HotelId, h => h.HotelName);
+        // Ảnh: ưu tiên ảnh chính của phòng, không có thì ảnh chính của khách sạn.
+        var roomImages = (await _roomContext.RoomImages.AsNoTracking()
+                .Where(i => roomIds.Contains(i.RoomId))
+                .Select(i => new { i.RoomId, i.ImageUrl, i.IsPrimary, i.DisplayOrder })
+                .ToListAsync())
+            .GroupBy(i => i.RoomId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).First().ImageUrl);
+        var hotelImages = (await _roomContext.HotelImages.AsNoTracking()
+                .Where(i => hotelIds.Contains(i.HotelId))
+                .Select(i => new { i.HotelId, i.ImageUrl, i.IsPrimary, i.DisplayOrder })
+                .ToListAsync())
+            .GroupBy(i => i.HotelId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).First().ImageUrl);
+        return rooms.ToDictionary(
+            r => r.RoomId,
+            r => new BookingRoomDisplay(
+                hotelNames.GetValueOrDefault(r.HotelId, string.Empty),
+                r.RoomTypeName,
+                roomImages.GetValueOrDefault(r.RoomId) ?? hotelImages.GetValueOrDefault(r.HotelId)));
+    }
+
     public async Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId)
     {
         if (_roomContext == null) return new List<int>();

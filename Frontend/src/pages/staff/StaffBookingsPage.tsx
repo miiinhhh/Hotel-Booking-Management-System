@@ -275,6 +275,23 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   };
 
   // Check-in: ném lỗi khi máy chủ từ chối để panel chi tiết hiển thị; bảng thì hiện toast.
+  /** Trả phòng → Completed (backend chỉ cho đánh giá khi đơn Completed). */
+  const checkOut = async (target: StaffBooking) => {
+    const bookingIdNum = Number(target.id);
+    if (!Number.isNaN(bookingIdNum) && bookingIdNum > 0) {
+      const res = await updateBookingStatus(bookingIdNum, {
+        newStatus: 'Completed',
+        note: `Check-out bởi ${session?.fullName || 'nhân viên khách sạn'} lúc ${new Date().toLocaleTimeString('vi-VN')}`,
+      });
+      if (!res.success) throw new Error(`Không check-out được: ${res.message || 'máy chủ từ chối cập nhật.'}`);
+    }
+    const apply = (b: StaffBooking): StaffBooking => ({ ...b, status: 'staying', statusLabel: 'Đã trả phòng' });
+    setBookings((prev) => prev.map((b) => (b.id === target.id ? apply(b) : b)));
+    setSelectedBooking((prev) => (prev && prev.id === target.id ? apply(prev) : prev));
+    setMetrics((prev) => ({ ...prev, checkOutCompletedCount: prev.checkOutCompletedCount + 1, checkOutPendingKeyCount: Math.max(0, prev.checkOutPendingKeyCount - 1) }));
+    showToast(`Đã check-out cho khách ${target.customerName} (Phòng ${target.roomNumber}).`);
+  };
+
   const checkIn = async (target: StaffBooking) => {
     const bookingIdNum = Number(target.id);
     if (!isNaN(bookingIdNum) && bookingIdNum > 0) {
@@ -572,6 +589,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onCheckIn={checkIn}
+        onCheckOut={checkOut}
         onCancelBooking={handleCancelBooking}
         onRefundBooking={handleRefundBooking}
         onConfirmPayment={handleConfirmPayment}

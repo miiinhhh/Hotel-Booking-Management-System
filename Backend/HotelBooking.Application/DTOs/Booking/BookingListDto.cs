@@ -17,4 +17,6 @@ public class BookingListDto
     public string? HotelName { get; set; }
     public string? RoomTypeName { get; set; }
     public string? ImageUrl { get; set; }
+    public decimal? RefundAmount { get; set; }
+    public DateTime? RefundedAt { get; set; }
 }
