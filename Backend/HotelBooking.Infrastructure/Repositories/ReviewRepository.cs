@@ -51,14 +51,26 @@ public sealed class ReviewRepository(HotelBookingDBContext db) : IReviewReposito
         return InHotel(hotelId).Where(r => r.Status == ReviewStatus.Visible && r.CustomerId == r.Booking.CustomerId &&
             r.Booking.BookingStatus == BookingStatus.Completed && r.Booking.CheckOutDate <= today);
     }
+    private static string MaskName(string? fullName)
+    {
+        var parts = (fullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "";
+        return parts.Length == 1 ? parts[0] : $"{parts[^1]} {char.ToUpperInvariant(parts[0][0])}.";
+    }
+
     public async Task<ReviewPage<PublicReviewDto>> Public(int hotelId, int page, int pageSize, CancellationToken ct)
     {
         var query = Visible(hotelId).AsNoTracking();
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.ReviewId)
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(x => new PublicReviewDto(x.ReviewId, x.Rating, x.Comment, x.CreatedAt, x.UpdatedAt)).ToListAsync(ct);
-        return new(items, total, page, pageSize);
+            .Select(x => new { x.ReviewId, x.Rating, x.Comment, x.CreatedAt, x.UpdatedAt, x.CustomerId }).ToListAsync(ct);
+        // Tên người đánh giá: chỉ tên gọi + chữ cái đầu của họ (Nguyễn Văn Minh → "Minh N.").
+        var customerIds = items.Select(x => x.CustomerId).Distinct().ToArray();
+        var names = customerIds.Length == 0 ? new Dictionary<long, string>() : (await Dapper.SqlMapper.QueryAsync<(long UserId, string FullName)>(
+                db.Database.GetDbConnection(), "SELECT UserId, FullName FROM Users WHERE UserId IN @Ids", new { Ids = customerIds }))
+            .ToDictionary(u => u.UserId, u => MaskName(u.FullName));
+        return new(items.Select(x => new PublicReviewDto(x.ReviewId, x.Rating, x.Comment, x.CreatedAt, x.UpdatedAt, names.GetValueOrDefault(x.CustomerId, ""))).ToList(), total, page, pageSize);
     }
     public async Task<ReviewPage<ReviewDto>> List(int? hotelId, long? customerId, ReviewStatus? status, int page, int pageSize, CancellationToken ct)
     {

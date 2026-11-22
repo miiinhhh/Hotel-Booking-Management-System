@@ -12,7 +12,8 @@ public sealed record ReviewRequest([Range(1, 5)] int Rating, [StringLength(2000)
 public sealed record ModerateReviewRequest([Required] ReviewStatus? Status, [StringLength(500)] string? Reason);
 public sealed record ReviewStay(long BookingId, long CustomerId, int? HotelId, BookingStatus Status, DateOnly CheckOut);
 public sealed record ReviewDto(long ReviewId, long BookingId, long CustomerId, int? HotelId, byte Rating, string? Comment, ReviewStatus Status, DateTime CreatedAt, DateTime? UpdatedAt);
-public sealed record PublicReviewDto(long ReviewId, byte Rating, string? Comment, DateTime CreatedAt, DateTime? UpdatedAt);
+/// <summary>Đánh giá công khai. ReviewerName đã che bớt (VD "Minh N.") để bảo vệ quyền riêng tư.</summary>
+public sealed record PublicReviewDto(long ReviewId, byte Rating, string? Comment, DateTime CreatedAt, DateTime? UpdatedAt, string ReviewerName = "");
 public sealed record ReviewPage<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 public sealed record RatingBucket(int Rating, int Count);
 public sealed record HotelRatingDto(int HotelId, int TotalReviews, decimal? AverageRating, IReadOnlyList<RatingBucket> Distribution);

@@ -7,6 +7,7 @@ import { ResortAmenities } from './components/ResortAmenities';
 import { RoomInventory } from './components/RoomInventory';
 import { HotelPolicies } from './components/HotelPolicies';
 import { RoomDetailModal } from './components/RoomDetailModal';
+import { HotelReviews } from './components/HotelReviews';
 import { HotelDetail, Room } from './types';
 import { useLanguage, formatMoney } from '../../i18n/LanguageContext';
 
@@ -101,6 +102,8 @@ export const HotelDetailPage: React.FC<HotelDetailPageProps> = ({ hotelData, onN
             </div>
 
             <div id="amenities"><ResortAmenities amenities={hotelData.resortAmenities} /></div>
+
+            {Number(hotelData.id) > 0 && <div id="reviews"><HotelReviews hotelId={Number(hotelData.id)} /></div>}
 
             <div id="policies"><HotelPolicies policy={hotelData.cancelPolicySummary} checkIn={hotelData.checkInTime} checkOut={hotelData.checkOutTime} /></div>
           </div>

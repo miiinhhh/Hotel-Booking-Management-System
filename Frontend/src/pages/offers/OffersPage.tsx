@@ -151,31 +151,36 @@ export const OffersPage: React.FC<OffersPageProps> = ({ onNavigateSearch, onNavi
         )}
       </section>
 
-      {/* CÁCH SỬ DỤNG */}
+      {/* CÁCH SỬ DỤNG — stepper ngang có đường nối */}
       <section className="mx-auto mt-14 max-w-[1200px] px-5">
-        <div className="rounded-[1.5rem] bg-surface-container-low px-6 py-8 md:px-10">
-          <h2 className="text-center font-headline-sm text-headline-sm text-on-surface">{t('offers.howTitle')}</h2>
-          <div className="mt-6 grid gap-6 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <div key={step.title} className="flex items-start gap-4 md:flex-col md:items-center md:text-center">
-                <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
-                  <span className="material-symbols-outlined text-[26px]">{step.icon}</span>
-                  <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary-container text-xs font-bold text-on-primary">{i + 1}</span>
-                </span>
-                <div>
-                  <p className="font-semibold text-on-surface">{t(step.title)}</p>
-                  <p className="mt-0.5 text-sm text-on-surface-variant">{t(step.text)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          {onNavigateSearch && (
-            <div className="mt-8 flex justify-center">
-              <button type="button" onClick={onNavigateSearch} className="flex items-center gap-2 rounded-full bg-primary-container px-7 py-3 font-label-lg text-label-lg font-semibold text-on-primary shadow-md transition-all hover:bg-tertiary-container active:scale-95">
-                {t('offers.findRoom')} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+        <div className="grid gap-8 rounded-2xl border border-outline-variant/40 bg-surface-container-lowest p-6 md:p-8 lg:grid-cols-[260px_1fr] lg:items-center">
+          <div>
+            <h2 className="text-xl font-semibold text-on-surface">{t('offers.howTitle')}</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">{t('offers.listHint')}</p>
+            {onNavigateSearch && (
+              <button type="button" onClick={onNavigateSearch} className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90">
+                {t('offers.findRoom')}<span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
+
+          <ol className="grid gap-6 md:grid-cols-3 md:gap-4">
+            {STEPS.map((step, i) => (
+              <li key={step.title} className="relative flex gap-4 md:flex-col md:gap-3">
+                {/* Đường nối tới bước sau */}
+                {i < STEPS.length - 1 && (
+                  <span aria-hidden="true" className="absolute left-5 top-11 h-[calc(100%-1.5rem)] w-px bg-outline-variant/60 md:left-12 md:right-0 md:top-5 md:h-px md:w-auto" />
+                )}
+                <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary ring-4 ring-surface-container-lowest">{i + 1}</span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 font-semibold text-on-surface">
+                    <span className="material-symbols-outlined text-[20px] text-primary">{step.icon}</span>{t(step.title)}
+                  </span>
+                  <span className="mt-1 block text-sm text-on-surface-variant">{t(step.text)}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
     </main>

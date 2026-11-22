@@ -685,4 +685,13 @@ export const vi = {
   'detail.noAmenities': 'Khách sạn chưa cập nhật tiện ích.',
   'rooms.subtitle': 'Chọn ngày và số khách để xem phòng còn trống cùng giá thực tế.',
   'rooms.priceNight': '{price} / đêm',
+  'detail.tabReviews': 'Đánh giá',
+  'reviewsPub.title': 'Đánh giá của khách',
+  'reviewsPub.basedOn': 'Dựa trên {count} đánh giá đã xác minh lưu trú',
+  'reviewsPub.empty': 'Chưa có đánh giá nào được hiển thị cho khách sạn này.',
+  'reviewsPub.guest': 'Khách lưu trú',
+  'reviewsPub.more': 'Xem thêm đánh giá',
+  'reviewsPub.loadFailed': 'Không tải được đánh giá.',
+  'reviewsPub.stars': '{count} sao',
+  'reviewsPub.noComment': 'Khách không để lại bình luận.',
 };

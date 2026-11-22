@@ -11,6 +11,7 @@ const TABS: { id: string; key: TranslationKey }[] = [
   { id: 'overview', key: 'detail.tabOverview' },
   { id: 'rooms', key: 'detail.tabRooms' },
   { id: 'amenities', key: 'detail.tabAmenities' },
+  { id: 'reviews', key: 'detail.tabReviews' },
   { id: 'policies', key: 'detail.tabPolicies' },
 ];
 

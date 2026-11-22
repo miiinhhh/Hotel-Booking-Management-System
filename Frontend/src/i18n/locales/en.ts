@@ -679,4 +679,13 @@ export const en: Partial<Record<keyof typeof vi, string>> = {
   'detail.noAmenities': 'This hotel has not listed its amenities yet.',
   'rooms.subtitle': 'Choose dates and guests to see available rooms and live prices.',
   'rooms.priceNight': '{price} / night',
+  'detail.tabReviews': 'Reviews',
+  'reviewsPub.title': 'Guest reviews',
+  'reviewsPub.basedOn': 'Based on {count} reviews from verified stays',
+  'reviewsPub.empty': 'No reviews have been published for this hotel yet.',
+  'reviewsPub.guest': 'Guest',
+  'reviewsPub.more': 'Show more reviews',
+  'reviewsPub.loadFailed': 'Could not load reviews.',
+  'reviewsPub.stars': '{count} stars',
+  'reviewsPub.noComment': 'No written comment.',
 };

@@ -22,6 +22,9 @@ export interface HotelRatingDto {
   distribution: { rating: number; count: number }[];
 }
 
+/** Đánh giá công khai (chỉ trạng thái Visible). */
+export interface PublicReviewDto { reviewId: number; rating: number; comment: string | null; createdAt: string; updatedAt: string | null; reviewerName: string }
+
 export interface ReviewPageDto<T> { items: T[]; total: number; page: number; pageSize: number }
 
 // Backend trả thông báo nghiệp vụ bằng tiếng Anh; dịch các trường hợp khách hay gặp.
@@ -97,5 +100,6 @@ export const reviewApi = {
     call<ReviewDto>(`/api/bookings/${bookingId}/review`, { method: 'PUT', body: JSON.stringify({ rating, comment }) })
       .then((review) => { invalidateHotelRating(review.hotelId); return review; }),
   mine: (page = 1, pageSize = 100) => call<ReviewPageDto<ReviewDto>>(`/api/me/reviews?page=${page}&pageSize=${pageSize}`),
+  publicList: (hotelId: number, page = 1, pageSize = 5) => call<ReviewPageDto<PublicReviewDto>>(`/api/hotels/${hotelId}/reviews?page=${page}&pageSize=${pageSize}`),
   hotelRating: (hotelId: number) => call<HotelRatingDto>(`/api/hotels/${hotelId}/rating`),
 };
