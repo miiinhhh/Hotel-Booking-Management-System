@@ -590,6 +590,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         onClose={() => setIsDrawerOpen(false)}
         onCheckIn={checkIn}
         onCheckOut={checkOut}
+        onNoShow={(b) => { setIsDrawerOpen(false); showToast(`Đã ghi nhận khách không đến, hủy đơn ${b.bookingCode}.`); void fetchBookings(); }}
         onCancelBooking={handleCancelBooking}
         onRefundBooking={handleRefundBooking}
         onConfirmPayment={handleConfirmPayment}

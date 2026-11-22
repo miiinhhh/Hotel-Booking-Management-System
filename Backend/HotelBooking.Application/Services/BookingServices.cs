@@ -111,6 +111,8 @@ public class BookingServices : IBookingService
         string bookingCode = $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{Random.Shared.Next(100, 999)}";
 
         // 7. Khởi tạo Entity Booking
+        // "Thanh toán tại khách sạn" (Cash): xác nhận ngay, không giữ chỗ 15 phút (khách không phải trả trước).
+        var payAtHotel = string.Equals(request.PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase);
         var booking = new Booking
         {
             BookingCode = bookingCode,
@@ -118,7 +120,7 @@ public class BookingServices : IBookingService
             CheckInDate = request.CheckInDate,
             CheckOutDate = request.CheckOutDate,
             NumberOfGuests = request.NumberOfGuests,
-            BookingStatus = BookingStatus.Pending,
+            BookingStatus = payAtHotel ? BookingStatus.Confirmed : BookingStatus.Pending,
             PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "Deposit" : request.PaymentMethod,
             PaymentStatus = "Unpaid",
             SubTotal = pricing.SubTotal,
@@ -130,7 +132,7 @@ public class BookingServices : IBookingService
             RemainingAmount = pricing.RemainingAmount,
             VoucherId = pricing.VoucherId,
             SpecialRequests = request.SpecialRequests,
-            HoldExpiresAt = DateTime.UtcNow.AddMinutes(15), // Giữ phòng 15 phút
+            HoldExpiresAt = payAtHotel ? null : DateTime.UtcNow.AddMinutes(15), // Giữ phòng 15 phút chờ đặt cọc
             CreatedAt = DateTime.UtcNow,
             BookingDetails = bookingDetails
         };
@@ -154,10 +156,12 @@ public class BookingServices : IBookingService
         booking.StatusHistories.Add(new BookingStatusHistory
         {
             OldStatus = null,
-            NewStatus = BookingStatus.Pending.ToString(),
+            NewStatus = booking.BookingStatus.ToString(),
             ChangedByUserId = customerId,
             ChangedAt = DateTime.UtcNow,
-            Note = "Đơn đặt phòng mới được tạo (chờ thanh toán cọc/xác nhận)."
+            Note = payAtHotel
+                ? "Đơn đặt phòng mới được tạo — thanh toán tại khách sạn, đã xác nhận giữ phòng."
+                : "Đơn đặt phòng mới được tạo (chờ thanh toán cọc/xác nhận)."
         });
 
         // 6. Lưu vào CSDL — giữ phòng và trừ lượt voucher trong CÙNG giao dịch, dưới cùng khóa phòng.

@@ -3,6 +3,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS } from '../../../auth/permissions';
 import { StaffBooking } from '../types';
 import { RescheduleDialog } from '../../../components/booking/RescheduleDialog';
+import { markNoShow } from '../../../services/staffPortalApi';
 import { refundVnPayPayment, confirmManualRefund, confirmCashPayment } from '../../../services/paymentApi';
 import { PAYMENT_UI, PaidBar, StatusBadge, viDate, vnd } from './staffUi';
 
@@ -13,6 +14,8 @@ interface BookingDetailDrawerProps {
   onCheckIn: (booking: StaffBooking) => void | Promise<void>;
   /** Trả phòng: chuyển đơn sang Hoàn tất (khách có thể đánh giá). */
   onCheckOut?: (booking: StaffBooking) => void | Promise<void>;
+  /** Sau khi ghi nhận khách không đến (đơn bị hủy). */
+  onNoShow?: (booking: StaffBooking) => void;
   onCancelBooking: (booking: StaffBooking) => void | Promise<void>;
   onUpdateNotes?: (bookingId: string, notes: string, approval: 'accepted' | 'rejected') => void;
   onRefundBooking?: (booking: StaffBooking, message: string) => void;
@@ -22,14 +25,14 @@ interface BookingDetailDrawerProps {
 }
 
 /** Thao tác cần xác nhận trước khi gọi máy chủ. */
-type Pending = 'checkin' | 'checkout' | 'cash' | 'refund-vnpay' | 'refund-manual' | 'cancel';
+type Pending = 'checkin' | 'checkout' | 'noshow' | 'cash' | 'refund-vnpay' | 'refund-manual' | 'cancel';
 
 /**
  * Panel chi tiết đơn cho lễ tân: khách · lưu trú · thanh toán · yêu cầu đặc biệt,
  * và thanh thao tác dưới cùng chỉ hiện đúng bước kế tiếp theo trạng thái + quyền.
  */
 export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
-  booking, isOpen, onClose, onCheckIn, onCheckOut, onCancelBooking, onRefundBooking, onConfirmPayment, onRescheduled,
+  booking, isOpen, onClose, onCheckIn, onCheckOut, onNoShow, onCancelBooking, onRefundBooking, onConfirmPayment, onRescheduled,
 }) => {
   const { hasPermission } = useAuth();
   const canManageBooking = hasPermission(PERMISSIONS.bookingManage);
@@ -74,6 +77,10 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
     try {
       if (pending === 'checkin') {
         await onCheckIn(booking);
+      } else if (pending === 'noshow') {
+        const res = await markNoShow(id, 'Lễ tân ghi nhận khách không đến.');
+        if (!res.success) throw new Error(res.message || 'Không ghi nhận được khách vắng mặt.');
+        onNoShow?.(booking);
       } else if (pending === 'checkout') {
         await onCheckOut?.(booking);
       } else if (pending === 'cancel') {
@@ -106,6 +113,11 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
         ? <p className="rounded bg-amber-50 p-3 text-amber-900"><b>Chưa thu đủ tiền:</b> đơn còn thiếu <b>{vnd(booking.remainingAmount)}</b>. Bạn vẫn muốn cho khách nhận phòng?</p>
         : <p>Xác nhận khách <b>{booking.customerName}</b> đã nhận phòng.</p>,
       cta: owing ? 'Vẫn check-in' : 'Check-in',
+    },
+    noshow: {
+      title: `Khách không đến · ${booking.bookingCode}?`,
+      body: <p>Đơn sẽ bị <b>hủy (No-show)</b> và phòng được mở bán lại.{booking.paidAmount > 0 && <> Khoản đã thanh toán <b>{vnd(booking.paidAmount)}</b> không được hoàn theo quy định no-show.</>}</p>,
+      cta: 'Ghi nhận không đến', danger: true,
     },
     checkout: {
       title: `Check-out phòng ${booking.roomNumber}?`,
@@ -141,6 +153,9 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
     },
   };
 
+  // Từ ngày nhận phòng trở đi mà khách chưa check-in → cho phép ghi nhận không đến.
+  const todayIso = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const canNoShow = canManageBooking && Boolean(onNoShow) && (booking.status === 'pending_deposit' || booking.status === 'confirmed_deposit') && booking.checkInDate.slice(0, 10) <= todayIso;
   const canCheckOut = booking.status === 'checked_in' && canManageBooking && Boolean(onCheckOut);
 
   /** Thao tác chính ở thanh dưới, theo đúng bước kế tiếp. */
@@ -152,6 +167,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
       : null;
 
   const secondary: { label: string; icon: string; action: Pending; danger?: boolean }[] = [];
+  if (canNoShow) secondary.push({ label: 'Khách không đến', icon: 'person_off', action: 'noshow', danger: true });
   if (canCheckOut && primary?.action !== 'checkout') secondary.push({ label: 'Check-out', icon: 'logout', action: 'checkout' });
   if (refundPending && canManagePayment) secondary.push({ label: 'Đã hoàn tiền thủ công', icon: 'receipt_long', action: 'refund-manual' });
   if (owing && canManagePayment && primary?.action !== 'cash') secondary.push({ label: `Thu ${vnd(booking.remainingAmount)}`, icon: 'point_of_sale', action: 'cash' });
