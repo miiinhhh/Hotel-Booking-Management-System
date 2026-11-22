@@ -35,7 +35,7 @@ public sealed class UserRepository(HotelBookingDbContext dbContext) : IUserRepos
             .SingleOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 
     public Task<AuthOtpChallenge?> FindOtpChallengeAsync(Guid challengeId, CancellationToken cancellationToken) =>
-        dbContext.AuthOtpChallenges.Include(x => x.User!).ThenInclude(x => x.UserRoles).ThenInclude(x => x.Role)
+        dbContext.AuthOtpChallenges.Include(x => x.User!).ThenInclude(x => x.UserRoles).ThenInclude(x => x.Role).ThenInclude(x => x.RolePermissions).ThenInclude(x => x.Permission)
             .Include(x => x.User!).ThenInclude(x => x.RefreshTokens)
             .SingleOrDefaultAsync(x => x.ChallengeId == challengeId, cancellationToken);
 

@@ -217,8 +217,10 @@ public sealed class AdminNotificationsController(
         // ---------- Nhân sự / tài khoản ----------
         if (Can(SystemPermissions.StaffView))
         {
+            var internalCodes = PortalAccess.InternalPermissions.ToArray();
             var unassigned = await coreDb.Users.AsNoTracking()
-                .Where(u => u.IsActive && u.UserRoles.Any(r => r.Role.RoleName == SystemRoles.HotelStaff)
+                .Where(u => u.IsActive && u.UserRoles.Any(r => r.Role.IsActive && (r.Role.RoleName == SystemRoles.HotelStaff
+                        || r.Role.RolePermissions.Any(p => p.Permission.IsActive && internalCodes.Contains(p.Permission.PermissionCode))))
                     && !u.UserRoles.Any(r => r.Role.RoleName == SystemRoles.Admin)
                     && !coreDb.StaffAreaAssignments.Any(a => a.UserId == u.UserId && a.IsActive))
                 .OrderBy(u => u.UserId).Select(u => new { u.UserId, u.FullName }).ToListAsync(ct);

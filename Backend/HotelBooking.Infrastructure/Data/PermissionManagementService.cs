@@ -93,10 +93,13 @@ public sealed class PermissionManagementService(HotelBookingDbContext db) : IPer
         var user = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role)
             .SingleOrDefaultAsync(x => x.UserId == userId, ct) ?? throw new NotFoundException("User not found.");
         var ids = request.RoleIds.Distinct().ToArray();
-        var roles = await db.Roles.Where(x => ids.Contains(x.RoleId) && x.IsActive).ToListAsync(ct);
+        var roles = await db.Roles.Include(x => x.RolePermissions).ThenInclude(x => x.Permission).Where(x => ids.Contains(x.RoleId) && x.IsActive).ToListAsync(ct);
         if (roles.Count != ids.Length) throw new NotFoundException("One or more roles do not exist or are inactive.");
-        if (user.UserRoles.Any(x => x.Role.RoleName == SystemRoles.HotelStaff) && roles.All(x => x.RoleName != SystemRoles.HotelStaff))
-            throw new ConflictException("Hotel Staff is the protected base role for staff accounts and cannot be removed here.");
+        // Tài khoản nhân viên phải giữ quyền vào cổng nhân viên: hoặc vai trò Hotel Staff, hoặc vai trò có quyền nghiệp vụ.
+        var keepsStaffAccess = roles.Any(x => x.RoleName is SystemRoles.HotelStaff or SystemRoles.Admin ||
+            x.RolePermissions.Any(p => p.Permission.IsActive && PortalAccess.IsInternalPermission(p.Permission.PermissionCode)));
+        if (user.UserRoles.Any(x => x.Role.RoleName == SystemRoles.HotelStaff) && !keepsStaffAccess)
+            throw new ConflictException("A staff account must keep Hotel Staff or a role with operational permissions.");
         if (userId == actorId && user.UserRoles.Any(x => x.Role.RoleName == SystemRoles.Admin) && roles.All(x => x.RoleName != SystemRoles.Admin))
             throw new ConflictException("You cannot remove your own Admin role.");
         var adminRoleId = await db.Roles.Where(x => x.RoleName == SystemRoles.Admin).Select(x => (int?)x.RoleId).SingleOrDefaultAsync(ct);

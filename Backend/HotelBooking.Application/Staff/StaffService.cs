@@ -31,7 +31,7 @@ public sealed class StaffService(IUserRepository users, IStaffRepository staff)
     private async Task<User> Actor(long id, CancellationToken ct)
     {
         var user = await users.FindByIdAsync(id, ct);
-        if (user is null || !user.IsActive || !user.UserRoles.Any(x => x.Role.RoleName is SystemRoles.Admin or SystemRoles.HotelStaff))
+        if (user is null || !user.IsActive || !(PortalAccess.IsAdmin(user) || PortalAccess.IsStaff(user)))
             throw new StaffAccessDeniedException();
         return user;
     }
@@ -41,7 +41,7 @@ public sealed class StaffService(IUserRepository users, IStaffRepository staff)
         var actor = await Actor(actorId, ct);
         if ((!IsAdmin(actor) && (adminOnly || actorId != targetId))) throw new StaffAccessDeniedException();
         var target = await users.FindByIdAsync(targetId, ct);
-        if (target is null || !target.UserRoles.Any(x => x.Role.RoleName == SystemRoles.HotelStaff))
+        if (target is null || !(PortalAccess.IsStaff(target) || target.UserRoles.Any(x => x.Role.RoleName == SystemRoles.HotelStaff)))
             throw new NotFoundException("Staff account not found.");
         // A staff-management endpoint must never modify an administrator account.
         if (IsAdmin(target) && adminOnly) throw new StaffAccessDeniedException();

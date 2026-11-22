@@ -297,10 +297,8 @@ public sealed class AuthService(
         return portal switch
         {
             LoginPortal.Admin => roles.Contains(SystemRoles.Admin),
-            LoginPortal.Staff => roles.Contains(SystemRoles.HotelStaff) && !roles.Contains(SystemRoles.Admin),
-            LoginPortal.Customer => roles.Contains(SystemRoles.Customer) &&
-                                    !roles.Contains(SystemRoles.HotelStaff) &&
-                                    !roles.Contains(SystemRoles.Admin),
+            LoginPortal.Staff => PortalAccess.IsStaff(user),
+            LoginPortal.Customer => roles.Contains(SystemRoles.Customer) && !PortalAccess.IsStaff(user) && !PortalAccess.IsAdmin(user),
             _ => false
         };
     }
@@ -323,7 +321,8 @@ public sealed class AuthService(
         var trimmed = value.Trim();
         return trimmed[..Math.Min(trimmed.Length, max)];
     }
-    private static string[] Roles(User user) => user.UserRoles.Select(x => x.Role.RoleName).Distinct(StringComparer.Ordinal).ToArray();
+    /// <summary>Vai trò hiệu lực (gồm Hotel Staff suy ra từ quyền nghiệp vụ) — xem PortalAccess.</summary>
+    private static string[] Roles(User user) => PortalAccess.EffectiveRoles(user);
     private DateTime UtcNow => timeProvider.GetUtcNow().UtcDateTime;
     private async Task<Role> CustomerRole(CancellationToken ct) => await users.FindRoleAsync(SystemRoles.Customer, ct)
         ?? throw new InvalidOperationException("The Customer role has not been configured.");
