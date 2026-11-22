@@ -58,7 +58,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
           {/* Specs */}
           <div>
             <h4 className="font-label-md text-label-md uppercase text-outline font-semibold mb-2">{t('rooms.specs')}</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-surface-container-low">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-surface-container-low">
               {room.specs.map((spec, idx) => (
                 <div
                   key={idx}
@@ -80,7 +80,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
               {room.features.map((feat, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-2 text-on-surface font-body-md text-body-md p-2 rounded-lg bg-surface-container-low/50"
+                  className="flex items-center gap-2 text-on-surface font-body-md text-body-md p-2 rounded bg-surface-container-low/50"
                 >
                   <span className="material-symbols-outlined text-primary text-[18px]">
                     {feat.icon}
@@ -92,7 +92,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
           </div>
 
           {/* Cancellation */}
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-container-low text-tertiary font-label-md text-label-md">
+          <div className="flex items-center gap-2 p-3 rounded-2xl bg-surface-container-low text-tertiary font-label-md text-label-md">
             <span className="material-symbols-outlined text-[18px]">
               verified_user
             </span>

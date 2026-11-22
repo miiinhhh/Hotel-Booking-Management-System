@@ -87,19 +87,30 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     packages: [{ id: 'base', name: t('rooms.avgPrice'), description: t('rooms.avgPriceNote'), pricePerNight: r.price }],
     cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || t('rooms.policyFallback'),
   })) : [];
-  return <><section id="room-inventory" className="space-y-5 scroll-mt-28"><h2 className="text-3xl font-semibold">{t('rooms.title')}</h2>
-    <form onSubmit={e => { e.preventDefault(); void search(); }} className="flex flex-wrap items-end gap-3"><fieldset disabled={loading || pending} className="flex flex-wrap gap-3">
-      {!hotelId && <label>{t('rooms.hotel')}<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>}
-      <label>{t('detail.checkIn')}<input type="date" required min={localDate()} value={checkIn} onChange={e => setCheckIn(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
-      <label>{t('detail.checkOut')}<input type="date" required min={checkIn} value={checkOut} onChange={e => setCheckOut(e.target.value)} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
-      <label>{t('rooms.guests')}<input type="number" min="1" step="1" required value={guests} onChange={e => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value > 0) setGuests(value); }} className="mt-1 block rounded-lg bg-surface-container-low p-3" /></label>
-    </fieldset><button disabled={loading || pending} className="rounded-full bg-primary px-5 py-3 text-on-primary disabled:opacity-50">{loading ? t('rooms.checking') : t('rooms.find')}</button></form>
-    {error && <p role="alert" className="rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
-    {validSelection && <p className="font-semibold">{checked.hotelName} · {checked.hotelAddress}</p>}
-    {pending && <p role="status">{t('rooms.reconfirming')}</p>}
-    {validSelection && !loading && !cards.length && <p>{t('rooms.none')}</p>}
-    {!validSelection && !loading && <p className="text-outline">{t('rooms.prompt')}</p>}
-    <div aria-busy={pending} className={pending ? 'pointer-events-none space-y-5 opacity-60' : 'space-y-5'}>{cards.map(room => <RoomCard key={`${room.id}-${checkIn}-${checkOut}`} room={room} durationNights={nights} onBookRoom={(selectedRoom, packageId) => setCalendarRequest({ room: selectedRoom, packageId })} onViewRoomDetail={onViewRoomDetail} />)}</div>
+  const field = 'mt-1.5 block h-11 w-full rounded-full border border-outline-variant/60 bg-surface-container-lowest px-4 text-sm font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15';
+  const label = 'text-xs font-semibold uppercase tracking-wider text-on-surface-variant';
+  return <><section id="room-inventory" aria-labelledby="rooms-title" className="space-y-4">
+    <div>
+      <h2 id="rooms-title" className="text-2xl font-semibold text-on-surface">{t('rooms.title')}</h2>
+      <p className="mt-1 text-sm text-on-surface-variant">{t('rooms.subtitle')}</p>
+    </div>
+    <form onSubmit={e => { e.preventDefault(); void search(); }} className="rounded-2xl bg-surface-container-lowest p-4 shadow-sm">
+      <fieldset disabled={loading || pending} className={`grid gap-3 sm:grid-cols-2 ${hotelId ? 'lg:grid-cols-[1fr_1fr_120px_auto]' : 'lg:grid-cols-[120px_1fr_1fr_120px_auto]'} lg:items-end`}>
+        {!hotelId && <label className={label}>{t('rooms.hotel')}<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className={field} /></label>}
+        <label className={label}>{t('detail.checkIn')}<input type="date" required min={localDate()} value={checkIn} onChange={e => setCheckIn(e.target.value)} className={field} /></label>
+        <label className={label}>{t('detail.checkOut')}<input type="date" required min={checkIn} value={checkOut} onChange={e => setCheckOut(e.target.value)} className={field} /></label>
+        <label className={label}>{t('rooms.guests')}<input type="number" min="1" step="1" required value={guests} onChange={e => { const value = Number(e.target.value); if (Number.isSafeInteger(value) && value > 0) setGuests(value); }} className={field} /></label>
+        <button disabled={loading || pending} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-on-primary disabled:opacity-50">
+          <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>{loading ? 'progress_activity' : 'search'}</span>{loading ? t('rooms.checking') : t('rooms.find')}
+        </button>
+      </fieldset>
+    </form>
+    {error && <p role="alert" className="rounded-2xl bg-error-container p-4 text-sm text-on-error-container">{error}</p>}
+    {pending && <p role="status" className="text-sm text-on-surface-variant">{t('rooms.reconfirming')}</p>}
+    {validSelection && !loading && !cards.length && <p className="rounded-2xl bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">{t('rooms.none')}</p>}
+    {!validSelection && !loading && !error && <p className="text-sm text-on-surface-variant">{t('rooms.prompt')}</p>}
+    {loading && <div className="space-y-4" aria-hidden="true">{[0, 1].map(i => <div key={i} className="h-48 animate-pulse rounded-2xl bg-surface-container" />)}</div>}
+    <div aria-busy={pending} className={pending ? 'pointer-events-none space-y-4 opacity-60' : 'space-y-4'}>{cards.map(room => <RoomCard key={`${room.id}-${checkIn}-${checkOut}`} room={room} durationNights={nights} onBookRoom={(selectedRoom, packageId) => setCalendarRequest({ room: selectedRoom, packageId })} onViewRoomDetail={onViewRoomDetail} />)}</div>
   </section>
   {calendarRequest && <RoomDateRangePicker room={calendarRequest.room} hotelId={Number(calendarRequest.room.hotelId || hotelInput)} initialCheckIn={calendarRequest.room.checkIn} initialCheckOut={calendarRequest.room.checkOut} onClose={() => { confirmationVersion.current++; setPending(false); setCalendarRequest(null); }} onConfirm={confirmRoomDates} />}</>;
 };

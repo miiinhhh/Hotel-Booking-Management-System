@@ -26,7 +26,8 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ gallery }) => {
     { url: gallery.hero.url, caption: gallery.hero.caption },
     ...gallery.thumbnails,
   ];
-  if (gallery.totalCount === 0) return <section className="rounded-xl bg-surface-container-low p-8 text-center"><p>{t('detail.noPhotos')}</p></section>;
+  const thumbs = gallery.thumbnails.slice(0, 4);
+  if (gallery.totalCount === 0) return <section className="rounded-2xl bg-surface-container-low p-8 text-center text-on-surface-variant"><p>{t('detail.noPhotos')}</p></section>;
 
   const handleNextPhoto = () => {
     if (activeModalIndex !== null) {
@@ -44,57 +45,27 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ gallery }) => {
 
   return (
     <>
-      <section className="relative w-full rounded-xl overflow-hidden shadow-sm bg-surface-container-low p-2">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-auto lg:h-[540px]">
-          {/* Large Hero (Left Pavilion) */}
-          <div
-            onClick={() => setActiveModalIndex(0)}
-            className="lg:col-span-7 h-[360px] lg:h-full relative rounded-lg overflow-hidden group cursor-pointer"
-          >
-            <img
-              src={gallery.hero.url}
-              alt={gallery.hero.caption}
-              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10 pointer-events-none" />
-            <span className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-md text-on-surface font-label-sm text-label-sm font-semibold tracking-wide shadow-sm">
-              {gallery.hero.badge}
-            </span>
-          </div>
-
-          {/* 4 Thumbnail Grid (Right) */}
-          <div className="lg:col-span-5 grid grid-cols-2 gap-2 h-full">
-            {gallery.thumbnails.map((item, idx) => (
-              <div
-                key={idx}
-                onClick={() => setActiveModalIndex(idx + 1)}
-                className="relative rounded-lg overflow-hidden h-40 lg:h-full group cursor-pointer"
-              >
-                <img
-                  src={item.url}
-                  alt={item.caption}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
-                <span className="absolute bottom-2.5 left-2.5 font-label-sm text-label-sm text-white px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-sm">
-                  {item.caption}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* Lưới ảnh: 1 ảnh lớn + tối đa 4 ảnh nhỏ, tự co theo số ảnh thật */}
+      <section className="relative">
+        <div className={`grid h-[300px] gap-2 overflow-hidden rounded-2xl md:h-[440px] ${thumbs.length ? 'md:grid-cols-4 md:grid-rows-2' : ''}`}>
+          <button type="button" onClick={() => setActiveModalIndex(0)}
+            className={`group relative overflow-hidden bg-surface-container ${thumbs.length ? 'md:col-span-2 md:row-span-2' : ''} ${thumbs.length === 0 ? '' : ''}`}>
+            <img src={gallery.hero.url} alt={gallery.hero.caption} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          </button>
+          {thumbs.map((item, idx) => (
+            <button key={idx} type="button" onClick={() => setActiveModalIndex(idx + 1)}
+              className={`group relative hidden overflow-hidden bg-surface-container md:block ${thumbs.length === 1 ? 'md:col-span-2 md:row-span-2' : thumbs.length === 2 ? 'md:col-span-2' : thumbs.length === 3 && idx === 2 ? 'md:col-span-2' : ''}`}>
+              <img src={item.url} alt={item.caption} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </button>
+          ))}
         </div>
-
-        {/* Floating Gallery Button */}
-        <button
-          type="button"
-          onClick={() => setActiveModalIndex(0)}
-          className="absolute bottom-6 right-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-container-lowest/90 hover:bg-surface-container-lowest text-on-surface font-label-lg text-label-lg backdrop-blur-md shadow-md hover:shadow-lg transition-all active:scale-95 group cursor-pointer border-0"
-        >
-          <span className="material-symbols-outlined text-[18px] text-primary group-hover:rotate-12 transition-transform">
-            photo_library
-          </span>
-          <span>{t('detail.viewAllPhotos', { count: gallery.totalCount })}</span>
-        </button>
+        {gallery.totalCount > 1 && (
+          <button type="button" onClick={() => setActiveModalIndex(0)}
+            className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-surface-container-lowest/95 px-4 py-2 text-sm font-semibold text-on-surface shadow-md hover:bg-surface-container-lowest">
+            <span className="material-symbols-outlined text-[18px] text-primary">photo_library</span>
+            {t('detail.viewAllPhotos', { count: gallery.totalCount })}
+          </button>
+        )}
       </section>
 
       {/* Lightbox Modal */}

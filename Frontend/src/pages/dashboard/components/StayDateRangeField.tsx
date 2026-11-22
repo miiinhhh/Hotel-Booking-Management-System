@@ -83,7 +83,7 @@ export const StayDateRangeField: React.FC<StayDateRangeFieldProps> = ({ checkIn,
 
   return <div className="relative">
     <label className="block">{t('dates.label')}</label>
-    <button type="button" onClick={() => setOpen(current => !current)} className="mt-1 flex w-full items-center justify-between rounded-xl border border-outline-variant bg-surface-container-low p-3 text-left">
+    <button type="button" onClick={() => setOpen(current => !current)} className="mt-1 flex h-12 w-full items-center justify-between rounded-full border border-outline-variant bg-surface-container-low px-4 text-left">
       <span><strong className="font-medium">{formatDate(checkIn)}</strong><span className="mx-2 text-outline">–</span><strong className="font-medium">{formatDate(checkOut)}</strong></span>
       <span className="material-symbols-outlined text-[20px]">calendar_month</span>
     </button>
@@ -96,7 +96,7 @@ export const StayDateRangeField: React.FC<StayDateRangeFieldProps> = ({ checkIn,
         const value = isoDate(date);
         const disabled = value < today || value > maximum;
         const selected = value >= start && value <= lastNight;
-        return <button key={value} type="button" disabled={disabled} onPointerDown={event => beginDrag(event, value)} onPointerEnter={() => { if (dragging && dragAnchor.current) setRange(dragAnchor.current, value); }} onClick={() => selectByClick(value)} className={`aspect-square rounded-xl text-sm transition ${disabled ? 'cursor-not-allowed text-outline/30' : selected ? 'bg-emerald-600 font-semibold text-white shadow-sm' : value === today ? 'border border-primary text-primary hover:bg-emerald-50' : 'hover:bg-emerald-50 hover:text-emerald-800'}`}>{date.getDate()}</button>;
+        return <button key={value} type="button" disabled={disabled} onPointerDown={event => beginDrag(event, value)} onPointerEnter={() => { if (dragging && dragAnchor.current) setRange(dragAnchor.current, value); }} onClick={() => selectByClick(value)} className={`aspect-square rounded text-sm transition ${disabled ? 'cursor-not-allowed text-outline/30' : selected ? 'bg-emerald-600 font-semibold text-white shadow-sm' : value === today ? 'border border-primary text-primary hover:bg-emerald-50' : 'hover:bg-emerald-50 hover:text-emerald-800'}`}>{date.getDate()}</button>;
       })}</div></section>)}</div>
       <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-surface-container-low p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs text-outline">{t('dates.selected')}</p><p className="font-semibold">{formatDate(start)} – {formatDate(checkOutValue)} · {t('dates.nights', { count: nights })}</p></div><button type="button" onClick={() => { onChange(start, checkOutValue); setOpen(false); }} className="rounded-full bg-emerald-600 px-6 py-2.5 font-semibold text-white">{t('dates.apply')}</button></div>
     </div>}
