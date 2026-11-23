@@ -23,7 +23,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
   const { t, locale } = useLanguage();
   // Khách chưa đăng nhập vẫn thấy trái tim (bấm sẽ được nhắc đăng nhập); tài khoản bị tắt quyền thì ẩn hẳn.
   const canUseWishlist = !session || hasPermission(SELF_PERMISSIONS.wishlistManage);
-  const [selection, setSelection] = useState<DiscoverySelection>(() => ({ ...(initialSelection || defaultSelection()), location: '' }));
+  const [selection, setSelection] = useState<DiscoverySelection>(() => ({ ...(initialSelection || defaultSelection()), location: initialSelection?.location || '' }));
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<DiscoveryPage | null>(null);
@@ -43,7 +43,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
   }, [result, saved]);
 
   const [amenities, setAmenities] = useState<{ amenityId: number; name: string }[]>([]);
-  useEffect(() => { if (initialSelection) { setSelection({ ...initialSelection, location: '' }); setPage(1); } }, [initialSelection]);
+  useEffect(() => { if (initialSelection) { setSelection({ ...initialSelection, location: initialSelection.location || '' }); setPage(1); } }, [initialSelection]);
   useEffect(() => { let alive = true; discoveryApi.amenities().then(v => { if (alive) setAmenities(v); }).catch(() => {}); return () => { alive = false; }; }, []);
   useEffect(() => { let alive = true; setSaved([]); if (session && canUseWishlist) discoveryApi.wishlist().then(v => { if (alive) setSaved(v); }).catch(e => { if (alive) setNotice(e.message); }); return () => { alive = false; }; }, [session?.userId, canUseWishlist]);
   useEffect(() => {
@@ -151,8 +151,14 @@ export const SearchPage: React.FC<SearchPageProps> = ({ initialSelection, initia
             )}
           </div>
 
-          {!showSaved && chips.length > 0 && (
+          {!showSaved && (chips.length > 0 || selection.location) && (
             <div className="mb-4 flex flex-wrap gap-2">
+              {selection.location && (
+                <button type="button" onClick={() => { setSelection(s => ({ ...s, location: '' })); setPage(1); }}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary-fixed/50 px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-primary-fixed">
+                  <span className="material-symbols-outlined text-[15px] text-primary">location_on</span>{t('search.chipLocation', { value: selection.location })}<span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              )}
               {chips.map(c => (
                 <button key={c.key} type="button" onClick={() => setFilter(c.key, '')}
                   className="inline-flex items-center gap-1 rounded-full bg-primary-fixed/50 px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-primary-fixed">

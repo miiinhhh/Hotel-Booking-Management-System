@@ -27,6 +27,17 @@ public sealed class DiscoveryRepository(HotelDb hotels, ContentDb content, Hotel
     private static ImageDto Map(IPropertyImage i) => new(i.ImageId, i.ImageUrl, i.AltText, i.DisplayOrder, i.IsPrimary,
         i.CreatedAt, i.OriginalFileName, i.ContentType, i.FileSize, i.Width, i.Height);
     private static AmenityDto Map(Amenity a) => new(a.AmenityId, a.AmenityName, a.Description, a.IsActive);
+    public async Task<DestinationsDto> DestinationsAsync(CancellationToken ct)
+    {
+        var active = await hotels.Hotels.AsNoTracking().Where(h => h.IsActive)
+            .Select(h => new { h.HotelId, h.HotelName, h.City, h.Address }).OrderBy(h => h.HotelName).ToListAsync(ct);
+        var cities = active.Where(h => !string.IsNullOrWhiteSpace(h.City))
+            .GroupBy(h => h.City.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => new DestinationCityDto(g.First().City.Trim(), g.Count()))
+            .OrderByDescending(c => c.HotelCount).ThenBy(c => c.City).ToList();
+        return new(cities, active.Select(h => new DestinationHotelDto(h.HotelId, h.HotelName, h.City, h.Address)).ToList());
+    }
+
     public async Task<DiscoveryPage> SearchAsync(HotelDiscoveryRequest request, CancellationToken ct)
     {
         var query = hotels.Hotels.AsNoTracking().Where(h => h.IsActive);

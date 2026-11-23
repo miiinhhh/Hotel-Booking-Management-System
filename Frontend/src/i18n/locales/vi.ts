@@ -694,4 +694,12 @@ export const vi = {
   'reviewsPub.loadFailed': 'Không tải được đánh giá.',
   'reviewsPub.stars': '{count} sao',
   'reviewsPub.noComment': 'Khách không để lại bình luận.',
+  'search.destination': 'Khách sạn hoặc khu vực',
+  'search.destinationPh': 'VD: Sơn Trà, Mỹ Khê, tên khách sạn…',
+  'search.suggestCities': 'Thành phố',
+  'search.suggestHotels': 'Khách sạn',
+  'search.hotelCount': '{count} khách sạn',
+  'search.noSuggestion': 'Không có khách sạn khớp — vẫn có thể tìm theo từ khóa này.',
+  'search.clearDestination': 'Xóa điểm đến',
+  'search.chipLocation': 'Tìm: {value}',
 };

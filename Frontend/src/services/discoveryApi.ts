@@ -27,6 +27,7 @@ export const discoveryApi = {
   detail: (id: number, input: DiscoverySelection) => discoveryRequest<HotelDetailData>(`/api/discovery/hotels/${id}?` + query({ checkIn: input.checkIn, checkOut: input.checkOut, adults: input.adults, children: input.children, rooms: input.rooms })),
   wishlist: () => discoveryRequest<HotelCardData[]>('/api/me/wishlist'),
   save: (id: number, value: boolean) => discoveryRequest<void>(`/api/me/wishlist/${id}`, { method: value ? 'PUT' : 'DELETE' }),
+  destinations: () => discoveryRequest<{ cities: { city: string; hotelCount: number }[]; hotels: { hotelId: number; name: string; city: string; address: string }[] }>('/api/discovery/destinations'),
   amenities: () => discoveryRequest<Amenity[]>('/api/amenities'),
   report: (input: Record<string, unknown>, signal?: AbortSignal) => discoveryRequest<BusinessReport>('/api/admin/reports/overview?' + query(input), { signal }),
   async exportReport(input: Record<string, unknown>) {

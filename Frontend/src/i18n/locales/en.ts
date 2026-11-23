@@ -688,4 +688,12 @@ export const en: Partial<Record<keyof typeof vi, string>> = {
   'reviewsPub.loadFailed': 'Could not load reviews.',
   'reviewsPub.stars': '{count} stars',
   'reviewsPub.noComment': 'No written comment.',
+  'search.destination': 'Hotel or area',
+  'search.destinationPh': 'E.g. Son Tra, My Khe, hotel name…',
+  'search.suggestCities': 'Cities',
+  'search.suggestHotels': 'Hotels',
+  'search.hotelCount': '{count} hotels',
+  'search.noSuggestion': 'No matching hotels — you can still search with this keyword.',
+  'search.clearDestination': 'Clear destination',
+  'search.chipLocation': 'Search: {value}',
 };

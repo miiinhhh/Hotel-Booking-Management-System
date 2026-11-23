@@ -13,6 +13,9 @@ namespace HotelBooking.API.Controllers;
 public sealed class DiscoveryController(DiscoveryService service) : ControllerBase
 {
     private long Actor => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    /// <summary>Gợi ý điểm đến (thành phố, tên khách sạn) cho ô tìm kiếm — công khai.</summary>
+    [HttpGet("api/discovery/destinations"), AllowAnonymous]
+    public async Task<ActionResult<DestinationsDto>> Destinations(CancellationToken ct) => Ok(await service.DestinationsAsync(ct));
     [HttpGet("api/discovery/hotels")]
     public async Task<ActionResult<DiscoveryPage>> Search([FromQuery] HotelDiscoveryRequest request, CancellationToken ct) =>
         Ok(await service.SearchAsync(request, ct));

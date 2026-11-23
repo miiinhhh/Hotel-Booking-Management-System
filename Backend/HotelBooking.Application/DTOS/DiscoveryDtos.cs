@@ -20,6 +20,10 @@ public sealed class HotelDiscoveryRequest
 }
 public sealed record HotelCardDto(int HotelId, string Name, string Address, string City, string? ImageUrl,
     string RoomTypeName, decimal PricePerNight, int AvailableRooms, int Capacity);
+/// <summary>Gợi ý điểm đến cho ô tìm kiếm: thành phố (kèm số khách sạn) và tên khách sạn đang hoạt động.</summary>
+public sealed record DestinationCityDto(string City, int HotelCount);
+public sealed record DestinationHotelDto(int HotelId, string Name, string City, string Address);
+public sealed record DestinationsDto(IReadOnlyList<DestinationCityDto> Cities, IReadOnlyList<DestinationHotelDto> Hotels);
 public sealed record DiscoveryPage(IReadOnlyList<HotelCardDto> Items, int TotalCount, int Page, int PageSize, int TotalPages, string? Message);
 public sealed record DiscoveryRoom(long RoomId, int RoomTypeId, string Name, string RoomNumber, int Floor,
     decimal PricePerNight, int Capacity, string? ImageUrl, IReadOnlyList<AmenityDto> Amenities);

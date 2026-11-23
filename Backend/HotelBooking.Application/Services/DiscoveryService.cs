@@ -16,6 +16,7 @@ public sealed class DiscoveryService(IDiscoveryRepository repository, IContentAc
             request.Sort is not ("price_asc" or "price_desc" or "name") || request.AmenityId <= 0)
             throw new DomainRuleException("Select valid dates (up to 90 nights), guests, rooms, prices and pagination.");
     }
+    public Task<DestinationsDto> DestinationsAsync(CancellationToken ct) => repository.DestinationsAsync(ct);
     public Task<DiscoveryPage> SearchAsync(HotelDiscoveryRequest request, CancellationToken ct)
     { Validate(request); return repository.SearchAsync(request, ct); }
     public Task<HotelDiscoveryDetail> DetailAsync(int hotelId, HotelDiscoveryRequest request, CancellationToken ct)
