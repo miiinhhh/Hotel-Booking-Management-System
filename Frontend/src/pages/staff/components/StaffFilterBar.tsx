@@ -11,6 +11,14 @@ interface StaffFilterBarProps {
   zoneOptions?: string[];
   /** Số đơn theo từng trạng thái (khóa giống value bên dưới, 'all' = tổng). */
   statusCounts?: Record<string, number>;
+  /** Lọc theo khách sạn (chỉ hiện khi có từ 2 khách sạn). */
+  hotelOptions?: { id: number; name: string }[];
+  selectedHotel?: string;
+  onHotelChange?: (hotel: string) => void;
+  /** Khoảng ngày lưu trú (yyyy-MM-dd): đơn có kỳ ở giao với khoảng này. */
+  dateFrom?: string;
+  dateTo?: string;
+  onDateChange?: (from: string, to: string) => void;
 }
 
 /** Nhãn khớp đúng cách StaffBookingsPage ánh xạ trạng thái Backend. */
@@ -42,8 +50,14 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
   onResetFilters,
   zoneOptions = [],
   statusCounts = {},
+  hotelOptions = [],
+  selectedHotel = 'all',
+  onHotelChange,
+  dateFrom = '',
+  dateTo = '',
+  onDateChange,
 }) => {
-  const filtered = Boolean(searchQuery.trim()) || selectedStatus !== 'all' || selectedZone !== 'all';
+  const filtered = Boolean(searchQuery.trim()) || selectedStatus !== 'all' || selectedZone !== 'all' || selectedHotel !== 'all' || Boolean(dateFrom || dateTo);
 
   return (
     <section className="space-y-3 rounded-2xl bg-surface-container-lowest p-3 shadow-sm">
@@ -59,6 +73,28 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
             className="h-10 w-full rounded-full bg-surface-container-low pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30"
           />
         </label>
+
+        {hotelOptions.length > 1 && onHotelChange && (
+          <label className="flex h-10 items-center gap-2 rounded-full bg-surface-container-low pl-3.5 pr-1 text-sm">
+            <span className="material-symbols-outlined text-[18px] text-primary">domain</span>
+            <select aria-label="Khách sạn" value={selectedHotel} onChange={(e) => onHotelChange(e.target.value)}
+              className="h-8 max-w-[220px] rounded-full bg-transparent pr-2 font-medium outline-none">
+              <option value="all">Mọi khách sạn</option>
+              {hotelOptions.map(h => <option key={h.id} value={String(h.id)}>{h.name}</option>)}
+            </select>
+          </label>
+        )}
+
+        {onDateChange && (
+          <div className="flex h-10 items-center gap-1.5 rounded-full bg-surface-container-low px-3.5 text-sm" role="group" aria-label="Khoảng ngày lưu trú">
+            <span className="material-symbols-outlined text-[18px] text-primary">date_range</span>
+            <input type="date" aria-label="Từ ngày" value={dateFrom} max={dateTo || undefined} onChange={(e) => onDateChange(e.target.value, dateTo)}
+              className="h-8 w-[8.5rem] bg-transparent outline-none" />
+            <span className="text-outline">–</span>
+            <input type="date" aria-label="Đến ngày" value={dateTo} min={dateFrom || undefined} onChange={(e) => onDateChange(dateFrom, e.target.value)}
+              className="h-8 w-[8.5rem] bg-transparent outline-none" />
+          </div>
+        )}
 
         {zoneOptions.length > 1 && (
           <label className="flex h-10 items-center gap-2 rounded-full bg-surface-container-low pl-3.5 pr-1 text-sm">

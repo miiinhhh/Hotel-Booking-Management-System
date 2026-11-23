@@ -41,14 +41,13 @@ public static class SystemPermissions
         AccountsManage, RolesManage, ReviewsManage, ContentManage, PoliciesManage, ReportsView
     ];
 
+    /// <summary>Quyền cấp sẵn cho Hotel Staff khi khởi tạo (gồm kiểm duyệt đánh giá khách sạn phụ trách).</summary>
     public static readonly IReadOnlyCollection<string> DefaultStaff =
     [ProfileSelfManage, InventoryView, InventoryManage, BookingView, BookingManage, PaymentView,
-        PaymentManage, PricingView, StaffView, PoliciesManage];
+        PaymentManage, PricingView, StaffView, PoliciesManage, ReviewsManage];
 
-    /// <summary>
-    /// Quyền Admin được phép bật thêm cho role Hotel Staff (không cấp sẵn khi seed).
-    /// </summary>
-    public static readonly IReadOnlyCollection<string> AssignableStaff = [.. DefaultStaff, ReviewsManage];
+    /// <summary>Quyền Admin được phép bật/tắt cho role Hotel Staff.</summary>
+    public static readonly IReadOnlyCollection<string> AssignableStaff = DefaultStaff;
 
     public static readonly IReadOnlyCollection<string> DefaultCustomer =
     [ProfileSelfManage, BookingSelfCreate, BookingSelfView, BookingSelfCancel,

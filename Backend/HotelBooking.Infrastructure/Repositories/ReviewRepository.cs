@@ -70,12 +70,9 @@ public sealed class ReviewRepository(HotelBookingDBContext db) : IReviewReposito
             .ToList();
     }
 
-    internal IQueryable<Review> Visible(int hotelId)
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        return InHotel(hotelId).Where(r => r.Status == ReviewStatus.Visible && r.CustomerId == r.Booking.CustomerId &&
-            r.Booking.BookingStatus == BookingStatus.Completed && r.Booking.CheckOutDate <= today);
-    }
+    internal IQueryable<Review> Visible(int hotelId) =>
+        InHotel(hotelId).Where(r => r.Status == ReviewStatus.Visible && r.CustomerId == r.Booking.CustomerId &&
+            (r.Booking.BookingStatus == BookingStatus.Completed || r.Booking.BookingStatus == BookingStatus.CheckedOut));
     private static string MaskName(string? fullName)
     {
         var parts = (fullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);

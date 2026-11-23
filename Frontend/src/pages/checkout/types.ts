@@ -33,6 +33,12 @@ export interface CheckoutBookingData {
   nightsCount: number;
   guestsText: string;
   originalPrice: number;
+  /** Tách dòng: giá phòng trước thuế/phí, phí dịch vụ, thuế VAT (tỷ lệ dạng 0.1 = 10%). */
+  roomSubTotal?: number;
+  feeAmount?: number;
+  feeRate?: number;
+  taxAmount?: number;
+  taxRate?: number;
   memberDiscount: number;
   couponCode: string;
   couponDiscount: number;

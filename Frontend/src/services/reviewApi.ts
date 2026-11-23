@@ -34,7 +34,7 @@ export interface ReviewPageDto<T> { items: T[]; total: number; page: number; pag
 
 // Backend trả thông báo nghiệp vụ bằng tiếng Anh; dịch các trường hợp khách hay gặp.
 const MESSAGES: [RegExp, string][] = [
-  [/Only a completed stay/i, 'Chỉ có thể đánh giá sau khi kỳ nghỉ đã hoàn tất (từ ngày trả phòng).'],
+  [/Only a completed stay/i, 'Chỉ có thể đánh giá sau khi bạn đã trả phòng.'],
   [/already has a review/i, 'Đơn đặt phòng này đã được đánh giá.'],
   [/deleted review cannot be edited/i, 'Đánh giá đã bị xóa nên không thể chỉnh sửa.'],
   [/exactly one hotel/i, 'Đơn đặt phòng không hợp lệ để đánh giá.'],
@@ -92,6 +92,9 @@ export const reviewApi = {
   aiApply: (hotelId: number, minConfidence = 0.85) =>
     call<AiApplyResultDto>(`/api/admin/hotels/${hotelId}/reviews/ai-apply`, { method: 'POST', body: JSON.stringify({ minConfidence }) })
       .then((r) => { invalidateHotelRating(hotelId); return r; }),
+  /** Tên hiển thị theo mã người dùng (khách viết đánh giá, người kiểm duyệt). */
+  people: (hotelId: number, ids: number[]) =>
+    call<Record<number, string>>(`/api/admin/hotels/${hotelId}/reviews/people?ids=${ids.join(',')}`),
   history: (hotelId: number, reviewId: number) =>
     call<ReviewHistoryDto[]>(`/api/admin/hotels/${hotelId}/reviews/${reviewId}/history`),
   /** Trả về null nếu booking chưa có đánh giá. */
@@ -110,6 +113,9 @@ export const reviewApi = {
   update: (bookingId: number, rating: number, comment: string) =>
     call<ReviewDto>(`/api/bookings/${bookingId}/review`, { method: 'PUT', body: JSON.stringify({ rating, comment }) })
       .then((review) => { invalidateHotelRating(review.hotelId); return review; }),
+  /** Khách tự xóa đánh giá của mình (xóa mềm; có thể viết lại sau). */
+  removeOwn: (bookingId: number) =>
+    call<void>(`/api/bookings/${bookingId}/review`, { method: 'DELETE' }).then(() => { invalidateHotelRating(); }),
   mine: (page = 1, pageSize = 100) => call<ReviewPageDto<ReviewDto>>(`/api/me/reviews?page=${page}&pageSize=${pageSize}`),
   publicList: (hotelId: number, page = 1, pageSize = 5) => call<ReviewPageDto<PublicReviewDto>>(`/api/hotels/${hotelId}/reviews?page=${page}&pageSize=${pageSize}`),
   hotelRating: (hotelId: number) => call<HotelRatingDto>(`/api/hotels/${hotelId}/rating`),

@@ -443,7 +443,7 @@ export const AdminInventory: React.FC = () => {
                   className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary disabled:opacity-40">
                   <span className="material-symbols-outlined text-[18px]">add</span>Thêm phòng</button>}
               </div>
-              {!selectedIsBuilding ? <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Phòng vật lý được quản lý trong từng Building. Hãy chọn một Building ở cột bên trái.</p>
+              {!selectedIsBuilding && !areaRooms.length ? <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Phòng vật lý được quản lý trong từng Building. Hãy chọn một Building ở cột bên trái.</p>
                 : loading ? <p role="status" className="text-sm text-on-surface-variant">Đang tải…</p>
                 : !filteredRooms.length ? <p className="rounded bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">Không có phòng phù hợp.</p>
                 : <div className="space-y-5">

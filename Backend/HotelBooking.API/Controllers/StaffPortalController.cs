@@ -187,9 +187,10 @@ public class StaffPortalController(
         });
     }
 
-    [HttpGet("bookings"), RequirePermission(SystemPermissions.BookingView)]
+    [HttpGet("bookings"), Authorize(Policy = AuthorizationPolicies.BookingOrPaymentView)]
     public async Task<IActionResult> GetBookings(
-        [FromServices] HotelBooking.Application.Interfaces.IPaymentRepository paymentRepo, CancellationToken ct)
+        [FromServices] HotelBooking.Application.Interfaces.IPaymentRepository paymentRepo,
+        [FromServices] HotelBooking.Infrastructure.Persistence.HotelDbContext hotelDb, CancellationToken ct)
     {
         var allowedRoomIds = await GetAllowedRoomIdsAsync(ct);
         if (allowedRoomIds is { Count: 0 })
@@ -215,6 +216,10 @@ public class StaffPortalController(
             .Include(x => x.Area)
             .Where(x => roomIds.Contains(x.RoomId))
             .ToDictionaryAsync(x => x.RoomId, ct);
+
+        var hotelIds = rooms.Values.Select(x => x.RoomType.HotelId).Distinct().ToList();
+        var hotelNames = await hotelDb.Hotels.AsNoTracking().Where(h => hotelIds.Contains(h.HotelId))
+            .ToDictionaryAsync(h => h.HotelId, h => h.HotelName, ct);
 
         var customerIds = bookings.Select(x => x.CustomerId).Distinct().ToList();
         var customers = await roomDb.Users.AsNoTracking()
@@ -242,6 +247,7 @@ public class StaffPortalController(
             var roomNumbers = roomInfo.Select(x => x!.RoomNumber).Distinct().ToList();
             var roomTypes = roomInfo.Select(x => x!.RoomType.RoomTypeName).Distinct().ToList();
             var areas = roomInfo.Select(x => x!.Area.AreaName).Distinct().ToList();
+            var hotelId = roomInfo.Select(x => (int?)x!.RoomType.HotelId).FirstOrDefault();
 
             return new
             {
@@ -254,6 +260,8 @@ public class StaffPortalController(
                 roomNumbers,
                 roomTypes,
                 areas,
+                hotelId,
+                hotelName = hotelId is int hid ? hotelNames.GetValueOrDefault(hid) : null,
                 booking.CheckInDate,
                 booking.CheckOutDate,
                 booking.NumberOfGuests,

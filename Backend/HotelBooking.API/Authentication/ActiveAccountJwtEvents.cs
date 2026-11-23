@@ -36,7 +36,11 @@ public sealed class ActiveAccountJwtEvents(IUserRepository users) : JwtBearerEve
         // Use current database roles, never stale roles from an earlier JWT.
         var identity = (ClaimsIdentity)context.Principal!.Identity!;
         foreach (var claim in identity.FindAll(identity.RoleClaimType).ToArray()) identity.RemoveClaim(claim);
-        foreach (var role in user.UserRoles.Where(x => x.Role.IsActive).Select(x => x.Role.RoleName).Distinct())
+        // Vai trò hiệu lực giống lúc cấp token: nhân viên chỉ có vai trò tùy chỉnh (VD "Kế toán") được thêm
+        // "Hotel Staff" để qua các policy StaffOrAdmin — nếu chỉ lấy tên vai trò trong CSDL thì vai trò này bị mất.
+        var activeRoles = user.UserRoles.Where(x => x.Role.IsActive).Select(x => x.Role.RoleName).Distinct().ToList();
+        if (PortalAccess.IsStaff(user) && !activeRoles.Contains(SystemRoles.HotelStaff)) activeRoles.Add(SystemRoles.HotelStaff);
+        foreach (var role in activeRoles)
             identity.AddClaim(new Claim(identity.RoleClaimType, role));
         foreach (var claim in identity.FindAll(PermissionAuthorization.ClaimType).ToArray()) identity.RemoveClaim(claim);
         foreach (var permission in user.UserRoles.Where(x => x.Role.IsActive)

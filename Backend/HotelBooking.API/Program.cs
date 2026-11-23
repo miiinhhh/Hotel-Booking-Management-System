@@ -130,7 +130,11 @@ builder.Services.AddAuthorization(options =>
         policy => policy.RequireRole(SystemRoles.Admin));
     options.AddPolicy(AuthorizationPolicies.BookingRead, policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
         context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingSelfView) ||
-        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingView)));
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingView) ||
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.PaymentView)));
+    options.AddPolicy(AuthorizationPolicies.BookingOrPaymentView, policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingView) ||
+        context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.PaymentView)));
     options.AddPolicy(AuthorizationPolicies.BookingCancel, policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
         context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingSelfCancel) ||
         context.User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingManage)));
@@ -195,6 +199,10 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     await RoleSeeder.SeedAsync(scope.ServiceProvider);
+    // Sửa dữ liệu tiếng Việt bị lỗi font do script seed nạp sai bảng mã (chỉ ô có dấu hiệu lỗi).
+    await HotelBooking.Infrastructure.Data.TextEncodingRepair.RunAsync(
+        scope.ServiceProvider.GetRequiredService<HotelBooking.Infrastructure.Persistence.HotelBookingDbContext>(),
+        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("TextEncodingRepair"));
     await HotelBooking.Infrastructure.Persistence.NotificationReadStore.EnsureSchemaAsync(
         scope.ServiceProvider.GetRequiredService<HotelBooking.Infrastructure.Persistence.HotelBookingDbContext>());
 }

@@ -11,6 +11,8 @@ public interface IStaffAreaAssignmentRepository
     Task<IReadOnlyList<StaffMemberDto>> GetStaffMembersWithAssignmentsAsync(int hotelId, CancellationToken ct);
     Task<IReadOnlyList<StaffAssignedAreaDto>> GetAssignedAreasForUserAsync(long userId, int? hotelId, CancellationToken ct);
     Task<User?> FindUserWithRolesAsync(long userId, CancellationToken ct);
+    /// <summary>Mã các tài khoản nhân viên nội bộ (vai trò Hotel Staff hoặc vai trò có quyền nghiệp vụ), không gồm Admin.</summary>
+    Task<HashSet<long>> GetInternalStaffIdsAsync(CancellationToken ct);
     Task<StaffAreaAssignment?> GetAssignmentAsync(long userId, int areaId, CancellationToken ct);
     Task<StaffAreaAssignment?> GetAssignmentByIdAsync(long assignmentId, CancellationToken ct);
     Task AddAssignmentAsync(StaffAreaAssignment assignment, CancellationToken ct);

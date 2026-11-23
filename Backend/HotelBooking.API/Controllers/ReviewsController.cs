@@ -63,6 +63,21 @@ public sealed class ReviewsController(ReviewService service, IStaffAreaAssignmen
     public async Task<ActionResult<IReadOnlyList<ReviewHistoryDto>>> History(int hotelId, long reviewId, CancellationToken ct)
     { await EnsureModerationScope(hotelId, ct); return Ok(await service.History(hotelId, reviewId, ct)); }
 
+    /// <summary>Tên hiển thị của khách viết đánh giá và người kiểm duyệt (tối đa 200 mã) để trang kiểm duyệt không chỉ hiện mã số.</summary>
+    [HttpGet("api/admin/hotels/{hotelId:int:min(1)}/reviews/people")]
+    [RequirePermission(SystemPermissions.ReviewsManage)]
+    public async Task<ActionResult<Dictionary<long, string>>> People(int hotelId, [FromQuery] string ids,
+        [FromServices] HotelBooking.Infrastructure.Persistence.HotelBookingDbContext coreDb, CancellationToken ct)
+    {
+        await EnsureModerationScope(hotelId, ct);
+        var wanted = (ids ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => long.TryParse(x, out var v) ? v : 0).Where(x => x > 0).Distinct().Take(200).ToList();
+        if (wanted.Count == 0) return Ok(new Dictionary<long, string>());
+        var names = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToDictionaryAsync(
+            coreDb.Users.Where(u => wanted.Contains(u.UserId)), u => u.UserId, u => u.FullName, ct);
+        return Ok(names);
+    }
+
     // ===================== AI duyệt sơ bộ =====================
     /// <summary>Bắt đầu AI quét các đánh giá chờ duyệt (mới / vừa sửa) của khách sạn.</summary>
     [HttpPost("api/admin/hotels/{hotelId:int:min(1)}/reviews/ai-scan")]

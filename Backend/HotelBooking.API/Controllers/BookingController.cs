@@ -78,6 +78,59 @@ public class BookingController : BaseAPIController
     }
 
     /// <summary>
+    /// Dòng thời gian của đơn: lịch sử trạng thái và các giao dịch thanh toán/hoàn tiền.
+    /// Quyền xem giống chi tiết đơn (khách chỉ xem đơn của mình, nhân viên trong phân khu).
+    /// </summary>
+    [HttpGet("{id:long}/timeline")]
+    [Authorize(Policy = AuthorizationPolicies.BookingRead)]
+    public async Task<IActionResult> GetTimeline(
+        long id,
+        [FromServices] IPaymentRepository paymentRepository,
+        [FromServices] HotelBooking.Infrastructure.Data.HotelBookingDBContext bookingDb,
+        [FromServices] HotelBooking.Infrastructure.Persistence.HotelBookingDbContext coreDb,
+        CancellationToken ct)
+    {
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
+        var access = await _bookingService.GetBookingByIdAsync(id, currentUserId, isAdmin, isStaff);
+        if (!access.Success) return StatusCode(StatusCodes.Status403Forbidden, access);
+
+        var history = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            bookingDb.BookingStatusHistory.Where(h => h.BookingId == id).OrderBy(h => h.ChangedAt), ct);
+        var payments = (await paymentRepository.GetByBookingIdAsync(id) ?? []).OrderBy(p => p.PaidAt ?? p.CreatedAt).ToList();
+
+        var internalView = isAdmin || isStaff;
+        var actorIds = history.Where(h => h.ChangedByUserId.HasValue).Select(h => h.ChangedByUserId!.Value).Distinct().ToList();
+        var actors = internalView && actorIds.Count > 0
+            ? await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToDictionaryAsync(
+                coreDb.Users.Where(u => actorIds.Contains(u.UserId)), u => u.UserId, u => u.FullName, ct)
+            : new Dictionary<long, string>();
+
+        string Actor(long? userId) => userId is null ? "Hệ thống"
+            : userId == currentUserId ? (internalView ? actors.GetValueOrDefault(userId.Value, "Bạn") : "Bạn")
+            : internalView ? actors.GetValueOrDefault(userId.Value, $"Người dùng #{userId}") : "Khách sạn";
+
+        return Ok(new
+        {
+            success = true,
+            data = new
+            {
+                statusHistory = history.Select(h => new { h.OldStatus, h.NewStatus, h.ChangedAt, changedBy = Actor(h.ChangedByUserId), h.Note }),
+                payments = payments.Select(p => new
+                {
+                    p.PaymentId,
+                    method = p.PaymentMethod.ToString(),
+                    type = p.PaymentType.ToString(),
+                    p.Amount,
+                    status = p.Status.ToString(),
+                    p.TransactionCode,
+                    p.PaidAt,
+                    p.CreatedAt
+                })
+            }
+        });
+    }
+
+    /// <summary>
     /// Tra cứu đơn đặt phòng theo mã BookingCode (Chống IDOR & Phân quyền Staff/Admin)
     /// </summary>
     [HttpGet("code/{code}")]

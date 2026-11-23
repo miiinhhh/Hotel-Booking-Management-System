@@ -107,14 +107,26 @@ export const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
         {/* Giá */}
         <div className="flex flex-col gap-2.5 py-1 text-sm">
           <div className="flex justify-between text-on-surface-variant">
-            <span>{t('checkout.roomPrice', { count: bookingData.nightsCount })}</span>
-            <span className="text-on-surface font-medium">{money(bookingData.originalPrice)}</span>
+            <span>{t(bookingData.roomSubTotal != null ? 'checkout.roomPriceNet' : 'checkout.roomPrice', { count: bookingData.nightsCount })}</span>
+            <span className="text-on-surface font-medium">{money(bookingData.roomSubTotal ?? bookingData.originalPrice)}</span>
           </div>
           {bookingData.couponDiscount > 0 && (
             <div className="flex justify-between text-primary">
               <span>{t('checkout.discount', { code: bookingData.couponCode })}</span>
               <span className="font-semibold">−{money(bookingData.couponDiscount)}</span>
             </div>
+          )}
+          {bookingData.roomSubTotal != null && (
+            <>
+              <div className="flex justify-between text-on-surface-variant">
+                <span>{t('checkout.serviceFee', { rate: Math.round((bookingData.feeRate ?? 0) * 100) })}</span>
+                <span className="text-on-surface font-medium">{money(bookingData.feeAmount ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-on-surface-variant">
+                <span>{t('checkout.vat', { rate: Math.round((bookingData.taxRate ?? 0) * 100) })}</span>
+                <span className="text-on-surface font-medium">{money(bookingData.taxAmount ?? 0)}</span>
+              </div>
+            </>
           )}
           <div className="w-full h-px bg-surface-container-high my-1" />
           <div className="flex justify-between items-baseline">

@@ -206,6 +206,7 @@ function App() {
     return (
       <StaffBookingsPage
         onNavigateCustomerPortal={leaveInternalPortal}
+        onOpenProfile={() => { window.history.replaceState({}, document.title, '/'); setActiveTab('tai-khoan'); window.scrollTo({ top: 0 }); }}
       />
     );
   }

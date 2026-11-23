@@ -9,6 +9,9 @@ import { AdminAccounts } from './pages/AdminAccounts';
 import { AdminRoles } from './pages/AdminRoles';
 import { AdminContent } from './pages/AdminContent';
 import { AdminReviews } from './pages/AdminReviews';
+import { AdminHotels } from './pages/AdminHotels';
+import { AdminSurgeRules } from './pages/AdminSurgeRules';
+import { AdminBookings, AdminCalendar } from './pages/AdminOperations';
 import { ADMIN_NAVIGATION } from './data/adminData';
 import { AdminPage } from './types';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +41,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onExit }) => {
     staff: <AdminStaff />,
     accounts: <AdminAccounts />,
     roles: <AdminRoles />,
+    hotels: <AdminHotels onNavigate={setActivePage} />,
+    bookings: <AdminBookings />,
+    calendar: <AdminCalendar />,
+    surge: <AdminSurgeRules />,
   };
 
   const page = canOpen ? content[activePage] : !allowedPages.length ? (

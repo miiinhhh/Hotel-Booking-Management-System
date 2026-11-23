@@ -48,6 +48,8 @@ export interface BookingItem {
   isEligibleForReview?: boolean;
   /** Đã có đánh giá lưu trong CSDL (nút chuyển thành "Sửa đánh giá"). */
   hasReview?: boolean;
+  /** Khách đã xóa đánh giá của đơn này (không viết lại được). */
+  reviewDeleted?: boolean;
 }
 
 export interface BookingStats {

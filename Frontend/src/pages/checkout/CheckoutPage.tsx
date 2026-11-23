@@ -73,6 +73,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<PaymentMethodType>('qr_napas');
 
+  const [vnpayQuote, setVnpayQuote] = useState<{ percent: number; amount: number; remaining: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionStep, setSubmissionStep] = useState(1);
 
@@ -88,6 +89,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setBookingData((prev) => ({
       ...prev,
       originalPrice: data.subTotal + data.taxAmount + data.feeAmount,
+      roomSubTotal: data.subTotal,
+      feeAmount: data.feeAmount,
+      feeRate: data.feeRate,
+      taxAmount: data.taxAmount,
+      taxRate: data.taxRate,
       couponCode: coupon,
       couponDiscount: data.discountAmount,
       totalPrice: data.totalAmount,
@@ -95,6 +101,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       depositAmount: data.depositAmount,
       remainingAmount: data.remainingAmount,
     }));
+    // Giữ báo giá đặt cọc VNPay để thẻ VNPay không hiện "0%" khi khách đang chọn trả tại khách sạn.
+    if (data.depositAmount > 0) setVnpayQuote({ percent: data.depositPercentage, amount: data.depositAmount, remaining: data.remainingAmount });
   };
 
   // Tính toán báo giá ban đầu và khi đổi phương thức thanh toán
@@ -274,9 +282,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 <PaymentMethodSection
                   selectedMethod={selectedPaymentMethod}
                   onSelectMethod={setSelectedPaymentMethod}
-                  depositAmount={bookingData.depositAmount}
-                  remainingAmount={bookingData.remainingAmount}
-                  depositPercentage={bookingData.depositPercentage}
+                  depositAmount={vnpayQuote?.amount ?? bookingData.depositAmount}
+                  remainingAmount={vnpayQuote?.remaining ?? bookingData.remainingAmount}
+                  depositPercentage={vnpayQuote?.percent ?? bookingData.depositPercentage}
                 />
               </div>
 

@@ -16,6 +16,13 @@ const viDate = (iso: string) => {
  * Hồ sơ khách (chỉ xem): liên hệ, yêu cầu từ các lần đặt, lịch sử gần nhất.
  * Chỉ hiển thị dữ liệu máy chủ thật sự trả về; nút thao tác dùng liên kết gọi/email của thiết bị.
  */
+
+/** Trạng thái đơn từ máy chủ → nhãn tiếng Việt. */
+const BOOKING_STATUS_VI: Record<string, string> = {
+  Pending: 'Chờ xác nhận', Confirmed: 'Đã xác nhận', CheckedIn: 'Đang lưu trú', CheckedOut: 'Đã trả phòng',
+  Completed: 'Hoàn tất', Cancelled: 'Đã hủy', NoShow: 'Không đến',
+};
+
 export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({ customer, onClose }) => {
   useEffect(() => {
     if (!customer || !onClose) return;
@@ -125,7 +132,7 @@ export const StaffCustomerDrawer: React.FC<StaffCustomerDrawerProps> = ({ custom
                   <li key={b.bookingCode} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-on-surface">{b.bookingCode}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${b.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container text-on-surface-variant'}`}>{b.status}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${b.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container text-on-surface-variant'}`}>{BOOKING_STATUS_VI[b.status] ?? b.status}</span>
                     </div>
                     <p className="mt-0.5 text-sm text-on-surface">{b.roomName}{b.roomNumber ? ` · ${b.roomNumber}` : ''}</p>
                     <div className="mt-0.5 flex items-center justify-between text-xs text-on-surface-variant">

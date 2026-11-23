@@ -3,8 +3,10 @@ import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
 import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS } from '../../../auth/permissions';
 import { formatVnd } from '../../../utils/formatters';
+import { getHotelsList } from '../../../services/pricingAdminApi';
 import {
   createVoucher,
+  updateVoucher,
   deleteVoucher,
   getVouchersList,
   toggleVoucherStatus,
@@ -13,6 +15,7 @@ import {
 import {
   CancellationPolicyDto,
   createCancellationPolicy,
+  updateCancellationPolicy,
   deleteCancellationPolicy,
   getCancellationPoliciesByHotel,
 } from '../../../services/cancellationAdminApi';
@@ -25,18 +28,31 @@ export const AdminVouchers: React.FC = () => {
   const [selectedTab, setTab] = useState<'voucher' | 'policy'>(canViewVouchers ? 'voucher' : 'policy');
   // Chỉ hiển thị tab mà người dùng có quyền; nếu quyền bị thu hồi thì tự chuyển tab còn lại.
   const tab: 'voucher' | 'policy' = selectedTab === 'voucher' && !canViewVouchers ? 'policy' : selectedTab === 'policy' && !canManagePolicies ? 'voucher' : selectedTab;
-  const [selectedHotelId] = useState<number>(1);
+  // Chính sách hủy theo từng khách sạn → chọn từ danh sách (trước đây cố định khách sạn #1).
+  const [selectedHotelId, setSelectedHotelId] = useState<number>(1);
+  const [hotels, setHotels] = useState<{ hotelId: number; hotelName: string }[]>([]);
+  useEffect(() => {
+    void getHotelsList().then((res) => {
+      if (!res.success || !res.data) return;
+      setHotels(res.data.items);
+      if (res.data.items.length && !res.data.items.some((h) => h.hotelId === selectedHotelId)) setSelectedHotelId(res.data.items[0].hotelId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Vouchers state
   const [vouchers, setVouchers] = useState<VoucherResponseDto[]>([]);
   const [voucherFilter, setVoucherFilter] = useState<'all' | 'active' | 'paused' | 'limit'>('all');
   const [voucherLoading, setVoucherLoading] = useState<boolean>(true);
   const [voucherModalOpen, setVoucherModalOpen] = useState<boolean>(false);
+  /** Voucher đang sửa (null = tạo mới). */
+  const [editingVoucher, setEditingVoucher] = useState<VoucherResponseDto | null>(null);
 
   // Policies state
   const [policies, setPolicies] = useState<CancellationPolicyDto[]>([]);
   const [policyLoading, setPolicyLoading] = useState<boolean>(false);
   const [policyModalOpen, setPolicyModalOpen] = useState<boolean>(false);
+  const [editingPolicy, setEditingPolicy] = useState<CancellationPolicyDto | null>(null);
 
   // Shared state
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -126,7 +142,7 @@ export const AdminVouchers: React.FC = () => {
     const startAtRaw = String(form.get('startAt') || '');
     const endAtRaw = String(form.get('endAt') || '');
 
-    if (!code || discountValue <= 0 || !startAtRaw || !endAtRaw) {
+    if ((!code && !editingVoucher) || discountValue <= 0 || !startAtRaw || !endAtRaw) {
       setError('Vui lòng điền đầy đủ các thông tin bắt buộc.');
       return;
     }
@@ -137,7 +153,17 @@ export const AdminVouchers: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await createVoucher({
+      const res = editingVoucher ? await updateVoucher(editingVoucher.voucherId, {
+        voucherType,
+        discountValue,
+        minimumOrderAmount,
+        maxDiscountAmount,
+        usageLimit,
+        usageLimitPerCustomer,
+        startAt,
+        endAt,
+        isActive: editingVoucher.isActive,
+      }) : await createVoucher({
         code,
         voucherType,
         discountValue,
@@ -150,8 +176,9 @@ export const AdminVouchers: React.FC = () => {
       });
 
       if (res.success && res.data) {
-        notify(`Đã tạo và kích hoạt mã voucher ${code} thành công.`);
+        notify(editingVoucher ? `Đã cập nhật voucher ${editingVoucher.code}.` : `Đã tạo và kích hoạt mã voucher ${code} thành công.`);
         setVoucherModalOpen(false);
+        setEditingVoucher(null);
         await fetchVouchers();
       } else {
         setError(res.message || 'Không thể tạo voucher.');
@@ -216,7 +243,13 @@ export const AdminVouchers: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await createCancellationPolicy({
+      const res = editingPolicy ? await updateCancellationPolicy(editingPolicy.cancellationPolicyId, {
+        policyName,
+        daysBeforeCheckIn,
+        refundPercentage,
+        depositPenaltyPercentage,
+        isActive: editingPolicy.isActive,
+      }) : await createCancellationPolicy({
         hotelId: selectedHotelId,
         policyName,
         daysBeforeCheckIn,
@@ -226,8 +259,9 @@ export const AdminVouchers: React.FC = () => {
       });
 
       if (res.success && res.data) {
-        notify(`Đã thêm chính sách hủy "${policyName}" thành công.`);
+        notify(editingPolicy ? `Đã cập nhật chính sách "${policyName}".` : `Đã thêm chính sách hủy "${policyName}" thành công.`);
         setPolicyModalOpen(false);
+        setEditingPolicy(null);
         await fetchPolicies();
       } else {
         setError(res.message || 'Không thể tạo chính sách hủy.');
@@ -262,6 +296,15 @@ export const AdminVouchers: React.FC = () => {
         description="Kiểm soát ngân sách khuyến mãi và quy tắc hoàn cọc đồng bộ với hệ thống Backend & CSDL SQL Server."
         actions={
           <>
+            {tab === 'policy' && hotels.length > 0 && (
+              <label className="flex items-center gap-2 rounded-full bg-surface-container-high pl-4 pr-2 text-sm">
+                <span className="material-symbols-outlined text-[18px] text-primary">apartment</span>
+                <select aria-label="Khách sạn áp dụng chính sách hủy" value={selectedHotelId} onChange={(e) => setSelectedHotelId(Number(e.target.value))}
+                  className="h-10 bg-transparent pr-2 font-semibold outline-none">
+                  {hotels.map((h) => <option key={h.hotelId} value={h.hotelId}>{h.hotelName}</option>)}
+                </select>
+              </label>
+            )}
             <button
               onClick={() => {
                 if (tab === 'voucher') fetchVouchers();
@@ -275,7 +318,7 @@ export const AdminVouchers: React.FC = () => {
             </button>
             {tab === 'voucher' ? canManageVouchers && (
               <button
-                onClick={() => setVoucherModalOpen(true)}
+                onClick={() => { setEditingVoucher(null); setVoucherModalOpen(true); }}
                 className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary hover:bg-primary/90"
               >
                 <span className="material-symbols-outlined text-lg">add</span>
@@ -283,7 +326,7 @@ export const AdminVouchers: React.FC = () => {
               </button>
             ) : canManagePolicies && (
               <button
-                onClick={() => setPolicyModalOpen(true)}
+                onClick={() => { setEditingPolicy(null); setPolicyModalOpen(true); }}
                 className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary hover:bg-primary/90"
               >
                 <span className="material-symbols-outlined text-lg">add</span>
@@ -458,6 +501,13 @@ export const AdminVouchers: React.FC = () => {
                           onChange={() => handleToggleVoucher(voucher.voucherId)}
                         />
                         <button
+                          onClick={() => { setEditingVoucher(voucher); setVoucherModalOpen(true); }}
+                          title="Sửa voucher"
+                          className="text-outline hover:text-primary"
+                        >
+                          <span className="material-symbols-outlined text-lg">edit</span>
+                        </button>
+                        <button
                           onClick={() => handleDeleteVoucher(voucher.voucherId, voucher.code)}
                           title="Xóa voucher"
                           className="text-outline hover:text-error"
@@ -531,7 +581,7 @@ export const AdminVouchers: React.FC = () => {
                 </p>
               </div>
               <button
-                onClick={() => setPolicyModalOpen(true)}
+                onClick={() => { setEditingPolicy(null); setPolicyModalOpen(true); }}
                 className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 font-semibold text-on-primary hover:bg-primary/90 text-sm"
               >
                 <span className="material-symbols-outlined text-base">add</span>
@@ -556,7 +606,7 @@ export const AdminVouchers: React.FC = () => {
                   Khi khách hủy phòng mà không có chính sách riêng, hệ thống sẽ áp dụng quy tắc mặc định (phạt 100% tiền cọc).
                 </p>
                 <button
-                  onClick={() => setPolicyModalOpen(true)}
+                  onClick={() => { setEditingPolicy(null); setPolicyModalOpen(true); }}
                   className="mt-4 rounded-full bg-primary px-5 py-2 text-xs font-bold text-on-primary"
                 >
                   Tạo chính sách đầu tiên
@@ -608,6 +658,13 @@ export const AdminVouchers: React.FC = () => {
                         </td>
                         <td className="py-4 text-right">
                           <button
+                            onClick={() => { setEditingPolicy(pol); setPolicyModalOpen(true); }}
+                            className="text-outline hover:text-primary p-1 rounded-full hover:bg-surface-container"
+                            title="Sửa chính sách"
+                          >
+                            <span className="material-symbols-outlined text-lg">edit</span>
+                          </button>
+                          <button
                             onClick={() => handleDeletePolicy(pol.cancellationPolicyId, pol.policyName)}
                             className="text-outline hover:text-error p-1 rounded-full hover:bg-error-container/20"
                             title="Xóa chính sách"
@@ -627,16 +684,18 @@ export const AdminVouchers: React.FC = () => {
 
       {/* MODAL 1: TẠO VOUCHER */}
       <Modal
-        title="Khởi tạo mã Voucher khuyến mãi (Backend)"
+        title={editingVoucher ? `Sửa voucher ${editingVoucher.code}` : 'Khởi tạo mã Voucher khuyến mãi'}
         open={canManageVouchers && voucherModalOpen}
-        onClose={() => setVoucherModalOpen(false)}
+        onClose={() => { setVoucherModalOpen(false); setEditingVoucher(null); }}
       >
-        <form onSubmit={handleCreateVoucher} className="grid gap-4 sm:grid-cols-2">
+        <form key={editingVoucher?.voucherId ?? 'new'} onSubmit={handleCreateVoucher} className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-semibold">
             Mã voucher *
             <input
               required
               name="code"
+              defaultValue={editingVoucher?.code}
+              disabled={Boolean(editingVoucher)}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 uppercase font-mono font-bold"
               placeholder="SUMMER2026"
             />
@@ -646,6 +705,7 @@ export const AdminVouchers: React.FC = () => {
             Loại ưu đãi *
             <select
               name="voucherType"
+              defaultValue={editingVoucher?.voucherType ?? 'Percentage'}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4 font-normal"
             >
               <option value="Percentage">Phần trăm (%)</option>
@@ -658,6 +718,7 @@ export const AdminVouchers: React.FC = () => {
             <input
               required
               name="discountValue"
+              defaultValue={editingVoucher?.discountValue}
               type="number"
               min="0.01"
               step="any"
@@ -673,7 +734,7 @@ export const AdminVouchers: React.FC = () => {
               name="minimumOrderAmount"
               type="number"
               min="0"
-              defaultValue="0"
+              defaultValue={editingVoucher?.minimumOrderAmount ?? 0}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
           </label>
@@ -682,6 +743,7 @@ export const AdminVouchers: React.FC = () => {
             Mức giảm tối đa (VNĐ)
             <input
               name="maxDiscountAmount"
+              defaultValue={editingVoucher?.maxDiscountAmount ?? undefined}
               type="number"
               min="0"
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
@@ -695,7 +757,7 @@ export const AdminVouchers: React.FC = () => {
               name="usageLimit"
               type="number"
               min="1"
-              defaultValue="100"
+              defaultValue={editingVoucher ? (editingVoucher.usageLimit ?? undefined) : 100}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
           </label>
@@ -706,7 +768,7 @@ export const AdminVouchers: React.FC = () => {
               required
               name="startAt"
               type="date"
-              defaultValue={new Date().toISOString().split('T')[0]}
+              defaultValue={(editingVoucher?.startAt ?? new Date().toISOString()).split('T')[0]}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
           </label>
@@ -717,6 +779,7 @@ export const AdminVouchers: React.FC = () => {
               required
               name="endAt"
               type="date"
+              defaultValue={editingVoucher?.endAt.split('T')[0]}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
           </label>
@@ -724,7 +787,7 @@ export const AdminVouchers: React.FC = () => {
           <div className="col-span-full flex justify-end gap-3 pt-4 border-t border-surface-container">
             <button
               type="button"
-              onClick={() => setVoucherModalOpen(false)}
+              onClick={() => { setVoucherModalOpen(false); setEditingVoucher(null); }}
               className="rounded-full bg-surface-container px-5 py-2.5 font-semibold text-on-surface"
             >
               Hủy
@@ -734,7 +797,7 @@ export const AdminVouchers: React.FC = () => {
               disabled={isSubmitting}
               className="rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSubmitting ? 'Đang tạo...' : 'Tạo & Lưu vào CSDL'}
+              {isSubmitting ? 'Đang lưu...' : editingVoucher ? 'Lưu thay đổi' : 'Tạo voucher'}
             </button>
           </div>
         </form>
@@ -742,16 +805,17 @@ export const AdminVouchers: React.FC = () => {
 
       {/* MODAL 2: TẠO CHÍNH SÁCH HỦY */}
       <Modal
-        title="Thêm mốc chính sách hoàn / hủy phòng"
+        title={editingPolicy ? `Sửa chính sách "${editingPolicy.policyName}"` : 'Thêm mốc chính sách hoàn / hủy phòng'}
         open={policyModalOpen}
-        onClose={() => setPolicyModalOpen(false)}
+        onClose={() => { setPolicyModalOpen(false); setEditingPolicy(null); }}
       >
-        <form onSubmit={handleCreatePolicy} className="grid gap-4 sm:grid-cols-2">
+        <form key={editingPolicy?.cancellationPolicyId ?? 'new'} onSubmit={handleCreatePolicy} className="grid gap-4 sm:grid-cols-2">
           <label className="col-span-full text-sm font-semibold">
             Tên chính sách *
             <input
               required
               name="policyName"
+              defaultValue={editingPolicy?.policyName}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
               placeholder="Ví dụ: Hoàn 100% trước 14 ngày"
             />
@@ -764,7 +828,7 @@ export const AdminVouchers: React.FC = () => {
               name="daysBeforeCheckIn"
               type="number"
               min="0"
-              defaultValue="7"
+              defaultValue={editingPolicy?.daysBeforeCheckIn ?? 7}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
             <span className="text-xs text-outline block mt-1">
@@ -780,7 +844,7 @@ export const AdminVouchers: React.FC = () => {
               type="number"
               min="0"
               max="100"
-              defaultValue="50"
+              defaultValue={editingPolicy?.refundPercentage ?? 50}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
           </label>
@@ -793,7 +857,7 @@ export const AdminVouchers: React.FC = () => {
               type="number"
               min="0"
               max="100"
-              defaultValue="50"
+              defaultValue={editingPolicy?.depositPenaltyPercentage ?? 50}
               className="mt-1 h-11 w-full rounded-lg bg-surface-container-low px-4"
             />
             <span className="text-xs text-outline block mt-1">
@@ -804,7 +868,7 @@ export const AdminVouchers: React.FC = () => {
           <div className="col-span-full flex justify-end gap-3 pt-4 border-t border-surface-container">
             <button
               type="button"
-              onClick={() => setPolicyModalOpen(false)}
+              onClick={() => { setPolicyModalOpen(false); setEditingPolicy(null); }}
               className="rounded-full bg-surface-container px-5 py-2.5 font-semibold text-on-surface"
             >
               Hủy
@@ -814,7 +878,7 @@ export const AdminVouchers: React.FC = () => {
               disabled={isSubmitting}
               className="rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSubmitting ? 'Đang lưu...' : 'Thêm chính sách'}
+              {isSubmitting ? 'Đang lưu...' : editingPolicy ? 'Lưu thay đổi' : 'Thêm chính sách'}
             </button>
           </div>
         </form>

@@ -40,6 +40,24 @@ public sealed class HotelRepository(HotelDbContext dbContext) : IHotelRepository
         }
     }
 
+    public async Task<int> CountOpenBookingsAsync(int hotelId, CancellationToken cancellationToken)
+    {
+        // Context khách sạn không ánh xạ Bookings → truy vấn trực tiếp (bỏ qua khi không phải CSDL quan hệ, VD test in-memory).
+        if (!dbContext.Database.IsRelational()) return 0;
+        const string sql = """
+            SELECT COUNT(DISTINCT b.BookingId)
+            FROM Bookings b
+            JOIN BookingDetails d ON d.BookingId = b.BookingId
+            JOIN Rooms r ON r.RoomId = d.RoomId
+            JOIN RoomTypes t ON t.RoomTypeId = r.RoomTypeId
+            WHERE t.HotelId = @HotelId
+              AND (b.BookingStatus IN ('Confirmed', 'CheckedIn')
+                   OR (b.BookingStatus = 'Pending' AND (b.HoldExpiresAt IS NULL OR b.HoldExpiresAt > SYSUTCDATETIME())))
+            """;
+        return await Dapper.SqlMapper.ExecuteScalarAsync<int>(dbContext.Database.GetDbConnection(),
+            new Dapper.CommandDefinition(sql, new { HotelId = hotelId }, cancellationToken: cancellationToken));
+    }
+
     public async Task DeleteAsync(Hotel hotel, CancellationToken cancellationToken)
     {
         dbContext.Hotels.Remove(hotel);

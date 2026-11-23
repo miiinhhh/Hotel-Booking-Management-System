@@ -24,10 +24,14 @@ public sealed class Review
         BookingId = bookingId; CustomerId = customerId;
         SetContent(rating, comment);
     }
+    /// <summary>
+    /// Đánh giá được ngay khi khách đã trả phòng (Đã trả phòng / Hoàn tất), kể cả trả phòng sớm hơn ngày dự kiến.
+    /// Ngày trả phòng không còn là điều kiện: trạng thái đơn đã phản ánh việc khách rời đi.
+    /// </summary>
     public static void EnsureCompleted(BookingStatus status, DateOnly checkOut, DateOnly today)
     {
-        if (status != BookingStatus.Completed || checkOut > today)
-            throw new DomainRuleException("Only a completed stay on or after its check-out date can be reviewed.");
+        if (status is not (BookingStatus.Completed or BookingStatus.CheckedOut))
+            throw new DomainRuleException("Only a completed stay (after check-out) can be reviewed.");
     }
     public void Edit(int rating, string? comment)
     {

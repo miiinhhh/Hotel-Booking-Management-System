@@ -35,10 +35,9 @@ public sealed class ReviewTests
     [InlineData(BookingStatus.Pending)]
     [InlineData(BookingStatus.Confirmed)]
     [InlineData(BookingStatus.CheckedIn)]
-    [InlineData(BookingStatus.CheckedOut)]
     [InlineData(BookingStatus.Cancelled)]
     [InlineData(BookingStatus.Expired)]
-    public async Task OnlyCompletedBookingCanBeReviewed(BookingStatus status)
+    public async Task OnlyCheckedOutOrCompletedBookingCanBeReviewed(BookingStatus status)
     {
         using var db = Database(); db.Bookings.Add(Stay(20, status)); await db.SaveChangesAsync();
         await Assert.ThrowsAsync<DomainRuleException>(() => Service(db).Create(20, 4, new(5, "Good"), default));
@@ -56,8 +55,12 @@ public sealed class ReviewTests
     {
         using var db = Database(); var service = Service(db);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.Create(10, 99, new(5, null), default));
-        var future = Stay(20); future.CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1); db.Add(future); await db.SaveChangesAsync();
+        // Còn đang lưu trú (chưa trả phòng) thì chưa đánh giá được.
+        var staying = Stay(20, BookingStatus.CheckedIn); db.Add(staying); await db.SaveChangesAsync();
         await Assert.ThrowsAsync<DomainRuleException>(() => service.Create(20, 4, new(5, null), default));
+        // Trả phòng sớm (ngày trả phòng dự kiến còn ở tương lai) vẫn đánh giá được ngay.
+        var early = Stay(21); early.CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(2); db.Add(early); await db.SaveChangesAsync();
+        Assert.Equal(5, (await service.Create(21, 4, new(5, null), default)).Rating);
         await Assert.ThrowsAsync<NotFoundException>(() => service.Create(999, 4, new(5, null), default));
         await Assert.ThrowsAsync<DomainRuleException>(() => service.Create(10, 4, new(5, new string('a', 2001)), default));
     }

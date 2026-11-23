@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '../../pages/admin/components/AdminUi';
-import { reviewApi, ReviewDto, ReviewHistoryDto, ReviewStatus, AiSuggestionDto, AiScanStatusDto } from '../../services/reviewApi';
+import { reviewApi, ReviewDto, ReviewHistoryDto, ReviewStatus, AiSuggestionDto, AiScanStatusDto, HotelRatingDto } from '../../services/reviewApi';
 import { CRITERIA_LABELS, CriteriaKey, parseReviewComment } from '../../pages/booking-history/reviewFormat';
 import { formatDateVi } from '../../utils/formatters';
 
@@ -48,6 +48,10 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
   const [modalError, setModalError] = useState('');
   const [historyOf, setHistoryOf] = useState<ReviewDto | null>(null);
   const [history, setHistory] = useState<ReviewHistoryDto[]>([]);
+  /** Tên khách viết đánh giá và người kiểm duyệt (theo mã người dùng). */
+  const [people, setPeople] = useState<Record<number, string>>({});
+  const [nameQuery, setNameQuery] = useState('');
+  const [rating, setRating] = useState<HotelRatingDto | null>(null);
 
   useEffect(() => {
     if (!hotels.some((h) => h.hotelId === hotelId)) setHotelId(hotels[0]?.hotelId ?? 0);
@@ -63,6 +67,21 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [hotelId, filter, page, revision]);
+
+  const loadPeople = async (ids: number[]) => {
+    const missing = Array.from(new Set(ids)).filter((id) => id && !(id in people));
+    if (!missing.length || !hotelId) return;
+    try { const map = await reviewApi.people(hotelId, missing); setPeople((prev) => ({ ...prev, ...map })); } catch { /* giữ mã số */ }
+  };
+  useEffect(() => { void loadPeople(items.map((r) => r.customerId)); }, [items]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Điểm trung bình & phân bố sao (chỉ tính đánh giá đang hiển thị công khai).
+  useEffect(() => {
+    if (!hotelId) { setRating(null); return; }
+    let alive = true;
+    reviewApi.hotelRating(hotelId).then((r) => { if (alive) setRating(r); }).catch(() => { if (alive) setRating(null); });
+    return () => { alive = false; };
+  }, [hotelId, revision]);
 
   // Đề xuất AI chưa xử lý của khách sạn đang chọn.
   useEffect(() => {
@@ -116,6 +135,17 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
     finally { setBusyId(null); }
   };
 
+  /** Áp dụng riêng một đề xuất AI (hiển thị ngay, hoặc ẩn với lý do AI đưa ra). */
+  const applyOne = async (review: ReviewDto, ai: AiSuggestionDto) => {
+    if (ai.decision === 'show') { await show(review); return; }
+    if (ai.decision === 'hide') {
+      setBusyId(review.reviewId); setError('');
+      try { await reviewApi.moderate(hotelId, review.reviewId, 'Hidden', ai.reason || 'Ẩn theo đề xuất AI'); onToast?.('Đã ẩn đánh giá theo đề xuất AI.'); setRevision((v) => v + 1); }
+      catch (e) { setError(e instanceof Error ? e.message : 'Không cập nhật được đánh giá.'); }
+      finally { setBusyId(null); }
+    }
+  };
+
   const confirmHide = async () => {
     if (!hiding) return;
     if (!reason.trim()) { setModalError('Vui lòng nhập lý do ẩn đánh giá.'); return; }
@@ -127,7 +157,7 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
 
   const openHistory = async (review: ReviewDto) => {
     setHistoryOf(review); setHistory([]);
-    try { setHistory(await reviewApi.history(hotelId, review.reviewId)); }
+    try { const list = await reviewApi.history(hotelId, review.reviewId); setHistory(list); void loadPeople(list.map((h) => h.actorId)); }
     catch (e) { setError(e instanceof Error ? e.message : 'Không tải được lịch sử.'); setHistoryOf(null); }
   };
 
@@ -159,6 +189,11 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
             </button>
           ))}
         </div>
+        <label className="relative min-w-[180px] flex-1">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">person_search</span>
+          <input type="search" value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Tên khách trên trang này…" aria-label="Lọc theo tên khách"
+            className="h-9 w-full rounded-full bg-surface-container-low pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
+        </label>
         <span className="ml-auto text-sm text-on-surface-variant"><strong className="text-on-surface">{total}</strong> đánh giá</span>
         <button type="button" disabled={aiRunning || !hotelId} onClick={() => void startAiScan()}
           className="inline-flex h-9 items-center gap-1.5 rounded-full border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:bg-surface-container-low disabled:opacity-50">
@@ -177,6 +212,28 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
         </button>
       </div>
 
+      {rating && (
+        <div className="mb-5 flex flex-wrap items-center gap-6 rounded-2xl bg-surface-container-lowest p-5 shadow-sm">
+          <div className="text-center">
+            <p className="text-4xl font-bold text-on-surface">{rating.averageRating != null ? rating.averageRating.toFixed(1) : '—'}<span className="text-base font-medium text-outline">/5</span></p>
+            <p className="mt-1 text-xs text-on-surface-variant">{rating.totalReviews} đánh giá đang hiển thị</p>
+          </div>
+          <div className="min-w-[220px] flex-1 space-y-1.5">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = rating.distribution.find((b) => b.rating === star)?.count ?? 0;
+              const pct = rating.totalReviews ? Math.round((count / rating.totalReviews) * 100) : 0;
+              return (
+                <div key={star} className="flex items-center gap-2 text-xs">
+                  <span className="flex w-8 items-center gap-0.5 text-on-surface-variant">{star}<span className="material-symbols-outlined text-[13px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span></span>
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container"><span className="block h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} /></span>
+                  <span className="w-10 text-right tabular-nums text-on-surface-variant">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {error && <p role="alert" className="mb-4 rounded-2xl bg-error-container p-4 text-sm text-on-error-container">{error}</p>}
 
       {loading && !items.length ? <p role="status" className="p-10 text-center text-sm text-on-surface-variant">Đang tải đánh giá…</p>
@@ -187,7 +244,7 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
             <p className="mt-1 text-xs text-on-surface-variant">Thử chọn bộ lọc khác.</p>
           </div>
         )
-        : <div className="space-y-3">{items.map((review) => {
+        : <div className="space-y-3">{items.filter((r) => !nameQuery.trim() || (people[r.customerId] ?? '').toLowerCase().includes(nameQuery.trim().toLowerCase())).map((review) => {
           const parsed = parseReviewComment(review.comment);
           const busy = busyId === review.reviewId;
           return (
@@ -204,7 +261,7 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-on-surface-variant">Đơn #{review.bookingId} · {formatDateVi(review.createdAt)}{review.updatedAt ? ` · đã sửa ${formatDateVi(review.updatedAt)}` : ''}</p>
+                  <p className="text-xs text-on-surface-variant"><b className="text-sm font-semibold text-on-surface">{people[review.customerId] ?? `Khách #${review.customerId}`}</b> · Đơn #{review.bookingId} · {formatDateVi(review.createdAt)}{review.updatedAt ? ` · đã sửa ${formatDateVi(review.updatedAt)}` : ''}</p>
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_CLASS[review.status]}`}>
                     <span className="h-1.5 w-1.5 rounded-full bg-current" />{STATUS_LABEL[review.status]}
                   </span>
@@ -217,7 +274,13 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
                   return (
                     <p className={`mt-2 flex items-start gap-1.5 rounded-2xl px-3 py-2 text-xs ${tone}`}>
                       <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-                      <span><b>AI: {label}</b> ({Math.round(ai.confidence * 100)}%){ai.reason ? ` · ${ai.reason}` : ''}</span>
+                      <span className="flex-1"><b>AI: {label}</b> ({Math.round(ai.confidence * 100)}%){ai.reason ? ` · ${ai.reason}` : ''}</span>
+                      {ai.decision !== 'review' && (
+                        <button type="button" disabled={busyId === review.reviewId} onClick={() => void applyOne(review, ai)}
+                          className="shrink-0 rounded-full bg-surface-container-lowest px-3 py-1 font-semibold text-on-surface shadow-sm hover:opacity-90 disabled:opacity-50">
+                          Áp dụng
+                        </button>
+                      )}
                     </p>
                   );
                 })()}
@@ -270,7 +333,7 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
           : <ol className="space-y-3">{history.map((h) => (
             <li key={h.historyId} className="rounded-2xl bg-surface-container-low p-3 text-sm">
               <p><strong>{STATUS_LABEL[h.oldStatus]}</strong> → <strong>{STATUS_LABEL[h.newStatus]}</strong></p>
-              <p className="text-xs text-outline">{formatDateVi(h.createdAt)} · {h.action === 'Moderation' ? 'Kiểm duyệt' : h.action === 'AuthorEdit' ? 'Khách sửa đánh giá' : h.action === 'AuthorDelete' ? 'Khách xóa đánh giá' : h.action}</p>
+              <p className="text-xs text-outline">{formatDateVi(h.createdAt)} · {h.action === 'Moderation' ? 'Kiểm duyệt' : h.action === 'AuthorEdit' ? 'Khách sửa đánh giá' : h.action === 'AuthorDelete' ? 'Khách xóa đánh giá' : h.action === 'AiModeration' ? 'AI đề xuất' : h.action} · bởi <b className="text-on-surface-variant">{h.action === 'AiModeration' ? 'AI' : people[h.actorId] ?? `#${h.actorId}`}</b></p>
               {h.reason && <p className="mt-1">{h.reason}</p>}
             </li>
           ))}</ol>}

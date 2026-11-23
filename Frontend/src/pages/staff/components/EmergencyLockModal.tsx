@@ -12,8 +12,11 @@ interface EmergencyLockModalProps {
   initialCategory?: string;
   initialRoomNumber?: string;
 }
+const ROOM_STATUS_VI: Record<string, string> = { Available: 'Trống', Occupied: 'Có khách', Maintenance: 'Bảo trì', Inactive: 'Ngừng hoạt động' };
+
 export const EmergencyLockModal: React.FC<EmergencyLockModalProps> = ({ isOpen, onClose, onConfirmLock, hotelId, initialRoomIds, allowedRoomIds, initialRoomNumber }) => {
   const [rooms, setRooms] = useState<RoomDto[]>([]);
+  const [areaNames, setAreaNames] = useState<Record<number, string>>({});
   const [selected, setSelected] = useState<number[]>([]);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -30,9 +33,11 @@ export const EmergencyLockModal: React.FC<EmergencyLockModalProps> = ({ isOpen, 
     const localInput = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     setStart(localInput(new Date())); setEnd(localInput(new Date(Date.now() + 86400000)));
     if (!hotelId) { setLoading(false); return; }
-    roomApi.rooms(hotelId).then(items => {
+    Promise.all([roomApi.rooms(hotelId), roomApi.areas(hotelId, true).catch(() => [])]).then(([items, areas]) => {
       if (!active) return;
-      const permittedItems = allowedRoomIds?.length ? items.filter(r => allowedRoomIds.includes(r.roomId)) : items;
+      setAreaNames(Object.fromEntries(areas.map(a => [a.areaId, a.areaName])));
+      // allowedRoomIds được truyền (kể cả mảng rỗng) = chỉ các phòng đó; rỗng nghĩa là hạng phòng không còn phòng để khóa.
+      const permittedItems = allowedRoomIds ? items.filter(r => allowedRoomIds.includes(r.roomId)) : items;
       setRooms(permittedItems);
       // Room numbers are resolved against the database; never guess an ID.
       const number = initialRoomNumber?.replace(/^P\./, '');
@@ -58,7 +63,7 @@ export const EmergencyLockModal: React.FC<EmergencyLockModalProps> = ({ isOpen, 
   return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-inverse-surface/40 p-4"><section role="dialog" aria-modal="true" aria-label="Khóa bán phòng" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-surface-container-lowest p-6 shadow-xl"><h2 className="mb-4 text-2xl font-semibold">Khóa bán phòng</h2>
     <form onSubmit={submit} className="space-y-4"><fieldset disabled={saving} className="space-y-4">
       {error && <p role="alert" className="rounded-lg bg-error-container p-3 text-on-error-container">{error}</p>}
-      {loading ? <p role="status">Đang tải phòng…</p> : <div className="max-h-56 overflow-y-auto">{rooms.filter(r => r.isActive).map(r => <label key={r.roomId} className="mb-2 flex items-center gap-3 rounded-lg bg-surface-container-low p-3"><input type="checkbox" checked={selected.includes(r.roomId)} onChange={e => setSelected(current => e.target.checked ? [...current, r.roomId] : current.filter(id => id !== r.roomId))} /><span>Phòng {r.roomNumber} · Khu vực #{r.areaId} · {r.status}</span></label>)}{!rooms.length && <p>Không có phòng trong khách sạn này.</p>}</div>}
+      {loading ? <p role="status">Đang tải phòng…</p> : !rooms.some(r => r.isActive) ? <p className="rounded-2xl bg-surface-container-low p-4 text-sm text-on-surface-variant">Không còn phòng nào trong phạm vi này để khóa bán.</p> : <div className="max-h-56 overflow-y-auto">{rooms.filter(r => r.isActive).map(r => <label key={r.roomId} className="mb-2 flex items-center gap-3 rounded-lg bg-surface-container-low p-3"><input type="checkbox" checked={selected.includes(r.roomId)} onChange={e => setSelected(current => e.target.checked ? [...current, r.roomId] : current.filter(id => id !== r.roomId))} /><span>Phòng {r.roomNumber} · {areaNames[r.areaId] || 'Phân khu'} · {ROOM_STATUS_VI[r.status] || r.status}</span></label>)}{!rooms.length && <p>Không có phòng trong khách sạn này.</p>}</div>}
       <div className="grid gap-4 sm:grid-cols-2"><label>Bắt đầu<input type="datetime-local" required value={start} onChange={e => setStart(e.target.value)} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label><label>Kết thúc<input type="datetime-local" required value={end} onChange={e => setEnd(e.target.value)} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label></div>
       <label className="block">Lý do<textarea required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} className="mt-1 w-full rounded-lg bg-surface-container-low p-3" /></label>
       <p className="text-sm text-outline">Nếu phòng có booking hoặc lệnh khóa chồng lấn, hệ thống sẽ từ chối toàn bộ yêu cầu.</p>

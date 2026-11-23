@@ -14,6 +14,7 @@ interface BookingTicketCardProps {
   onPayNow?: (booking: BookingItem, paymentTarget?: 'Deposit' | 'Full') => void;
   onRebook?: (booking: BookingItem) => void;
   onReschedule?: (booking: BookingItem) => void;
+  onViewDetails?: (booking: BookingItem) => void;
 }
 
 const BTN_PRIMARY = 'w-full py-2.5 px-4 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
@@ -22,7 +23,7 @@ const BTN_SOFT = 'w-full py-2 px-4 rounded-full bg-surface-container hover:bg-su
 
 /** Thẻ một đơn đặt phòng: chỉ hiển thị dữ liệu thật và các thao tác hệ thống hỗ trợ. */
 export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
-  booking, onCopyCode, onOpenCancelModal, onOpenReviewModal, onPayNow, onRebook, onReschedule,
+  booking, onCopyCode, onOpenCancelModal, onOpenReviewModal, onPayNow, onRebook, onReschedule, onViewDetails,
 }) => {
   const { hasPermission } = useAuth();
   const { t, locale } = useLanguage();
@@ -173,7 +174,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
 
         {isCompleted && (
           <>
-            {canReview && (
+            {canReview && !booking.reviewDeleted && (
               <button type="button" onClick={() => onOpenReviewModal(booking)} className={BTN_PRIMARY}>
                 <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                 {booking.hasReview ? t('ticket.editReview') : t('ticket.writeReview')}
@@ -188,6 +189,12 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
         {isCancelled && (
           <button type="button" onClick={() => onRebook?.(booking)} className={BTN_SOFT}>
             <span className="material-symbols-outlined text-[16px]">travel_explore</span>{t('ticket.findOther')}
+          </button>
+        )}
+
+        {onViewDetails && (
+          <button type="button" onClick={() => onViewDetails(booking)} className="flex items-center justify-center gap-1 py-1 text-sm font-semibold text-primary hover:underline">
+            {t('ticket.viewDetails')}<span className="material-symbols-outlined text-[16px]">chevron_right</span>
           </button>
         )}
       </div>

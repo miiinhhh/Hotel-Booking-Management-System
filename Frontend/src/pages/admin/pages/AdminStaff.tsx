@@ -3,6 +3,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS } from '../../../auth/permissions';
 import { authApi, StaffAccount } from '../../../services/authApi';
 import { getHotelStaffAssignments, getHotelAreas, syncStaffAreas, StaffAssignedArea } from '../../../services/staffAssignmentApi';
+import { getHotelsList } from '../../../services/pricingAdminApi';
 import { Modal, PageHeading, Toast, Toggle } from '../components/AdminUi';
 import { StaffPagination } from '../components/StaffPagination';
 
@@ -15,7 +16,14 @@ export const AdminStaff: React.FC = () => {
   const [areas, setAreas] = useState<StaffAssignedArea[]>([]);
   const [assignments, setAssignments] = useState<Record<number, StaffAssignedArea[]>>({});
   const [hotelId, setHotelId] = useState(1);
-  const [hotelInput, setHotelInput] = useState('1');
+  const [hotels, setHotels] = useState<{ hotelId: number; hotelName: string }[]>([]);
+  useEffect(() => {
+    void getHotelsList().then(res => {
+      const items = res.success && res.data ? res.data.items : [];
+      setHotels(items);
+      if (items.length && !items.some(h => h.hotelId === hotelId)) setHotelId(items[0].hotelId);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -102,13 +110,19 @@ export const AdminStaff: React.FC = () => {
 
   return <>
     <PageHeading title="Nhân viên & Phân công khu vực" description="Quản lý tài khoản nhân viên và phân công theo dữ liệu hệ thống." actions={<button disabled={loading || saving} onClick={() => void load()} className="rounded-full bg-surface-container-high px-5 py-2.5 disabled:opacity-50">Làm mới</button>} />
-    <form onSubmit={event => { event.preventDefault(); const id = Number(hotelInput); if (Number.isSafeInteger(id) && id > 0) { if (id === hotelId) void load(); else setHotelId(id); } }} className="mb-5 flex items-end gap-3">
-      <label className="text-sm font-semibold">Mã khách sạn<input type="number" min="1" step="1" required value={hotelInput} onChange={e => setHotelInput(e.target.value)} className="ml-3 rounded-lg bg-surface-container-low p-2" /></label>
-      <button disabled={loading || saving} className="rounded-full bg-primary px-5 py-2 text-on-primary disabled:opacity-50">Xem phân công</button>
-    </form>
+    <div className="mb-5 flex flex-wrap items-center gap-3">
+      <label className="flex items-center gap-2 rounded-full bg-surface-container-lowest pl-4 pr-2 text-sm shadow-sm">
+        <span className="material-symbols-outlined text-[18px] text-primary">domain</span>
+        <select aria-label="Khách sạn" value={hotelId} onChange={e => setHotelId(Number(e.target.value))} disabled={loading || saving}
+          className="h-11 bg-transparent pr-2 font-semibold outline-none">
+          {!hotels.length && <option value={hotelId}>Khách sạn #{hotelId}</option>}
+          {hotels.map(h => <option key={h.hotelId} value={h.hotelId}>{h.hotelName}</option>)}
+        </select>
+      </label>
+    </div>
     <section className="mb-6 grid gap-4 sm:grid-cols-3">{[[staff.length, 'Tổng nhân viên'], [staff.filter(m => m.isActive).length, 'Tài khoản hoạt động'], [managedAreaCount, 'Khu vực đã phân công']].map(([value, label]) => <article key={String(label)} className="rounded-lg bg-surface-container-lowest p-5 shadow-sm"><strong className="text-2xl">{loading ? '…' : value}</strong><p className="text-sm text-outline">{label}</p></article>)}</section>
     <section className="overflow-hidden rounded-lg bg-surface-container-lowest shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 p-5"><div><h2 className="text-xl font-semibold">Danh sách nhân viên</h2><p className="text-sm text-outline">Phân công tại khách sạn #{hotelId}</p></div><div className="flex flex-wrap gap-3"><input aria-label="Tìm nhân viên" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tên, email, mã nhân viên…" className="rounded-full bg-surface-container-low px-4 py-2" /><select aria-label="Lọc trạng thái" value={status} onChange={e => setStatus(e.target.value)} className="rounded-full bg-surface-container-low px-4 py-2"><option value="all">Mọi trạng thái</option><option value="active">Hoạt động</option><option value="inactive">Tạm khóa</option></select></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-5"><div><h2 className="text-xl font-semibold">Danh sách nhân viên</h2><p className="text-sm text-outline">Phân công tại {hotels.find(h => h.hotelId === hotelId)?.hotelName ?? `khách sạn #${hotelId}`}</p></div><div className="flex flex-wrap gap-3"><input aria-label="Tìm nhân viên" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tên, email, mã nhân viên…" className="rounded-full bg-surface-container-low px-4 py-2" /><select aria-label="Lọc trạng thái" value={status} onChange={e => setStatus(e.target.value)} className="rounded-full bg-surface-container-low px-4 py-2"><option value="all">Mọi trạng thái</option><option value="active">Hoạt động</option><option value="inactive">Tạm khóa</option></select></div></div>
       {error && <p role="alert" className="m-5 rounded-lg bg-error-container p-4 text-on-error-container">{error}</p>}
       {loading ? <p role="status" className="p-10 text-center">Đang tải nhân viên…</p> : !filtered.length ? <p className="p-10 text-center text-outline">{error ? 'Không thể hiển thị dữ liệu. Vui lòng thử làm mới.' : 'Không có nhân viên phù hợp.'}</p> : <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="bg-surface-container-low text-outline"><tr>{['Nhân viên', 'Vai trò', 'Khu vực phụ trách', 'Tài khoản', 'Thao tác'].map(h => <th key={h} className="px-5 py-3">{h}</th>)}</tr></thead><tbody>{visible.map(member => <tr key={member.userId} className="border-t border-outline-variant/20"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary-fixed">{initials(member.fullName)}</span><div><p className="font-semibold">{member.fullName} · #{member.userId}</p><p className="text-outline">{member.email}</p></div></div></td><td className="px-5 py-4">{member.roles.join(', ')}</td><td className="px-5 py-4">{(assignments[member.userId] || []).map(a => a.areaName).join(', ') || 'Chưa phân công'}</td><td className="px-5 py-4"><Toggle checked={member.isActive} disabled={pendingIds.includes(member.userId)} label={`Tài khoản ${member.fullName}`} onChange={() => void toggleStatus(member)} /></td><td className="px-5 py-4">{canManageStaff ? <button disabled={!member.isActive} onClick={() => openAssignment(member)} className="rounded-full bg-surface-container px-4 py-2 disabled:opacity-40">Phân công</button> : <span className="text-xs text-outline">Chỉ xem</span>}</td></tr>)}</tbody></table></div>}
       {!loading && <StaffPagination page={currentPage} total={filtered.length} pageSize={20} onChange={setPage} />}

@@ -67,20 +67,12 @@ public class StaffAreaAssignmentService : IStaffAreaAssignmentService
             return ApiResponse<IReadOnlyList<StaffAssignedAreaDto>>.FailureResult("Nhân viên không tồn tại hoặc tài khoản đang bị khóa.");
         }
 
-        // Kiểm tra vai trò của người dùng: chỉ cho phép phân công cho Staff hoặc Manager
-        var allowedRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        // Chỉ phân công cho nhân viên nội bộ: vai trò Hotel Staff hoặc vai trò có quyền nghiệp vụ
+        // (cùng quy tắc vào cổng Staff), nên vai trò tùy chỉnh như "Kế toán" cũng được phân công.
+        var internalStaff = await _repository.GetInternalStaffIdsAsync(ct);
+        if (!internalStaff.Contains(user.UserId))
         {
-            "Hotel Staff",
-            "Hotel Manager",
-            "Staff",
-            "Manager",
-            "Admin"
-        };
-
-        bool hasStaffRole = user.UserRoles.Any(ur => ur.Role != null && allowedRoles.Contains(ur.Role.RoleName));
-        if (!hasStaffRole)
-        {
-            return ApiResponse<IReadOnlyList<StaffAssignedAreaDto>>.FailureResult("Chỉ có thể phân công phân khu cho tài khoản nhân sự (Hotel Staff / Manager).");
+            return ApiResponse<IReadOnlyList<StaffAssignedAreaDto>>.FailureResult("Chỉ có thể phân công phân khu cho tài khoản nhân viên (vai trò có quyền nghiệp vụ).");
         }
 
         // Kiểm tra các AreaIds có thuộc khách sạn và còn active không

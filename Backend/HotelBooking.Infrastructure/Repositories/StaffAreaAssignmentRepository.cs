@@ -9,10 +9,36 @@ namespace HotelBooking.Infrastructure.Repositories;
 public class StaffAreaAssignmentRepository : IStaffAreaAssignmentRepository
 {
     private readonly HotelBookingDbContext _context;
+    /// <summary>Context xác thực: có ánh xạ RolePermissions (context nghiệp vụ bỏ qua quan hệ này).</summary>
+    private readonly HotelBooking.Infrastructure.Data.HotelBookingDbContext? _authDb;
 
-    public StaffAreaAssignmentRepository(HotelBookingDbContext context)
+    public StaffAreaAssignmentRepository(HotelBookingDbContext context, HotelBooking.Infrastructure.Data.HotelBookingDbContext? authDb = null)
     {
         _context = context;
+        _authDb = authDb;
+    }
+
+    /// <summary>
+    /// Nhân viên nội bộ theo cùng quy tắc vào cổng Staff (PortalAccess): có vai trò Hotel Staff hoặc
+    /// có ít nhất một quyền nghiệp vụ — nhờ đó vai trò tùy chỉnh (VD Kế toán) cũng được phân công khu vực.
+    /// </summary>
+    public async Task<HashSet<long>> GetInternalStaffIdsAsync(CancellationToken ct)
+    {
+        if (_authDb is null)
+        {
+            // Không có context xác thực (VD kiểm thử): chỉ nhận vai trò Hotel Staff.
+            return (await _context.Users.AsNoTracking()
+                .Where(u => u.UserRoles.Any(r => r.Role.RoleName == SystemRoles.HotelStaff)
+                    && !u.UserRoles.Any(r => r.Role.RoleName == SystemRoles.Admin))
+                .Select(u => u.UserId).ToListAsync(ct)).ToHashSet();
+        }
+        var internalCodes = PortalAccess.InternalPermissions.ToArray();
+        return (await _authDb.Users.AsNoTracking()
+            .Where(u => !u.UserRoles.Any(r => r.Role.IsActive && r.Role.RoleName == SystemRoles.Admin)
+                && u.UserRoles.Any(r => r.Role.IsActive && (r.Role.RoleName == SystemRoles.HotelStaff
+                    || r.Role.RolePermissions.Any(p => p.Permission.IsActive && internalCodes.Contains(p.Permission.PermissionCode)))))
+            .Select(u => u.UserId)
+            .ToListAsync(ct)).ToHashSet();
     }
 
     public async Task<bool> HotelExistsAndActiveAsync(int hotelId, CancellationToken ct)
@@ -41,11 +67,11 @@ public class StaffAreaAssignmentRepository : IStaffAreaAssignmentRepository
 
     public async Task<IReadOnlyList<StaffMemberDto>> GetStaffMembersWithAssignmentsAsync(int hotelId, CancellationToken ct)
     {
-        // Lấy tất cả nhân sự có Role là Staff hoặc Manager
-        var allowedRoles = new[] { "Hotel Staff", "Hotel Manager", "Staff", "Manager" };
+        // Mọi nhân viên nội bộ (kể cả vai trò tùy chỉnh), cùng quy tắc với cổng Staff.
+        var staffIds = await GetInternalStaffIdsAsync(ct);
 
         var users = await _context.Users
-            .Where(u => u.UserRoles.Any(ur => allowedRoles.Contains(ur.Role.RoleName)))
+            .Where(u => staffIds.Contains(u.UserId))
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .Include(u => u.StaffAreaAssignments)
@@ -58,9 +84,8 @@ public class StaffAreaAssignmentRepository : IStaffAreaAssignmentRepository
 
         foreach (var user in users)
         {
-            var roleName = user.UserRoles
-                .Select(ur => ur.Role?.RoleName)
-                .FirstOrDefault(r => r != null && allowedRoles.Contains(r)) ?? "Hotel Staff";
+            var roleNames = user.UserRoles.Select(ur => ur.Role?.RoleName).Where(r => !string.IsNullOrEmpty(r) && r != SystemRoles.Customer).ToList();
+            var roleName = roleNames.Count > 0 ? string.Join(", ", roleNames) : SystemRoles.HotelStaff;
 
             // Lọc các phân khu đang active thuộc hotelId này
             var assignedAreas = user.StaffAreaAssignments

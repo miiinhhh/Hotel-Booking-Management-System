@@ -1,4 +1,4 @@
-export type AdminPage = 'overview' | 'inventory' | 'content' | 'pricing' | 'vouchers' | 'staff' | 'accounts' | 'roles' | 'reviews';
+export type AdminPage = 'overview' | 'inventory' | 'content' | 'pricing' | 'vouchers' | 'staff' | 'accounts' | 'roles' | 'reviews' | 'hotels' | 'bookings' | 'calendar' | 'surge';
 
 export interface AdminNavigationItem {
   id: AdminPage;

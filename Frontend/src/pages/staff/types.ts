@@ -35,6 +35,10 @@ export interface StaffBooking {
   nightsLabel: string;
   totalAmount: number;
   paidAmount: number;
+  /** Tiền cọc yêu cầu khi đặt (VNPay). */
+  depositAmount?: number;
+  hotelId?: number;
+  hotelName?: string;
   /** Số tiền hoàn cho khách theo chính sách hủy. */
   refundAmount?: number;
   remainingAmount: number;

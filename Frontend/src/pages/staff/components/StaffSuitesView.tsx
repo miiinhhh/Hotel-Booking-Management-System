@@ -127,7 +127,10 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
         ? room.areaId === selectedMapArea.areaId
         : selectedCluster.areaIds.includes(room.areaId)))
     : [];
-  const clusterRooms = selectedMapArea?.areaType === 'Building' ? selectedAreaRooms : [];
+  // Building: phòng của tòa. Zone: chỉ các phòng gắn TRỰC TIẾP vào Zone (dữ liệu cũ, VD Hotel #1 P.101).
+  const clusterRooms = selectedMapArea?.areaType === 'Building'
+    ? selectedAreaRooms
+    : selectedMapArea ? rooms.filter(room => room.areaId === selectedMapArea.areaId) : [];
   const areaRoomSummary = selectedMapArea ? {
     total: selectedAreaRooms.length,
     available: selectedAreaRooms.filter(room => room.status === 'Available').length,
@@ -254,7 +257,7 @@ export const StaffSuitesView: React.FC<StaffSuitesViewProps> = () => {
             </dl>
           </header>
 
-          {selectedMapArea?.areaType !== 'Building' ? (
+          {selectedMapArea?.areaType !== 'Building' && clusterRooms.length === 0 ? (
             <div className="p-10 text-center">
               <span className="material-symbols-outlined text-4xl text-outline-variant">touch_app</span>
               <p className="mt-2 font-semibold">Chọn một Building để xem danh sách phòng</p>

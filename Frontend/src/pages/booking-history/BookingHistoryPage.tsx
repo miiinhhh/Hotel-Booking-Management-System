@@ -1,3 +1,4 @@
+import { BookingDetailsDrawer } from './components/BookingDetailsDrawer';
 import { reviewApi } from '../../services/reviewApi';
 import { useAuth } from '../../context/AuthContext';
 import { SELF_PERMISSIONS } from '../../auth/permissions';
@@ -43,11 +44,18 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
   const { hasPermission } = useAuth();
   const canReview = hasPermission(SELF_PERMISSIONS.reviewManage);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
+  /** Đơn có đánh giá đã bị khách xóa: không viết lại được (đánh giá đã xóa không khôi phục). */
+  const [detailBooking, setDetailBooking] = useState<BookingItem | null>(null);
+  const [deletedReviewIds, setDeletedReviewIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!canReview) return;
     let alive = true;
     reviewApi.mine()
-      .then((page) => { if (alive) setReviewedIds(new Set(page.items.filter((r) => r.status !== 'Deleted').map((r) => String(r.bookingId)))); })
+      .then((page) => {
+        if (!alive) return;
+        setReviewedIds(new Set(page.items.filter((r) => r.status !== 'Deleted').map((r) => String(r.bookingId))));
+        setDeletedReviewIds(new Set(page.items.filter((r) => r.status === 'Deleted').map((r) => String(r.bookingId))));
+      })
       .catch(() => undefined);
     return () => { alive = false; };
   }, [canReview]);
@@ -265,13 +273,14 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                 filteredBookings.map((booking) => (
                   <BookingTicketCard
                     key={booking.id}
-                    booking={{ ...booking, hasReview: reviewedIds.has(booking.id) }}
+                    booking={{ ...booking, hasReview: reviewedIds.has(booking.id), reviewDeleted: deletedReviewIds.has(booking.id) }}
                     onCopyCode={handleCopyCode}
                     onOpenCancelModal={(b) => setCancelModalBooking(b)}
                     onOpenReviewModal={(b) => setReviewModalBooking(b)}
                     onPayNow={handlePayNow}
                     onRebook={() => onNavigateSearch?.()}
                     onReschedule={(b) => setRescheduleTarget(b)}
+                    onViewDetails={(b) => setDetailBooking(b)}
                   />
                 ))
               ) : (
@@ -312,12 +321,20 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
           onConfirmCancel={handleConfirmCancel}
         />
 
+        <BookingDetailsDrawer booking={detailBooking} onClose={() => setDetailBooking(null)} />
+
         {/* Review Stay Modal */}
         <ReviewStayModal
           isOpen={reviewModalBooking !== null}
           booking={reviewModalBooking}
           onClose={() => setReviewModalBooking(null)}
           onSubmitReview={handleSubmitReview}
+          onDeleted={(id) => {
+            setReviewModalBooking(null);
+            setReviewedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+            setDeletedReviewIds((prev) => new Set(prev).add(id));
+            showToast(t('history.reviewDeleted'));
+          }}
         />
 
       </div>

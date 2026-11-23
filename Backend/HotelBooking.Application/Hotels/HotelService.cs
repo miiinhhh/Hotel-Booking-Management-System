@@ -26,6 +26,13 @@ public sealed class HotelService(IHotelRepository repository) : IHotelService
     public async Task<HotelResponse> UpdateAsync(int hotelId, HotelRequest request, CancellationToken cancellationToken)
     {
         var hotel = await FindAsync(hotelId, cancellationToken);
+        // Không cho ngừng hoạt động khi khách sạn còn đơn chưa hoàn tất.
+        if (hotel.IsActive && !request.IsActive)
+        {
+            var open = await repository.CountOpenBookingsAsync(hotelId, cancellationToken);
+            if (open > 0)
+                throw new HotelConflictException($"Khách sạn còn {open} đơn đặt phòng chưa hoàn tất (chờ xác nhận, đã xác nhận hoặc đang lưu trú). Hãy xử lý hết các đơn này trước khi ngừng hoạt động.");
+        }
         hotel.Update(ToInformation(request));
         await repository.UpdateAsync(hotel, cancellationToken);
         return Map(hotel);

@@ -44,7 +44,8 @@ public sealed class NotificationsController(NotificationReadStore reads) : Contr
 [Route("api/admin/notifications")]
 [Authorize(Roles = SystemRoles.Admin)]
 public sealed class AdminNotificationsController(
-    PersistenceDbContext coreDb, BookingDataDbContext bookingDb, HotelBooking.Infrastructure.Persistence.HotelDbContext hotelDb, NotificationReadStore reads) : ControllerBase
+    PersistenceDbContext coreDb, BookingDataDbContext bookingDb, HotelBooking.Infrastructure.Persistence.HotelDbContext hotelDb, NotificationReadStore reads,
+    HotelBooking.Infrastructure.Data.HotelBookingDbContext authDb) : ControllerBase
 {
     private const string Action = "action"; // Cần xử lý
     private const string Info = "info";     // Để ý
@@ -217,13 +218,18 @@ public sealed class AdminNotificationsController(
         // ---------- Nhân sự / tài khoản ----------
         if (Can(SystemPermissions.StaffView))
         {
+            // Nhân viên nội bộ (Hotel Staff hoặc vai trò có quyền nghiệp vụ) — đọc qua context xác thực,
+            // vì context nghiệp vụ (coreDb) không ánh xạ RolePermissions.
             var internalCodes = PortalAccess.InternalPermissions.ToArray();
-            var unassigned = await coreDb.Users.AsNoTracking()
+            var staff = await authDb.Users.AsNoTracking()
                 .Where(u => u.IsActive && u.UserRoles.Any(r => r.Role.IsActive && (r.Role.RoleName == SystemRoles.HotelStaff
                         || r.Role.RolePermissions.Any(p => p.Permission.IsActive && internalCodes.Contains(p.Permission.PermissionCode))))
-                    && !u.UserRoles.Any(r => r.Role.RoleName == SystemRoles.Admin)
-                    && !coreDb.StaffAreaAssignments.Any(a => a.UserId == u.UserId && a.IsActive))
+                    && !u.UserRoles.Any(r => r.Role.RoleName == SystemRoles.Admin))
                 .OrderBy(u => u.UserId).Select(u => new { u.UserId, u.FullName }).ToListAsync(ct);
+            var staffIds = staff.Select(u => u.UserId).ToList();
+            var assigned = (await coreDb.StaffAreaAssignments.AsNoTracking()
+                .Where(a => a.IsActive && staffIds.Contains(a.UserId)).Select(a => a.UserId).Distinct().ToListAsync(ct)).ToHashSet();
+            var unassigned = staff.Where(u => !assigned.Contains(u.UserId)).ToList();
             if (unassigned.Count > 0)
                 items.Add(N($"staff-unassigned-{string.Join('.', unassigned.Select(u => u.UserId))}", "StaffUnassigned", Action,
                     "Nhân viên chưa được phân công", $"{unassigned.Count} nhân viên chưa có khu vực phụ trách: {string.Join(", ", unassigned.Take(3).Select(u => u.FullName))}{(unassigned.Count > 3 ? "…" : "")}.",

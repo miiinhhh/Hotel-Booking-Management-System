@@ -24,6 +24,13 @@ import { roomApi } from '../../services/roomApi';
 
 interface StaffBookingsPageProps {
   onNavigateCustomerPortal?: () => void;
+  /** Mở trang Hồ sơ cá nhân (đổi ảnh, mật khẩu, thông tin). */
+  onOpenProfile?: () => void;
+  /**
+   * Nhúng vào Admin Portal (không sidebar/header của Staff):
+   * trang "Đặt phòng & thanh toán" cho Admin, xem mọi khách sạn.
+   */
+  embedded?: boolean;
 }
 
 /** Hôm nay theo giờ máy, dạng yyyy-MM-dd (so sánh trực tiếp với checkInDate). */
@@ -41,9 +48,12 @@ const isUpcomingWithRequest = (b: StaffBooking) =>
 
 export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   onNavigateCustomerPortal,
+  onOpenProfile,
+  embedded,
 }) => {
-  const { logout, session, hasPermission, hasAnyPermission } = useAuth();
-  const canViewBookings = hasPermission(PERMISSIONS.bookingView);
+  const { logout, session, hasAnyPermission } = useAuth();
+  // Xem danh sách đơn: quyền đặt phòng hoặc quyền thanh toán (VD vai trò Kế toán chỉ có payments.*)
+  const canViewBookings = hasAnyPermission([PERMISSIONS.bookingView, PERMISSIONS.paymentView]);
   const [loggingOut, setLoggingOut] = useState(false);
   const [bookings, setBookings] = useState<StaffBooking[]>([]);
   const [metrics, setMetrics] = useState<StaffMetricsData>({
@@ -68,6 +78,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedHotel, setSelectedHotel] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedZone, setSelectedZone] = useState('all');
 
@@ -156,6 +169,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           nightsLabel: `${nights} đêm`,
           totalAmount: b.totalAmount,
           paidAmount: b.paidAmount,
+          depositAmount: b.depositAmount ?? undefined,
+          hotelId: b.hotelId ?? undefined,
+          hotelName: b.hotelName ?? undefined,
           refundAmount: b.refundAmount ?? undefined,
           remainingAmount: b.remainingAmount,
           depositStatus: mappedDep.status,
@@ -203,8 +219,15 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
 
 
   // Filtered bookings
+  /** Khách sạn + khoảng ngày lưu trú (giao nhau với [từ, đến]). */
+  const matchesScope = useCallback((b: StaffBooking) =>
+    (selectedHotel === 'all' || String(b.hotelId) === selectedHotel)
+    && (!dateFrom || b.checkOutDate.slice(0, 10) > dateFrom)
+    && (!dateTo || b.checkInDate.slice(0, 10) <= dateTo), [selectedHotel, dateFrom, dateTo]);
+
   const filteredBookings = useMemo(() => {
     const list = bookings.filter((b) => {
+      if (!matchesScope(b)) return false;
       // Zone filter — một đơn có thể thuộc nhiều phân khu ("A, B")
       if (selectedZone !== 'all' && !b.zone.split(', ').includes(selectedZone)) {
         return false;
@@ -235,7 +258,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     // Đơn sắp đến: khách tới sớm nhất lên trước để chuẩn bị theo thứ tự.
     if (selectedStatus === UPCOMING_REQUESTS) list.sort((a, b) => a.checkInDate.localeCompare(b.checkInDate));
     return list;
-  }, [bookings, selectedZone, selectedStatus, searchQuery]);
+  }, [bookings, selectedZone, selectedStatus, searchQuery, matchesScope]);
 
   // Paginated bookings
   const paginatedBookings = useMemo(() => {
@@ -249,7 +272,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   /** Số đơn theo trạng thái (đã áp phân khu + tìm kiếm, chưa áp trạng thái) để hiện trên nút lọc. */
   const statusCounts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    const base = bookings.filter(b =>
+    const base = bookings.filter(b => matchesScope(b) &&
       (selectedZone === 'all' || b.zone.split(', ').includes(selectedZone))
       && (!q || [b.bookingCode, b.customerName, b.customerPhone, b.roomNumber, b.roomType].some(v => v.toLowerCase().includes(q))));
     const counts: Record<string, number> = { all: base.length };
@@ -258,12 +281,16 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     counts[UPCOMING_REQUESTS] = base.filter(isUpcomingWithRequest).length;
     counts[REFUND_PENDING] = base.filter(b => b.depositStatus === 'refund_pending').length;
     return counts;
-  }, [bookings, selectedZone, searchQuery]);
+  }, [bookings, selectedZone, searchQuery, matchesScope]);
+  const hotelOptions = useMemo(() => Array.from(new Map(bookings.filter(b => b.hotelId).map(b => [b.hotelId!, { id: b.hotelId!, name: b.hotelName || `Khách sạn #${b.hotelId}` }])).values()), [bookings]);
   // Reset filters
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedStatus('all');
     setSelectedZone('all');
+    setSelectedHotel('all');
+    setDateFrom('');
+    setDateTo('');
     setCurrentPage(1);
     
   };
@@ -373,7 +400,9 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   const allowedTabs = STAFF_NAVIGATION.filter((item) => hasAnyPermission(item.permissions)).map((item) => item.id);
   const [selectedStaffTab, setStaffTab] = useState<StaffPortalTab>('reservations');
   // Tab bị thu hồi quyền (hoặc không được cấp) sẽ không render; tự chuyển sang tab đầu tiên còn quyền.
-  const staffTab: StaffPortalTab | null = allowedTabs.includes(selectedStaffTab) ? selectedStaffTab : allowedTabs[0] ?? null;
+  const staffTab: StaffPortalTab | null = embedded
+    ? (canViewBookings ? 'reservations' : null)
+    : allowedTabs.includes(selectedStaffTab) ? selectedStaffTab : allowedTabs[0] ?? null;
 
   const handleSelectStaffTab = (tab: string) => {
     if (allowedTabs.includes(tab as StaffPortalTab)) setStaffTab(tab as StaffPortalTab);
@@ -413,12 +442,13 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
   return (
     <div className="min-h-screen bg-background font-body-md text-on-surface antialiased selection:bg-secondary-container selection:text-on-secondary-container">
       {/* PERSISTENT LEFT SIDEBAR */}
-      <StaffSidebar
+      {!embedded && <StaffSidebar
         currentTab={staffTab ?? undefined}
         onSelectTab={handleSelectStaffTab}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
         onNavigateCustomerPortal={onNavigateCustomerPortal}
+        onOpenProfile={onOpenProfile}
         assignedAreas={assignedAreas}
         activeAreaId={(selectedZone === 'all' ? assignedAreas[0] : assignedAreas.find(area => area.areaName === selectedZone))?.areaId}
         onSelectArea={(areaId) => {
@@ -426,12 +456,12 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           setSelectedZone('all');
           showToast(`Đã chuyển khu vực trực sang: ${areaObj ? `${areaObj.hotelName} · ${areaObj.areaName}` : 'Không xác định'}`);
         }}
-      />
+      />}
 
       {/* MAIN WRAPPER — cùng khung với Admin Portal: menu trái cố định từ màn hình lớn */}
-      <div className="lg:pl-72">
+      <div className={embedded ? '' : 'lg:pl-72'}>
         {/* INTEGRATED STAFF TOP BAR (HEADER) */}
-        <StaffHeader
+        {!embedded && <StaffHeader
           assignedAreas={assignedAreas}
           searchQuery={searchQuery}
           onSearchChange={(q) => {
@@ -443,10 +473,10 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           onLogout={() => void handleLogout()}
           loggingOut={loggingOut}
           currentTab={staffTab ?? undefined}
-        />
+        />}
 
         {/* MAIN OPERATIONAL WORKSPACE */}
-        <main className="flex min-h-screen w-full flex-col gap-6 px-4 pb-16 pt-20 md:px-8">
+        <main className={embedded ? 'flex w-full flex-col gap-6' : 'flex min-h-screen w-full flex-col gap-6 px-4 pb-16 pt-20 md:px-8'}>
           {/* Toast Notification Banner */}
           {toastMessage && (
             <div role="status" className="fixed top-20 right-4 md:right-8 z-[70] bg-inverse-surface text-inverse-on-surface px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
@@ -506,11 +536,11 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
               {/* Tiêu đề + thao tác */}
               <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
                 <div className="min-w-0">
-                  <h1 className="font-headline-sm text-3xl font-semibold tracking-tight text-on-surface">Đặt phòng</h1>
+                  <h1 className="font-headline-sm text-3xl font-semibold tracking-tight text-on-surface">{embedded ? 'Đặt phòng & thanh toán' : 'Đặt phòng'}</h1>
                   <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-on-surface-variant">
                     <span className="inline-flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] text-primary">apartment</span>
-                      {assignedAreas.length ? assignedAreas.map(area => `${area.hotelName} · ${area.areaName}`).join(', ') : 'Chưa được phân công khu vực'}
+                      {embedded ? 'Tất cả khách sạn' : assignedAreas.length ? assignedAreas.map(area => `${area.hotelName} · ${area.areaName}`).join(', ') : 'Chưa được phân công khu vực'}
                     </span>
                     {lastSyncedAt && <span>· Cập nhật lúc {lastSyncedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>}
                   </p>
@@ -556,6 +586,12 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
                 onResetFilters={handleResetFilters}
                 zoneOptions={zoneOptions}
                 statusCounts={statusCounts}
+                hotelOptions={hotelOptions}
+                selectedHotel={selectedHotel}
+                onHotelChange={(h) => { setSelectedHotel(h); setCurrentPage(1); }}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateChange={(from, to) => { setDateFrom(from); setDateTo(to); setCurrentPage(1); }}
               />
 
               <StaffBookingTable

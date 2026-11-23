@@ -1,3 +1,4 @@
+import { BookingTimeline } from '../../../components/booking/BookingTimeline';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS } from '../../../auth/permissions';
@@ -270,6 +271,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
             </div>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between"><dt className="text-on-surface-variant">Tổng tiền</dt><dd className="font-semibold tabular-nums text-on-surface">{vnd(booking.totalAmount)}</dd></div>
+              {booking.depositAmount ? <div className="flex justify-between"><dt className="text-on-surface-variant">Tiền cọc</dt><dd className="tabular-nums text-on-surface">{vnd(booking.depositAmount)}</dd></div> : null}
               <div className="flex justify-between"><dt className="text-on-surface-variant">Đã thanh toán</dt><dd className="tabular-nums text-emerald-700">{vnd(booking.paidAmount)}</dd></div>
               {(refundPending || refunded) && (
                 <div className="flex justify-between"><dt className="text-on-surface-variant">Hoàn theo chính sách hủy</dt><dd className="font-semibold tabular-nums text-on-surface">{vnd(refundAmount)}</dd></div>
@@ -297,6 +299,8 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
               </p>
             )}
           </div>
+
+          <BookingTimeline bookingId={booking.id} refreshKey={`${booking.status}|${booking.paidAmount}|${booking.depositStatus}`} sectionClassName={section} />
 
           {/* Yêu cầu đặc biệt — chỉ hiện khi khách có ghi */}
           {booking.specialRequests && (

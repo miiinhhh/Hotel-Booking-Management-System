@@ -10,6 +10,8 @@ export interface ReviewStayModalProps {
   onClose: () => void;
   /** Gọi sau khi đánh giá đã được lưu thành công vào CSDL. */
   onSubmitReview: (bookingId: string, rating: number, isUpdate: boolean) => void;
+  /** Gọi sau khi khách xóa đánh giá. */
+  onDeleted?: (bookingId: string) => void;
 }
 
 export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
@@ -17,6 +19,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
   booking,
   onClose,
   onSubmitReview,
+  onDeleted,
 }) => {
   const { t } = useLanguage();
   // Overall rating
@@ -39,6 +42,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
 
   // Submitting state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Reset khi đổi booking, rồi tải đánh giá cũ (nếu có) để khách chỉnh sửa
   useEffect(() => {
@@ -51,6 +55,7 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
     setExistingReviewId(null);
     setSubmitError('');
     setIsSubmitting(false);
+    setConfirmDelete(false);
     const bookingId = Number(booking.id);
     if (!Number.isSafeInteger(bookingId) || bookingId <= 0) return;
     setLoadingExisting(true);
@@ -141,6 +146,22 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
       onSubmitReview(booking.id, overallRating, isUpdate);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t('review.submitFailed'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!booking || isSubmitting) return;
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      await reviewApi.removeOwn(Number(booking.id));
+      onDeleted?.(booking.id);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t('review.deleteFailed'));
+      setConfirmDelete(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -531,6 +552,17 @@ export const ReviewStayModal: React.FC<ReviewStayModalProps> = ({
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              {existingReviewId !== null && onDeleted && (
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={isSubmitting}
+                  className={`shrink-0 px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50 ${confirmDelete ? 'bg-error text-on-error' : 'text-error hover:bg-error-container/50'}`}
+                >
+                  <span className="material-symbols-outlined text-base">delete</span>
+                  {confirmDelete ? t('review.deleteConfirm') : t('review.delete')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onClose}
