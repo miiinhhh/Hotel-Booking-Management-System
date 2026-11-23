@@ -12,6 +12,14 @@ interface StaffBookingTableProps {
   loading?: boolean;
 }
 
+/** Check-in hợp lệ từ (ngày nhận phòng − 1 ngày) tới trước ngày trả phòng — khớp kiểm tra ở backend. */
+const canCheckInToday = (b: StaffBooking) => {
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const earliest = new Date(`${b.checkInDate.slice(0, 10)}T00:00:00`); earliest.setDate(earliest.getDate() - 1);
+  const today = iso(new Date());
+  return today >= iso(earliest) && today < b.checkOutDate.slice(0, 10);
+};
+
 /**
  * Danh sách đơn: 6 cột gọn (Đơn · Khách · Phòng · Lưu trú · Thanh toán · Trạng thái) + thao tác.
  * Cả dòng bấm được để mở chi tiết; chỉ hiện một nút thao tác nhanh đúng bước tiếp theo.
@@ -25,7 +33,7 @@ export const StaffBookingTable: React.FC<StaffBookingTableProps> = ({
   const quickAction = (b: StaffBooking) => {
     if (!canManageBooking) return null;
     if (b.status === 'pending_deposit') return { label: 'Xác nhận', icon: 'check_circle', run: () => onQuickConfirmBooking(b) };
-    if (b.status === 'confirmed_deposit') return { label: 'Check-in', icon: 'how_to_reg', run: () => onQuickCheckIn(b) };
+    if (b.status === 'confirmed_deposit' && canCheckInToday(b)) return { label: 'Check-in', icon: 'how_to_reg', run: () => onQuickCheckIn(b) };
     return null;
   };
 

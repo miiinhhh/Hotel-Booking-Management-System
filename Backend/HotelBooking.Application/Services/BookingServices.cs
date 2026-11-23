@@ -535,6 +535,25 @@ public class BookingServices : IBookingService
             return ApiResponse<bool>.FailureResult($"Trạng thái '{request.NewStatus}' không hợp lệ.");
         }
 
+        // Chỉ cho phép các bước hợp lệ của vòng đời đơn (Hủy / No-show dùng API riêng).
+        if (!IsAllowedStatusTransition(booking.BookingStatus, newStatus))
+        {
+            return ApiResponse<bool>.FailureResult(
+                $"Không thể chuyển đơn từ \"{StatusLabel(booking.BookingStatus)}\" sang \"{StatusLabel(newStatus)}\".");
+        }
+
+        // Check-in chỉ trong khoảng [ngày nhận phòng − 1 ngày (nhận sớm), ngày trả phòng).
+        if (newStatus == BookingStatus.CheckedIn)
+        {
+            var todayVn = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            if (todayVn < booking.CheckInDate.AddDays(-EarlyCheckInDays))
+                return ApiResponse<bool>.FailureResult(
+                    $"Chưa tới ngày nhận phòng ({booking.CheckInDate:dd/MM/yyyy}). Chỉ cho nhận phòng sớm tối đa {EarlyCheckInDays} ngày.");
+            if (todayVn >= booking.CheckOutDate)
+                return ApiResponse<bool>.FailureResult(
+                    $"Đơn đã qua ngày trả phòng ({booking.CheckOutDate:dd/MM/yyyy}), không thể check-in.");
+        }
+
         var oldStatus = booking.BookingStatus.ToString();
         booking.BookingStatus = newStatus;
         if (newStatus == BookingStatus.Pending) booking.HoldExpiresAt = DateTime.UtcNow.AddMinutes(15);
@@ -766,6 +785,32 @@ public class BookingServices : IBookingService
 
         return ApiResponse<bool>.SuccessResult(true, "Đã ghi nhận khách vắng mặt (No-Show) và hủy đơn thành công.");
     }
+
+
+    /// <summary>Số ngày được phép nhận phòng sớm trước ngày nhận phòng.</summary>
+    private const int EarlyCheckInDays = 1;
+
+    private static bool IsAllowedStatusTransition(BookingStatus from, BookingStatus to) => (from, to) switch
+    {
+        (BookingStatus.Pending, BookingStatus.Confirmed) => true,
+        (BookingStatus.Confirmed, BookingStatus.CheckedIn) => true,
+        (BookingStatus.CheckedIn, BookingStatus.CheckedOut) => true,
+        (BookingStatus.CheckedIn, BookingStatus.Completed) => true,
+        (BookingStatus.CheckedOut, BookingStatus.Completed) => true,
+        _ => false
+    };
+
+    private static string StatusLabel(BookingStatus status) => status switch
+    {
+        BookingStatus.Pending => "Chờ xác nhận",
+        BookingStatus.Confirmed => "Đã xác nhận",
+        BookingStatus.CheckedIn => "Đang lưu trú",
+        BookingStatus.CheckedOut => "Đã trả phòng",
+        BookingStatus.Completed => "Hoàn tất",
+        BookingStatus.Cancelled => "Đã hủy",
+        BookingStatus.Expired => "Hết hạn",
+        _ => status.ToString()
+    };
 
     private async Task<int> ResolveHotelIdAsync(Booking booking)
     {

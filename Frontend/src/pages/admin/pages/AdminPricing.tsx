@@ -208,7 +208,7 @@ export const AdminPricing: React.FC = () => {
 
   const priceInput = (value: number, onChange: (v: number) => void, autoFocus?: boolean) => (
     <div className="flex items-baseline gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest px-5 py-4 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
-      <input required autoFocus={autoFocus} type="number" min="1" step="1000" value={value || ''} onChange={e => onChange(Number(e.target.value))}
+      <input required autoFocus={autoFocus} type="number" min="1" step="1" value={value || ''} onChange={e => onChange(Number(e.target.value))}
         className="min-w-0 flex-1 bg-transparent font-headline-sm text-3xl font-semibold text-primary outline-none" />
       <span className="text-lg font-semibold text-primary">₫ / đêm</span>
     </div>

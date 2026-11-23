@@ -67,7 +67,8 @@ public sealed class ReviewRepository(HotelBookingDBContext db) : IReviewReposito
             .Select(x => new { x.ReviewId, x.Rating, x.Comment, x.CreatedAt, x.UpdatedAt, x.CustomerId }).ToListAsync(ct);
         // Tên người đánh giá: chỉ tên gọi + chữ cái đầu của họ (Nguyễn Văn Minh → "Minh N.").
         var customerIds = items.Select(x => x.CustomerId).Distinct().ToArray();
-        var names = customerIds.Length == 0 ? new Dictionary<long, string>() : (await Dapper.SqlMapper.QueryAsync<(long UserId, string FullName)>(
+        // Context này không ánh xạ bảng Users → đọc tên bằng Dapper (bỏ qua khi không phải CSDL quan hệ, VD test in-memory).
+        var names = customerIds.Length == 0 || !db.Database.IsRelational() ? new Dictionary<long, string>() : (await Dapper.SqlMapper.QueryAsync<(long UserId, string FullName)>(
                 db.Database.GetDbConnection(), "SELECT UserId, FullName FROM Users WHERE UserId IN @Ids", new { Ids = customerIds }))
             .ToDictionary(u => u.UserId, u => MaskName(u.FullName));
         return new(items.Select(x => new PublicReviewDto(x.ReviewId, x.Rating, x.Comment, x.CreatedAt, x.UpdatedAt, names.GetValueOrDefault(x.CustomerId, ""))).ToList(), total, page, pageSize);

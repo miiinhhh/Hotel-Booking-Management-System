@@ -5,7 +5,7 @@ import { StaffBooking } from '../types';
 import { RescheduleDialog } from '../../../components/booking/RescheduleDialog';
 import { markNoShow } from '../../../services/staffPortalApi';
 import { refundVnPayPayment, confirmManualRefund, confirmCashPayment } from '../../../services/paymentApi';
-import { PAYMENT_UI, PaidBar, StatusBadge, viDate, vnd } from './staffUi';
+import { PAYMENT_UI, PaidBar, shortDate, StatusBadge, viDate, vnd } from './staffUi';
 
 interface BookingDetailDrawerProps {
   booking: StaffBooking | null;
@@ -154,14 +154,22 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   };
 
   // Từ ngày nhận phòng trở đi mà khách chưa check-in → cho phép ghi nhận không đến.
-  const todayIso = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const todayIso = isoOf(new Date());
+  // Check-in hợp lệ: từ (ngày nhận phòng − 1 ngày, cho nhận sớm) tới trước ngày trả phòng — khớp kiểm tra ở backend.
+  const earliestCheckIn = (() => { const d = new Date(`${booking.checkInDate.slice(0, 10)}T00:00:00`); d.setDate(d.getDate() - 1); return isoOf(d); })();
+  const checkInTooEarly = todayIso < earliestCheckIn;
+  const checkInTooLate = todayIso >= booking.checkOutDate.slice(0, 10);
+  const checkInBlockedNote = booking.status === 'confirmed_deposit' && canManageBooking && (checkInTooEarly || checkInTooLate)
+    ? (checkInTooEarly ? `Nhận phòng từ ${shortDate(earliestCheckIn)} (cho phép sớm 1 ngày).` : 'Đã qua ngày trả phòng, không thể check-in.')
+    : null;
   const canNoShow = canManageBooking && Boolean(onNoShow) && (booking.status === 'pending_deposit' || booking.status === 'confirmed_deposit') && booking.checkInDate.slice(0, 10) <= todayIso;
   const canCheckOut = booking.status === 'checked_in' && canManageBooking && Boolean(onCheckOut);
 
   /** Thao tác chính ở thanh dưới, theo đúng bước kế tiếp. */
   const primary: { label: string; icon: string; action: Pending } | null =
     refundPending && canManagePayment ? { label: 'Hoàn tiền qua VNPay', icon: 'currency_exchange', action: 'refund-vnpay' }
-      : booking.status === 'confirmed_deposit' && canManageBooking ? { label: `Check-in · ${booking.roomNumber}`, icon: 'key', action: 'checkin' }
+      : booking.status === 'confirmed_deposit' && canManageBooking && !checkInBlockedNote ? { label: `Check-in · ${booking.roomNumber}`, icon: 'key', action: 'checkin' }
       : owing && canManagePayment ? { label: `Thu ${vnd(booking.remainingAmount)}`, icon: 'point_of_sale', action: 'cash' }
       : canCheckOut ? { label: `Check-out · ${booking.roomNumber}`, icon: 'logout', action: 'checkout' }
       : null;
@@ -300,6 +308,11 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
         </div>
 
         {/* ===== Thanh thao tác ===== */}
+        {checkInBlockedNote && (
+          <p className="flex items-center gap-2 border-t border-outline-variant/40 bg-surface-container-low px-6 py-3 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-[18px] text-primary">event</span>{checkInBlockedNote}
+          </p>
+        )}
         {(primary || secondary.length > 0 || canReschedule) && (
           <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/40 px-6 py-4">
             <div className="flex flex-wrap gap-1">

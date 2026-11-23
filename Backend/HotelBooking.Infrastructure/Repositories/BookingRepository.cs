@@ -200,7 +200,7 @@ public class BookingRepository : IBookingRepository
             .ToListAsync();
         var hotelIds = rooms.Select(r => r.HotelId).Distinct().ToList();
         // Entity khách sạn trong context này không ánh xạ cột tên → đọc trực tiếp bằng Dapper.
-        var hotelNames = hotelIds.Count == 0 ? new Dictionary<int, string>() : (await Dapper.SqlMapper.QueryAsync<(int HotelId, string HotelName)>(
+        var hotelNames = hotelIds.Count == 0 || !_roomContext.Database.IsRelational() ? new Dictionary<int, string>() : (await Dapper.SqlMapper.QueryAsync<(int HotelId, string HotelName)>(
                 _roomContext.Database.GetDbConnection(),
                 "SELECT HotelId, HotelName FROM Hotels WHERE HotelId IN @Ids", new { Ids = hotelIds }))
             .ToDictionary(h => h.HotelId, h => h.HotelName);
