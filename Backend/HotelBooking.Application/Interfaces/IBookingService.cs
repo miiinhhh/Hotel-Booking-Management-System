@@ -11,7 +11,8 @@ public interface IBookingService
     Task<ApiResponse<BookingResponseDto>> GetBookingByCodeAsync(string bookingCode, long currentUserId, bool isAdmin, bool isStaff);
     Task<ApiResponse<List<BookingListDto>>> GetBookingsAsync(BookingFilterRequest filter, long currentUserId, bool isAdmin, bool isStaff);
     Task<ApiResponse<CancelPreviewResponseDto>> PreviewCancelBookingAsync(long bookingId, long currentUserId, bool isAdmin);
-    Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request);
+    /// <param name="isStaffManager">Nhân viên có quyền bookings.manage — được hủy đơn trong phân khu được giao.</param>
+    Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request, bool isStaffManager = false);
     Task<ApiResponse<bool>> UpdateBookingStatusAsync(long bookingId, long staffUserId, bool isAdmin, UpdateBookingRequest request);
     Task<ApiResponse<ReschedulePreviewDto>> PreviewRescheduleAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request);
     Task<ApiResponse<BookingResponseDto>> RescheduleBookingAsync(long bookingId, long currentUserId, bool isAdmin, bool isStaff, RescheduleBookingRequest request);

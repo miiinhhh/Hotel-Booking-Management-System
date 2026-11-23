@@ -244,6 +244,7 @@ public class VnPayService : IVnPayService
                         payment.BookingId,
                         totalPaid,
                         bookingInfo.TotalAmount);
+                    await RecoverExpiredBookingAfterPaymentAsync(payment.BookingId, totalPaid);
                 }
             }
 
@@ -343,6 +344,7 @@ public class VnPayService : IVnPayService
                         payment.BookingId,
                         totalPaid,
                         bookingInfo.TotalAmount);
+                    await RecoverExpiredBookingAfterPaymentAsync(payment.BookingId, totalPaid);
                 }
             }
 
@@ -575,5 +577,72 @@ public class VnPayService : IVnPayService
                 RefundAmount = refundPayment.Amount
             };
         }
+    }
+
+    /// <summary>
+    /// Khách trả tiền VNPay đúng lúc đơn vừa hết hạn giữ chỗ (worker đã chuyển sang Expired):
+    ///  - Phòng còn trống → khôi phục đơn sang Confirmed và giữ phòng lại.
+    ///  - Phòng đã có người khác đặt → hủy đơn, chuyển "Chờ hoàn tiền" toàn bộ số đã trả để Staff hoàn lại.
+    /// </summary>
+    private async Task RecoverExpiredBookingAfterPaymentAsync(long bookingId, decimal totalPaid)
+    {
+        if (totalPaid <= 0m) return;
+        var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
+        if (booking == null || booking.BookingStatus != BookingStatus.Expired) return;
+
+        var now = DateTime.UtcNow;
+        booking.BookingStatus = BookingStatus.Confirmed;
+        booking.HoldExpiresAt = null;
+        booking.UpdatedAt = now;
+        // Reserve kiểm tra lại phòng trống (bỏ qua chính đơn này). Chỉ ghi lịch sử khi giữ phòng thành công.
+        if (await _bookingRepository.TrySaveReservedAsync(booking))
+        {
+            await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
+            {
+                BookingId = bookingId,
+                OldStatus = BookingStatus.Expired.ToString(),
+                NewStatus = BookingStatus.Confirmed.ToString(),
+                ChangedByUserId = null,
+                ChangedAt = now,
+                Note = "Thanh toán VNPay về sau khi hết hạn giữ chỗ — phòng vẫn trống nên đơn được khôi phục và xác nhận."
+            });
+            await _bookingRepository.SaveChangesAsync();
+            return;
+        }
+
+        // Phòng đã bị đặt: hủy đơn và tạo khoản hoàn toàn bộ số đã trả.
+        var tracked = await _bookingRepository.GetByIdAsync(bookingId);
+        if (tracked == null) return;
+        tracked.BookingStatus = BookingStatus.Cancelled;
+        tracked.PaymentStatus = "RefundPending";
+        tracked.CancelledAt = now;
+        tracked.CancellationReason = "Thanh toán về sau khi hết hạn giữ chỗ và phòng đã được đặt cho khách khác.";
+        tracked.UpdatedAt = now;
+        await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
+        {
+            BookingId = bookingId,
+            OldStatus = BookingStatus.Expired.ToString(),
+            NewStatus = BookingStatus.Cancelled.ToString(),
+            ChangedByUserId = null,
+            ChangedAt = now,
+            Note = $"Thanh toán VNPay về sau khi hết hạn giữ chỗ nhưng phòng không còn trống. Chờ hoàn toàn bộ {totalPaid:N0} VNĐ cho khách."
+        });
+        var existing = await _paymentRepository.GetByBookingIdAsync(bookingId);
+        if (existing == null || !existing.Any(p => p.PaymentType == PaymentType.Refund))
+        {
+            await _paymentRepository.CreateAsync(new Payment
+            {
+                BookingId = bookingId,
+                PaymentMethod = PaymentMethod.Deposit,
+                PaymentType = PaymentType.Refund,
+                Amount = totalPaid,
+                Status = PaymentStatus.RefundPending,
+                TransactionCode = $"REFUND-{tracked.BookingCode}-{now:yyyyMMddHHmmss}",
+                PaidAt = null,
+                CreatedAt = now
+            });
+        }
+        await _bookingRepository.UpdateAsync(tracked);
+        await _bookingRepository.SaveChangesAsync();
     }
 }

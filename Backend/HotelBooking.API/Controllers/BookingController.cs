@@ -133,9 +133,11 @@ public class BookingController : BaseAPIController
     [Authorize(Policy = AuthorizationPolicies.BookingCancel)]
     public async Task<IActionResult> CancelBooking(long id, [FromBody] CancelBookingRequest request)
     {
-        var (currentUserId, isAdmin, _) = GetUserContext();
+        var (currentUserId, isAdmin, isStaff) = GetUserContext();
+        // Lễ tân có quyền quản lý đặt phòng được hủy đơn của khách (service kiểm tra phân khu được giao).
+        var isStaffManager = isStaff && User.HasClaim(PermissionAuthorization.ClaimType, SystemPermissions.BookingManage);
 
-        var result = await _bookingService.CancelBookingAsync(id, currentUserId, isAdmin, request);
+        var result = await _bookingService.CancelBookingAsync(id, currentUserId, isAdmin, request, isStaffManager);
         if (!result.Success)
         {
             return BadRequest(result);

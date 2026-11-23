@@ -393,7 +393,7 @@ public class BookingServices : IBookingService
         return ApiResponse<CancelPreviewResponseDto>.SuccessResult(preview, "Lấy thông tin xem trước hủy phòng thành công.");
     }
 
-    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request)
+    public async Task<ApiResponse<bool>> CancelBookingAsync(long bookingId, long currentUserId, bool isAdmin, CancelBookingRequest request, bool isStaffManager = false)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId);
         if (booking == null)
@@ -401,10 +401,16 @@ public class BookingServices : IBookingService
             return ApiResponse<bool>.FailureResult("Không tìm thấy đơn đặt phòng.");
         }
 
-        // Chống IDOR: Khách hàng chỉ được phép hủy đơn của chính mình. Quản trị viên có quyền hủy hỗ trợ khách.
+        // Chống IDOR: khách chỉ hủy đơn của chính mình; Admin hủy hỗ trợ mọi đơn;
+        // nhân viên có quyền quản lý đặt phòng chỉ hủy đơn thuộc phân khu được giao.
+        var cancelledByStaff = false;
         if (!isAdmin && booking.CustomerId != currentUserId)
         {
-            return ApiResponse<bool>.FailureResult("Bạn không có quyền hủy đơn đặt phòng của khách hàng khác.");
+            if (!isStaffManager)
+                return ApiResponse<bool>.FailureResult("Bạn không có quyền hủy đơn đặt phòng của khách hàng khác.");
+            if (!await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, currentUserId))
+                return ApiResponse<bool>.FailureResult("Bạn không có quyền hủy đơn đặt phòng ngoài phân khu được phân công.");
+            cancelledByStaff = true;
         }
 
         if (booking.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed or BookingStatus.Cancelled or BookingStatus.Expired)
@@ -482,7 +488,7 @@ public class BookingServices : IBookingService
         // Ghi lại lịch sử thay đổi trạng thái kèm đầy đủ thông tin hoàn hủy vào BookingStatusHistory.Note
         var who = isAdmin && booking.CustomerId != currentUserId
             ? $"Quản trị viên (ID: {currentUserId})"
-            : "Khách hàng";
+            : cancelledByStaff ? $"Nhân viên (ID: {currentUserId})" : "Khách hàng";
         var auditNote = $"{who} hủy đơn. Lý do: {request.Reason}. Chính sách: {calculation.AppliedPolicyName}. Đã thanh toán: {totalPaid:N0} VNĐ, Hoàn trả: {calculation.RefundAmount:N0} VNĐ ({calculation.RefundPercentage}%), Phí phạt: {calculation.PenaltyAmount:N0} VNĐ ({calculation.PenaltyPercentage}%).";
 
         await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
