@@ -45,6 +45,31 @@ public sealed class ReviewRepository(HotelBookingDBContext db) : IReviewReposito
         return db.Set<Review>().Where(r => r.Booking.BookingDetails.Any(d => rooms.Contains(d.RoomId)) &&
             !r.Booking.BookingDetails.Any(d => !rooms.Contains(d.RoomId)));
     }
+    public async Task<IReadOnlyList<AiReviewInput>> PendingForAi(int hotelId, string aiAction, CancellationToken ct)
+    {
+        var history = db.Set<ReviewModerationHistory>();
+        return await InHotel(hotelId).AsNoTracking()
+            .Where(r => r.Status == ReviewStatus.Hidden && r.Comment != null && r.Comment != "")
+            // Bỏ qua nếu sau lần sửa gần nhất đã có kết quả AI hoặc nhân viên đã quyết định.
+            .Where(r => !history.Any(h => h.ReviewId == r.ReviewId && (h.Action == aiAction || h.Action == "Moderation")
+                && h.CreatedAt >= (r.UpdatedAt ?? r.CreatedAt)))
+            .OrderBy(r => r.CreatedAt)
+            .Select(r => new AiReviewInput(r.ReviewId, r.Rating, r.Comment))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ReviewModerationHistory>> LatestAiResults(int hotelId, string aiAction, CancellationToken ct)
+    {
+        var history = db.Set<ReviewModerationHistory>().AsNoTracking();
+        var ids = await InHotel(hotelId).Where(r => r.Status == ReviewStatus.Hidden).Select(r => r.ReviewId).ToListAsync(ct);
+        if (ids.Count == 0) return [];
+        var rows = await history.Where(h => ids.Contains(h.ReviewId)).ToListAsync(ct);
+        return rows.GroupBy(h => h.ReviewId)
+            .Select(g => g.OrderByDescending(h => h.HistoryId).First())
+            .Where(h => h.Action == aiAction)
+            .ToList();
+    }
+
     internal IQueryable<Review> Visible(int hotelId)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);

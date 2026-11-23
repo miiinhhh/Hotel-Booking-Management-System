@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace HotelBooking.API.Controllers;
 
 [ApiController]
-public sealed class ReviewsController(ReviewService service, IStaffAreaAssignmentService assignments) : ControllerBase
+public sealed class ReviewsController(ReviewService service, IStaffAreaAssignmentService assignments, ReviewAiService aiService, HotelBooking.API.Services.ReviewAiScanJobs aiJobs) : ControllerBase
 {
     private long Actor => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -62,4 +62,33 @@ public sealed class ReviewsController(ReviewService service, IStaffAreaAssignmen
     [RequirePermission(SystemPermissions.ReviewsManage)]
     public async Task<ActionResult<IReadOnlyList<ReviewHistoryDto>>> History(int hotelId, long reviewId, CancellationToken ct)
     { await EnsureModerationScope(hotelId, ct); return Ok(await service.History(hotelId, reviewId, ct)); }
+
+    // ===================== AI duyệt sơ bộ =====================
+    /// <summary>Bắt đầu AI quét các đánh giá chờ duyệt (mới / vừa sửa) của khách sạn.</summary>
+    [HttpPost("api/admin/hotels/{hotelId:int:min(1)}/reviews/ai-scan")]
+    [RequirePermission(SystemPermissions.ReviewsManage)]
+    public async Task<ActionResult<HotelBooking.API.Services.AiScanStatus>> StartAiScan(int hotelId, CancellationToken ct)
+    { await EnsureModerationScope(hotelId, ct); return Ok(await aiJobs.StartAsync(hotelId, Actor, ct)); }
+
+    /// <summary>Tiến độ tác vụ AI quét.</summary>
+    [HttpGet("api/admin/hotels/{hotelId:int:min(1)}/reviews/ai-scan/{jobId:guid}")]
+    [RequirePermission(SystemPermissions.ReviewsManage)]
+    public async Task<ActionResult<HotelBooking.API.Services.AiScanStatus>> AiScanStatus(int hotelId, Guid jobId, CancellationToken ct)
+    {
+        await EnsureModerationScope(hotelId, ct);
+        var status = aiJobs.Get(jobId);
+        return status is null || status.HotelId != hotelId ? NotFound() : Ok(status);
+    }
+
+    /// <summary>Đề xuất AI chưa được xử lý của các đánh giá đang chờ duyệt.</summary>
+    [HttpGet("api/admin/hotels/{hotelId:int:min(1)}/reviews/ai-suggestions")]
+    [RequirePermission(SystemPermissions.ReviewsManage)]
+    public async Task<ActionResult<IReadOnlyList<AiReviewSuggestion>>> AiSuggestions(int hotelId, CancellationToken ct)
+    { await EnsureModerationScope(hotelId, ct); return Ok(await aiService.Suggestions(hotelId, ct)); }
+
+    /// <summary>Áp dụng hàng loạt đề xuất Hiển thị/Ẩn có độ tin cậy cao; đề xuất "Cần người xem" giữ nguyên.</summary>
+    [HttpPost("api/admin/hotels/{hotelId:int:min(1)}/reviews/ai-apply")]
+    [RequirePermission(SystemPermissions.ReviewsManage)]
+    public async Task<ActionResult<AiApplyResult>> ApplyAi(int hotelId, AiApplyRequest request, CancellationToken ct)
+    { await EnsureModerationScope(hotelId, ct); return Ok(await aiService.Apply(hotelId, Actor, request.MinConfidence, ct)); }
 }

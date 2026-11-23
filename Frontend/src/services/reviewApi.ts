@@ -25,6 +25,11 @@ export interface HotelRatingDto {
 /** Đánh giá công khai (chỉ trạng thái Visible). */
 export interface PublicReviewDto { reviewId: number; rating: number; comment: string | null; createdAt: string; updatedAt: string | null; reviewerName: string }
 
+/** Đề xuất của AI cho một đánh giá chờ duyệt. */
+export interface AiSuggestionDto { reviewId: number; decision: 'show' | 'hide' | 'review'; confidence: number; labels: string[]; reason: string; provider: string; scannedAt: string }
+export interface AiScanStatusDto { jobId: string; hotelId: number; state: 'running' | 'completed' | 'failed'; total: number; processed: number; suggested: number; message: string | null }
+export interface AiApplyResultDto { shown: number; hidden: number; skipped: number }
+
 export interface ReviewPageDto<T> { items: T[]; total: number; page: number; pageSize: number }
 
 // Backend trả thông báo nghiệp vụ bằng tiếng Anh; dịch các trường hợp khách hay gặp.
@@ -81,6 +86,12 @@ export const reviewApi = {
   moderate: (hotelId: number, reviewId: number, status: 'Visible' | 'Hidden', reason?: string) =>
     call<ReviewDto>(`/api/admin/hotels/${hotelId}/reviews/${reviewId}/moderation`, { method: 'PATCH', body: JSON.stringify({ status, reason: reason?.trim() || null }) })
       .then((review) => { invalidateHotelRating(hotelId); return review; }),
+  aiScan: (hotelId: number) => call<AiScanStatusDto>(`/api/admin/hotels/${hotelId}/reviews/ai-scan`, { method: 'POST' }),
+  aiScanStatus: (hotelId: number, jobId: string) => call<AiScanStatusDto>(`/api/admin/hotels/${hotelId}/reviews/ai-scan/${jobId}`),
+  aiSuggestions: (hotelId: number) => call<AiSuggestionDto[]>(`/api/admin/hotels/${hotelId}/reviews/ai-suggestions`),
+  aiApply: (hotelId: number, minConfidence = 0.85) =>
+    call<AiApplyResultDto>(`/api/admin/hotels/${hotelId}/reviews/ai-apply`, { method: 'POST', body: JSON.stringify({ minConfidence }) })
+      .then((r) => { invalidateHotelRating(hotelId); return r; }),
   history: (hotelId: number, reviewId: number) =>
     call<ReviewHistoryDto[]>(`/api/admin/hotels/${hotelId}/reviews/${reviewId}/history`),
   /** Trả về null nếu booking chưa có đánh giá. */

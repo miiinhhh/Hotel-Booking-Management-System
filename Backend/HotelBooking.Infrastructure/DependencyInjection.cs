@@ -51,6 +51,7 @@ public static class DependencyInjection
 
         services.AddScoped<IBookingRepository, BookingRepository>();
         services.AddScoped<HotelBooking.Application.Reviews.IReviewRepository, ReviewRepository>();
+        services.AddSingleton<HotelBooking.Application.Ai.IAiChatClient, HotelBooking.Infrastructure.Ai.FailoverAiChatClient>();
         services.AddScoped<IRoomInventoryRepository, RoomInventoryRepository>();
         services.AddScoped<IStaffCalendarRepository, StaffCalendarRepository>();
         services.AddScoped<IRoomPriceHistoryRepository, RoomPriceHistoryRepository>();

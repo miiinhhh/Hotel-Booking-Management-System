@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '../../pages/admin/components/AdminUi';
-import { reviewApi, ReviewDto, ReviewHistoryDto, ReviewStatus } from '../../services/reviewApi';
+import { reviewApi, ReviewDto, ReviewHistoryDto, ReviewStatus, AiSuggestionDto, AiScanStatusDto } from '../../services/reviewApi';
 import { CRITERIA_LABELS, CriteriaKey, parseReviewComment } from '../../pages/booking-history/reviewFormat';
 import { formatDateVi } from '../../utils/formatters';
 
@@ -38,6 +38,10 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  // AI duyệt sơ bộ
+  const [aiSuggestions, setAiSuggestions] = useState<Record<number, AiSuggestionDto>>({});
+  const [aiJob, setAiJob] = useState<AiScanStatusDto | null>(null);
+  const [aiApplying, setAiApplying] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [hiding, setHiding] = useState<ReviewDto | null>(null);
   const [reason, setReason] = useState('');
@@ -59,6 +63,51 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [hotelId, filter, page, revision]);
+
+  // Đề xuất AI chưa xử lý của khách sạn đang chọn.
+  useEffect(() => {
+    if (!hotelId) { setAiSuggestions({}); return; }
+    let alive = true;
+    reviewApi.aiSuggestions(hotelId)
+      .then((list) => { if (alive) setAiSuggestions(Object.fromEntries(list.map((s) => [s.reviewId, s]))); })
+      .catch(() => { if (alive) setAiSuggestions({}); });
+    return () => { alive = false; };
+  }, [hotelId, revision]);
+
+  // Theo dõi tiến độ tác vụ AI quét (2 giây/lần).
+  useEffect(() => {
+    if (!aiJob || aiJob.state !== 'running') return;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await reviewApi.aiScanStatus(aiJob.hotelId, aiJob.jobId);
+        setAiJob(next);
+        if (next.state !== 'running') { setRevision((v) => v + 1); onToast?.(next.message || `AI đã quét ${next.processed} đánh giá.`); }
+      } catch { /* thử lại ở nhịp sau */ }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [aiJob, onToast]);
+
+  const startAiScan = async () => {
+    setError('');
+    try {
+      const job = await reviewApi.aiScan(hotelId);
+      setAiJob(job);
+      if (job.state !== 'running') { if (job.state === 'failed') setError(job.message || 'Không quét được.'); else onToast?.(job.message || 'Không có đánh giá mới cần quét.'); }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không bắt đầu được AI quét.'); }
+  };
+
+  const applyAi = async () => {
+    setAiApplying(true); setError('');
+    try {
+      const r = await reviewApi.aiApply(hotelId);
+      onToast?.(`Đã áp dụng đề xuất AI: ${r.shown} hiển thị, ${r.hidden} ẩn, ${r.skipped} để người duyệt.`);
+      setRevision((v) => v + 1);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không áp dụng được đề xuất.'); }
+    finally { setAiApplying(false); }
+  };
+
+  const aiRunning = aiJob?.state === 'running';
+  const confidentCount = Object.values(aiSuggestions).filter((s) => s.decision !== 'review' && s.confidence >= 0.85).length;
 
   const show = async (review: ReviewDto) => {
     setBusyId(review.reviewId); setError('');
@@ -111,6 +160,17 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
           ))}
         </div>
         <span className="ml-auto text-sm text-on-surface-variant"><strong className="text-on-surface">{total}</strong> đánh giá</span>
+        <button type="button" disabled={aiRunning || !hotelId} onClick={() => void startAiScan()}
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:bg-surface-container-low disabled:opacity-50">
+          <span className={`material-symbols-outlined text-[18px] text-primary ${aiRunning ? 'animate-spin' : ''}`}>{aiRunning ? 'progress_activity' : 'auto_awesome'}</span>
+          {aiRunning ? `AI đang quét ${aiJob?.processed}/${aiJob?.total}` : 'AI quét chờ duyệt'}
+        </button>
+        {confidentCount > 0 && (
+          <button type="button" disabled={aiApplying || aiRunning} onClick={() => void applyAi()}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50">
+            <span className="material-symbols-outlined text-[18px]">done_all</span>Áp dụng {confidentCount} đề xuất chắc chắn
+          </button>
+        )}
         <button type="button" disabled={loading} onClick={() => setRevision((v) => v + 1)} title="Làm mới" aria-label="Làm mới"
           className="inline-flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50">
           <span className={`material-symbols-outlined text-[20px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
@@ -149,6 +209,18 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
                     <span className="h-1.5 w-1.5 rounded-full bg-current" />{STATUS_LABEL[review.status]}
                   </span>
                 </div>
+                {(() => {
+                  const ai = aiSuggestions[review.reviewId];
+                  if (!ai || review.status !== 'Hidden') return null;
+                  const tone = ai.decision === 'show' ? 'bg-emerald-50 text-emerald-800' : ai.decision === 'hide' ? 'bg-error-container/60 text-on-error-container' : 'bg-amber-50 text-amber-900';
+                  const label = ai.decision === 'show' ? 'Nên hiển thị' : ai.decision === 'hide' ? 'Nên ẩn' : 'Cần người xem';
+                  return (
+                    <p className={`mt-2 flex items-start gap-1.5 rounded-2xl px-3 py-2 text-xs ${tone}`}>
+                      <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+                      <span><b>AI: {label}</b> ({Math.round(ai.confidence * 100)}%){ai.reason ? ` · ${ai.reason}` : ''}</span>
+                    </p>
+                  );
+                })()}
                 <p className="mt-2 whitespace-pre-line text-sm leading-6 text-on-surface">{parsed.comment || <span className="italic text-outline">Khách không để lại bình luận.</span>}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {(Object.keys(CRITERIA_LABELS) as CriteriaKey[]).map((k) => (
@@ -166,7 +238,7 @@ export const ReviewModerationPanel: React.FC<Props> = ({ hotels, onToast }) => {
                     </button>
                   )}
                   {review.status === 'Visible' && (
-                    <button type="button" disabled={busy} onClick={() => { setHiding(review); setReason(''); setModalError(''); }} className="inline-flex items-center gap-1 rounded-full border border-outline-variant px-4 py-1.5 text-sm font-semibold text-error hover:bg-error-container/40 disabled:opacity-50">
+                    <button type="button" disabled={busy} onClick={() => { setHiding(review); setReason(aiSuggestions[review.reviewId]?.decision === 'hide' ? aiSuggestions[review.reviewId].reason : ''); setModalError(''); }} className="inline-flex items-center gap-1 rounded-full border border-outline-variant px-4 py-1.5 text-sm font-semibold text-error hover:bg-error-container/40 disabled:opacity-50">
                       <span className="material-symbols-outlined text-[18px]">visibility_off</span>Ẩn
                     </button>
                   )}

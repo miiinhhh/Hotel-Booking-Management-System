@@ -90,6 +90,8 @@ if (Encoding.UTF8.GetByteCount(advancedAuth.OtpPepper) < 32)
 
 // Cấu hình tích hợp VNPay
 builder.Services.Configure<VnPaySettings>(builder.Configuration.GetSection(VnPaySettings.SectionName));
+builder.Services.Configure<HotelBooking.Application.Ai.AiOptions>(builder.Configuration.GetSection(HotelBooking.Application.Ai.AiOptions.SectionName));
+builder.Services.AddSingleton<HotelBooking.API.Services.ReviewAiScanJobs>();
 var vnPaySettings = builder.Configuration.GetSection(VnPaySettings.SectionName).Get<VnPaySettings>() ?? new VnPaySettings();
 builder.Services.AddSingleton(vnPaySettings);
 

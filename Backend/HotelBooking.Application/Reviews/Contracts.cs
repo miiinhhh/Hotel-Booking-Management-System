@@ -32,4 +32,8 @@ public interface IReviewRepository
     Task<ReviewPage<ReviewDto>> List(int? hotelId, long? customerId, ReviewStatus? status, int page, int pageSize, CancellationToken ct);
     Task<HotelRatingDto> Rating(int hotelId, CancellationToken ct);
     Task<IReadOnlyList<ReviewHistoryDto>> History(long reviewId, CancellationToken ct);
+    /// <summary>Đánh giá đang ẩn, có nội dung, chưa được AI quét (hoặc nhân viên duyệt) kể từ lần cập nhật gần nhất.</summary>
+    Task<IReadOnlyList<AiReviewInput>> PendingForAi(int hotelId, string aiAction, CancellationToken ct);
+    /// <summary>Bản ghi lịch sử mới nhất là kết quả AI (đề xuất chưa được xử lý) của các đánh giá đang ẩn.</summary>
+    Task<IReadOnlyList<ReviewModerationHistory>> LatestAiResults(int hotelId, string aiAction, CancellationToken ct);
 }
