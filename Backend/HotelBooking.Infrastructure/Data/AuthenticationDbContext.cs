@@ -39,7 +39,7 @@ public sealed class HotelBookingDbContext(DbContextOptions<HotelBookingDbContext
         {
             entity.ToTable("Roles");
             entity.HasKey(x => x.RoleId);
-            entity.Property(x => x.RoleName).HasMaxLength(50).IsRequired().IsUnicode(false);
+            entity.Property(x => x.RoleName).HasMaxLength(50).IsRequired().IsUnicode(); // NVARCHAR: tên vai trò tiếng Việt có dấu
             entity.Property(x => x.Description).HasMaxLength(255);
             entity.Property(x => x.IsSystem).HasDefaultValue(false);
             entity.Property(x => x.IsActive).HasDefaultValue(true);

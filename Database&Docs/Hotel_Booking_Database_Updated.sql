@@ -41,7 +41,7 @@
     CREATE TABLE Roles
     (
         RoleId INT IDENTITY(1,1) NOT NULL,
-        RoleName VARCHAR(50) NOT NULL,
+        RoleName NVARCHAR(50) NOT NULL,
         Description NVARCHAR(255) NULL,
 
         CONSTRAINT PK_Roles PRIMARY KEY (RoleId),

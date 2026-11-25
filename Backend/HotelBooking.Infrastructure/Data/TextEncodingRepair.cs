@@ -55,6 +55,22 @@ public static class TextEncodingRepair
         var repaired = 0;
         try
         {
+            // Tên vai trò phải là NVARCHAR để lưu được chữ có dấu (VD "Kế toán"); CSDL cũ tạo cột VARCHAR.
+            await using (var widen = connection.CreateCommand())
+            {
+                widen.CommandText = """
+                    IF EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
+                               WHERE c.object_id = OBJECT_ID('Roles') AND c.name = 'RoleName' AND t.name = 'varchar')
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = 'UQ_Roles_RoleName' AND parent_object_id = OBJECT_ID('Roles'))
+                            ALTER TABLE Roles DROP CONSTRAINT UQ_Roles_RoleName;
+                        ALTER TABLE Roles ALTER COLUMN RoleName NVARCHAR(50) NOT NULL;
+                        ALTER TABLE Roles ADD CONSTRAINT UQ_Roles_RoleName UNIQUE (RoleName);
+                    END
+                    """;
+                await widen.ExecuteNonQueryAsync(ct);
+            }
+
             foreach (var (table, key, columns) in Targets)
             {
                 foreach (var column in columns)
