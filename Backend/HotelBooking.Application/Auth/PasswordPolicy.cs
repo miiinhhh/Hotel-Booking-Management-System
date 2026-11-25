@@ -9,7 +9,8 @@ public interface IPasswordPolicy
 
 public sealed class PasswordPolicy : IPasswordPolicy
 {
-    public const int MinimumLength = 15;
+    /// <summary>Tối thiểu 8 ký tự, có ít nhất 1 chữ hoa và 1 ký tự đặc biệt.</summary>
+    public const int MinimumLength = 8;
     public const int MaximumLength = 128;
 
     private static readonly HashSet<string> Blocked = new(StringComparer.OrdinalIgnoreCase)
@@ -22,7 +23,11 @@ public sealed class PasswordPolicy : IPasswordPolicy
     public void Validate(string password, string? fullName = null, string? email = null)
     {
         if (string.IsNullOrWhiteSpace(password) || password.Length < MinimumLength || password.Length > MaximumLength)
-            throw new DomainRuleException($"Password must contain {MinimumLength} to {MaximumLength} characters.");
+            throw new DomainRuleException($"Mật khẩu phải có từ {MinimumLength} đến {MaximumLength} ký tự.");
+        if (!password.Any(char.IsUpper))
+            throw new DomainRuleException("Mật khẩu phải có ít nhất 1 chữ in hoa.");
+        if (!password.Any(c => !char.IsLetterOrDigit(c) && !char.IsWhiteSpace(c)))
+            throw new DomainRuleException("Mật khẩu phải có ít nhất 1 ký tự đặc biệt (VD ! @ # $ %).");
 
         var candidate = password.Trim();
         if (Blocked.Contains(candidate))

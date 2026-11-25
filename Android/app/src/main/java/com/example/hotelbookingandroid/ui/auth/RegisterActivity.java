@@ -39,7 +39,7 @@ public class RegisterActivity extends AppCompatActivity {
 
         binding.tilFullName.setError(name.isEmpty() ? "Vui lòng nhập họ tên" : null);
         binding.tilEmail.setError(Patterns.EMAIL_ADDRESS.matcher(email).matches() ? null : "Email không hợp lệ");
-        binding.tilPassword.setError(password.length() < 8 ? "Mật khẩu tối thiểu 8 ký tự" : null);
+        binding.tilPassword.setError(passwordProblem(password));
         binding.tilConfirm.setError(password.equals(confirm) ? null : "Mật khẩu xác nhận không khớp");
         if (binding.tilFullName.getError() != null || binding.tilEmail.getError() != null
                 || binding.tilPassword.getError() != null || binding.tilConfirm.getError() != null) return;
@@ -54,5 +54,19 @@ public class RegisterActivity extends AppCompatActivity {
                 UiUtils.toast(this, res.message);
             }
         });
+    }
+
+    /** Khớp PasswordPolicy ở Backend: tối thiểu 8 ký tự, có chữ in hoa và ký tự đặc biệt. */
+    private static String passwordProblem(String password) {
+        if (password.length() < 8) return "Mật khẩu tối thiểu 8 ký tự";
+        boolean upper = false, special = false;
+        for (int i = 0; i < password.length(); i++) {
+            char c = password.charAt(i);
+            if (Character.isUpperCase(c)) upper = true;
+            else if (!Character.isLetterOrDigit(c) && !Character.isWhitespace(c)) special = true;
+        }
+        if (!upper) return "Mật khẩu cần có ít nhất 1 chữ in hoa";
+        if (!special) return "Mật khẩu cần có ít nhất 1 ký tự đặc biệt (VD ! @ # $)";
+        return null;
     }
 }

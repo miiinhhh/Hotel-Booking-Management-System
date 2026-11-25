@@ -51,19 +51,48 @@ export const Field: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
   </label>
 );
 
-export const PasswordField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon?: string }> = ({ label, icon = 'lock', className = '', id, ...props }) => {
+/** Điều kiện mật khẩu mới — khớp PasswordPolicy ở Backend. */
+export const PASSWORD_RULES: { key: 'pw.ruleLength' | 'pw.ruleUpper' | 'pw.ruleSpecial'; test: (v: string) => boolean }[] = [
+  { key: 'pw.ruleLength', test: (v) => v.length >= 8 && v.length <= 128 },
+  { key: 'pw.ruleUpper', test: (v) => /\p{Lu}/u.test(v) },
+  { key: 'pw.ruleSpecial', test: (v) => /[^\p{L}\p{N}\s]/u.test(v) },
+];
+export const isStrongPassword = (v: string) => PASSWORD_RULES.every((r) => r.test(v));
+
+/**
+ * Ô mật khẩu. `rules` = ô nhập mật khẩu MỚI: hiện danh sách điều kiện (tối thiểu 8 ký tự, chữ hoa, ký tự đặc biệt)
+ * và chặn gửi form khi chưa đạt.
+ */
+export const PasswordField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon?: string; rules?: boolean }> = ({ label, icon = 'lock', className = '', id, rules = false, onChange, ...props }) => {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
+  const [typed, setTyped] = useState(typeof props.value === 'string' ? props.value : '');
   const generatedId = useId();
   const inputId = id || generatedId;
+  const current = typeof props.value === 'string' ? props.value : typed;
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTyped(event.target.value);
+    if (rules) event.target.setCustomValidity(event.target.value && !isStrongPassword(event.target.value) ? t('pw.invalid') : '');
+    onChange?.(event);
+  };
   return <div className="block text-sm font-semibold text-on-surface">
     <label htmlFor={inputId}>{label}</label>
     <div className="relative mt-2">
       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-xl text-outline">{icon}</span>
-      <input {...props} id={inputId} type={visible ? 'text' : 'password'} className={`h-12 w-full rounded-lg border border-outline-variant/60 bg-surface-container-lowest pl-12 pr-12 font-normal outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 ${className}`} />
+      <input {...props} onChange={handleChange} id={inputId} type={visible ? 'text' : 'password'} className={`h-12 w-full rounded-lg border border-outline-variant/60 bg-surface-container-lowest pl-12 pr-12 font-normal outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 ${className}`} />
       <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-outline transition hover:bg-surface-container hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20" aria-label={visible ? t('account.hide', { label: label.toLowerCase() }) : t('account.show', { label: label.toLowerCase() })} aria-pressed={visible}>
         <span className="material-symbols-outlined text-xl">{visible ? 'visibility_off' : 'visibility'}</span>
       </button>
     </div>
+    {rules && (
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-normal" aria-label={t('pw.rulesLabel')}>
+        {PASSWORD_RULES.map((rule) => {
+          const ok = rule.test(current);
+          return <li key={rule.key} className={`flex items-center gap-1 ${ok ? 'text-emerald-700' : 'text-on-surface-variant'}`}>
+            <span className="material-symbols-outlined text-[15px]">{ok ? 'check_circle' : 'radio_button_unchecked'}</span>{t(rule.key)}
+          </li>;
+        })}
+      </ul>
+    )}
   </div>;
 };

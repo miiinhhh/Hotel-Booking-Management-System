@@ -203,8 +203,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onLogin, onBookings })
       <form onSubmit={changePassword} className="space-y-5">
         {error && <Feedback error={error} message="" />}
         <PasswordField label={t('profile.currentPassword')} icon="lock" value={passwords.current} onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} required autoComplete="current-password" />
-        <PasswordField label={t('profile.newPassword')} icon="password" minLength={15} maxLength={128} value={passwords.next} onChange={(e) => setPasswords({ ...passwords, next: e.target.value })} required autoComplete="new-password" />
-        <PasswordField label={t('profile.confirmNewPassword')} icon="verified_user" minLength={15} maxLength={128} value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} required autoComplete="new-password" />
+        <PasswordField rules label={t('profile.newPassword')} icon="password" minLength={8} maxLength={128} value={passwords.next} onChange={(e) => setPasswords({ ...passwords, next: e.target.value })} required autoComplete="new-password" />
+        <PasswordField label={t('profile.confirmNewPassword')} icon="verified_user" minLength={8} maxLength={128} value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} required autoComplete="new-password" />
         <div className="flex justify-end gap-3"><button type="button" onClick={() => setPasswordOpen(false)} className="rounded-full px-5 py-2.5 font-semibold text-on-surface-variant hover:bg-surface-container">{t('profile.cancel')}</button><button disabled={saving} className="rounded-full bg-primary px-6 py-2.5 font-semibold text-on-primary disabled:opacity-70">{saving ? t('account.processing') : t('profile.changePassword')}</button></div>
       </form>
     </Modal>

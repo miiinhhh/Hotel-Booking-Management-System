@@ -126,7 +126,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ portal = 'customer', onReg
         <PrimaryButton loading={submitting} icon="send">{t('login.sendCode')}</PrimaryButton>
       </> : <>
         <Field label={t('login.code')} icon="pin" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoComplete="one-time-code" />
-        {mode === 'reset' && <PasswordField label={t('login.newPassword')} icon="lock_reset" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={15} maxLength={128} required autoComplete="new-password" />}
+        {mode === 'reset' && <PasswordField rules label={t('login.newPassword')} icon="lock_reset" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={128} required autoComplete="new-password" />}
         {mode === 'otp' && <Remember checked={remember} onChange={setRemember} />}
         <PrimaryButton loading={submitting} icon={mode === 'otp' ? 'login' : 'lock_reset'}>{mode === 'otp' ? t('login.verifyLogin') : t('login.resetSubmit')}</PrimaryButton>
         <button type="button" onClick={() => setChallengeId('')} className="w-full text-sm font-semibold text-primary hover:underline">{t('login.resend')}</button>
