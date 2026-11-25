@@ -52,7 +52,7 @@ public static class NightlyRateCalculator
         else if (rule is not null && string.Equals(rule.AdjustmentType, "FIXED_AMOUNT", StringComparison.OrdinalIgnoreCase))
         {
             surge = rule.AdjustmentValue;
-            description = $"{rule.RuleName} (+{rule.AdjustmentValue:N0}đ)";
+            description = $"{rule.RuleName} (+{HotelBooking.Application.Common.MoneyText.Vnd(rule.AdjustmentValue)}đ)";
         }
         return new(price, surge, history is null ? "BasePrice" : "History", description);
     }

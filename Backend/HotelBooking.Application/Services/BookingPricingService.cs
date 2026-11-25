@@ -222,7 +222,7 @@ public class BookingPricingService : IBookingPricingService
                     discountAmount = validation.DiscountAmount;
                     voucherId = validation.VoucherId;
                     appliedVoucherCode = validation.Code;
-                    voucherMessage = $"Áp dụng thành công mã ưu đãi {validation.Code}: Giảm {discountAmount:N0}đ.";
+                    voucherMessage = $"Áp dụng thành công mã ưu đãi {validation.Code}: Giảm {HotelBooking.Application.Common.MoneyText.Vnd(discountAmount)}đ.";
                 }
             }
             else
@@ -245,7 +245,7 @@ public class BookingPricingService : IBookingPricingService
                     discountAmount = voucher.CalculateDiscount(subTotal);
                     voucherId = voucher.VoucherId;
                     appliedVoucherCode = voucher.Code;
-                    voucherMessage = $"Áp dụng thành công mã ưu đãi {voucher.Code}: Giảm {discountAmount:N0}đ.";
+                    voucherMessage = $"Áp dụng thành công mã ưu đãi {voucher.Code}: Giảm {HotelBooking.Application.Common.MoneyText.Vnd(discountAmount)}đ.";
                 }
             }
         }

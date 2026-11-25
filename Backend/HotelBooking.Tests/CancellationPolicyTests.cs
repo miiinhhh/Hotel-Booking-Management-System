@@ -359,7 +359,7 @@ public class CancellationPolicyTests
         var history = bookingRepo.Histories.FirstOrDefault();
         Assert.NotNull(history);
         Assert.Equal("Cancelled", history.NewStatus);
-        Assert.Contains("Hoàn trả: 2,000,000 VNĐ (100%)", history.Note);
+        Assert.Contains("Hoàn trả: 2.000.000 VNĐ (100%)", history.Note);
     }
 
     [Fact]

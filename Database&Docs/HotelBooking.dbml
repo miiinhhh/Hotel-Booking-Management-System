@@ -1,0 +1,500 @@
+Table Amenities {
+  AmenityId int [pk, increment]
+  AmenityName nvarchar(100) [not null, unique]
+  Description nvarchar(255)
+  IsActive bit [not null, default: 1]
+}
+
+Table AuthOtpChallenges {
+  ChallengeId uniqueidentifier [pk]
+  UserId bigint
+  Channel varchar(20) [not null]
+  Purpose varchar(30) [not null]
+  Destination nvarchar(255) [not null]
+  CodeHash varchar(100) [not null]
+  AttemptCount int [not null, default: 0]
+  ExpiresAt datetime2(7) [not null]
+  CreatedAt datetime2(7) [not null, default: `sysutcdatetime()`]
+  ConsumedAt datetime2(7)
+}
+
+Table BookingDetails {
+  BookingDetailId bigint [pk, increment]
+  BookingId bigint [not null]
+  RoomId bigint [not null]
+  UnitPrice decimal(18,2) [not null]
+  NumberOfNights int [not null]
+  SubTotal decimal(18,2) [not null]
+}
+
+Table BookingGuests {
+  BookingGuestId bigint [pk, increment]
+  BookingId bigint [not null]
+  FullName nvarchar(150) [not null]
+  Phone varchar(20)
+  Email varchar(255)
+  IsPrimaryGuest bit [not null, default: 0]
+}
+
+Table Bookings {
+  BookingId bigint [pk, increment]
+  BookingCode varchar(30) [not null, unique]
+  CustomerId bigint [not null]
+  CheckInDate date [not null]
+  CheckOutDate date [not null]
+  NumberOfGuests int [not null]
+  BookingStatus varchar(20) [not null]
+  PaymentMethod varchar(20) [not null]
+  PaymentStatus varchar(20) [not null]
+  SubTotal decimal(18,2) [not null]
+  TaxAmount decimal(18,2) [not null, default: 0]
+  FeeAmount decimal(18,2) [not null, default: 0]
+  DiscountAmount decimal(18,2) [not null, default: 0]
+  TotalAmount decimal(18,2) [not null]
+  DepositAmount decimal(18,2) [not null, default: 0]
+  RemainingAmount decimal(18,2) [not null, default: 0]
+  VoucherId bigint
+  SpecialRequests nvarchar(1000)
+  HoldExpiresAt datetime2(7)
+  CancellationReason nvarchar(500)
+  CancelledAt datetime2(7)
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+}
+
+Table BookingStatusHistory {
+  BookingStatusHistoryId bigint [pk, increment]
+  BookingId bigint [not null]
+  OldStatus varchar(20)
+  NewStatus varchar(20) [not null]
+  ChangedByUserId bigint
+  ChangedAt datetime2(7) [not null, default: `sysdatetime()`]
+  Note nvarchar(500)
+}
+
+Table CancellationPolicies {
+  CancellationPolicyId int [pk, increment]
+  HotelId int [not null]
+  PolicyName nvarchar(150) [not null]
+  DaysBeforeCheckIn int [not null]
+  RefundPercentage decimal(5,2) [not null]
+  DepositPenaltyPercentage decimal(5,2) [not null, default: 0]
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+}
+
+Table ExternalLogins {
+  ExternalLoginId bigint [pk, increment]
+  UserId bigint [not null]
+  Provider varchar(50) [not null]
+  ProviderSubject varchar(255) [not null]
+  Email varchar(255) [not null]
+  CreatedAt datetime2(7) [not null, default: `sysutcdatetime()`]
+  indexes {
+    (Provider, ProviderSubject) [unique]
+  }
+}
+
+Table HotelAmenities {
+  HotelId int [not null]
+  AmenityId int [not null]
+  indexes {
+    (HotelId, AmenityId) [pk]
+  }
+}
+
+Table HotelAreas {
+  AreaId int [pk, increment]
+  HotelId int [not null]
+  AreaName nvarchar(150) [not null]
+  AreaType varchar(20) [not null]
+  ParentAreaId int
+  Description nvarchar(500)
+  LocationDescription nvarchar(500)
+  FloorCount int
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+  indexes {
+    (HotelId, AreaName) [unique]
+  }
+}
+
+Table HotelDiscoverySettings {
+  HotelId int [pk]
+  CancellationPolicy nvarchar(2000)
+}
+
+Table HotelImages {
+  HotelImageId bigint [pk, increment]
+  HotelId int [not null]
+  ImageUrl varchar(1000) [not null]
+  AltText nvarchar(255)
+  DisplayOrder int [not null, default: 0]
+  IsPrimary bit [not null, default: 0]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  StorageKey varchar(100)
+  OriginalFileName nvarchar(255)
+  ContentType varchar(50)
+  FileSize bigint
+  Width int
+  Height int
+  indexes {
+    (HotelId) [name: "UX_HotelImages_Primary", note: "unique co dieu kien WHERE (filtered)"]
+  }
+}
+
+Table Hotels {
+  HotelId int [pk, increment]
+  HotelName nvarchar(200) [not null]
+  Description nvarchar(max)
+  Address nvarchar(300) [not null]
+  City nvarchar(100) [not null]
+  Country nvarchar(100) [not null, default: 'Vietnam']
+  Phone varchar(20) [not null]
+  Email varchar(255) [not null]
+  Website varchar(500)
+  CheckInTime time(7) [not null]
+  CheckOutTime time(7) [not null]
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+}
+
+Table HotelWishlists {
+  UserId bigint [not null]
+  HotelId int [not null]
+  CreatedAt datetime2(7) [not null, default: `sysutcdatetime()`]
+  indexes {
+    (UserId, HotelId) [pk]
+  }
+}
+
+Table ImageFileDeletions {
+  Id int [pk, increment]
+  StorageKey nvarchar(500) [not null]
+  CreatedAt datetime2(7) [not null, default: `sysutcdatetime()`]
+}
+
+Table Notifications {
+  NotificationId bigint [pk, increment]
+  UserId bigint [not null]
+  BookingId bigint
+  Title nvarchar(200) [not null]
+  Message nvarchar(1000) [not null]
+  Type varchar(50) [not null]
+  IsRead bit [not null, default: 0]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  ReadAt datetime2(7)
+}
+
+Table Payments {
+  PaymentId bigint [pk, increment]
+  BookingId bigint [not null]
+  PaymentMethod varchar(20) [not null]
+  PaymentType varchar(20) [not null]
+  Amount decimal(18,2) [not null]
+  Status varchar(20) [not null]
+  TransactionCode varchar(150) [unique]
+  PaidAt datetime2(7)
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+}
+
+Table Permissions {
+  PermissionId int [pk, increment]
+  PermissionCode varchar(100) [not null, unique]
+  PermissionName nvarchar(150) [not null]
+  PermissionGroup nvarchar(100) [not null]
+  Description nvarchar(500)
+  IsActive bit [not null, default: 1]
+}
+
+Table PriceSurgeRules {
+  RuleId bigint [pk, increment]
+  HotelId int [not null]
+  RoomTypeId int
+  RuleName nvarchar(150) [not null]
+  StartDate date [not null]
+  EndDate date [not null]
+  AdjustmentType nvarchar(20) [not null, default: 'PERCENTAGE']
+  AdjustmentValue decimal(18,2) [not null, default: 0]
+  Priority int [not null, default: 1]
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  CreatedByUserId bigint [not null]
+}
+
+Table RefreshTokens {
+  RefreshTokenId bigint [pk, increment]
+  UserId bigint [not null]
+  TokenHash varchar(100) [not null, unique]
+  ExpiresAt datetime2(7) [not null]
+  CreatedAt datetime2(7) [not null, default: `sysutcdatetime()`]
+  CreatedByIp varchar(64)
+  DeviceInfo nvarchar(500)
+  RevokedAt datetime2(7)
+  RevokedByIp varchar(64)
+  ReplacedByTokenHash varchar(100)
+}
+
+Table ReviewModerationHistory {
+  HistoryId bigint [pk, increment]
+  ReviewId bigint [not null]
+  ActorId bigint [not null]
+  OldStatus varchar(20) [not null]
+  NewStatus varchar(20) [not null]
+  Action varchar(30) [not null]
+  Reason nvarchar(500)
+  CreatedAt datetime2(7) [not null]
+}
+
+Table Reviews {
+  ReviewId bigint [pk, increment]
+  BookingId bigint [not null, unique]
+  CustomerId bigint [not null]
+  Rating tinyint [not null]
+  Comment nvarchar(2000)
+  Status varchar(20) [not null, default: 'Hidden']
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+}
+
+Table RolePermissions {
+  RoleId int [not null]
+  PermissionId int [not null]
+  GrantedAt datetime2(7) [not null, default: `sysdatetime()`]
+  GrantedByUserId bigint
+  indexes {
+    (RoleId, PermissionId) [pk]
+  }
+}
+
+Table Roles {
+  RoleId int [pk, increment]
+  RoleName varchar(50) [not null, unique]
+  Description nvarchar(255)
+  IsSystem bit [not null, default: 0]
+  IsActive bit [not null, default: 1]
+}
+
+Table RoomAmenities {
+  RoomId bigint [not null]
+  AmenityId int [not null]
+  indexes {
+    (RoomId, AmenityId) [pk]
+  }
+}
+
+Table RoomEmergencyLocks {
+  LockId bigint [pk, increment]
+  BatchId uniqueidentifier [not null]
+  HotelId int [not null]
+  RoomId bigint [not null]
+  StartsAt datetime2(7) [not null]
+  EndsAt datetime2(7) [not null]
+  Reason nvarchar(500) [not null]
+  CreatedByUserId bigint [not null]
+  CreatedAt datetime2(7) [not null]
+  IsReleased bit [not null, default: 0]
+  ReleasedAt datetime2(7)
+  ReleasedByUserId bigint
+}
+
+Table RoomImages {
+  RoomImageId bigint [pk, increment]
+  RoomId bigint [not null]
+  ImageUrl varchar(1000) [not null]
+  AltText nvarchar(255)
+  DisplayOrder int [not null, default: 0]
+  IsPrimary bit [not null, default: 0]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  StorageKey varchar(100)
+  OriginalFileName nvarchar(255)
+  ContentType varchar(50)
+  FileSize bigint
+  Width int
+  Height int
+  indexes {
+    (RoomId) [name: "UX_RoomImages_Primary", note: "unique co dieu kien WHERE (filtered)"]
+  }
+}
+
+Table RoomPriceHistory {
+  PriceHistoryId bigint [pk, increment]
+  RoomTypeId int [not null]
+  Price decimal(18,2) [not null]
+  EffectiveFrom datetime2(7) [not null]
+  EffectiveTo datetime2(7)
+  ChangedByUserId bigint [not null]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+}
+
+Table Rooms {
+  RoomId bigint [pk, increment]
+  RoomTypeId int [not null]
+  AreaId int [not null]
+  RoomNumber varchar(20) [not null]
+  Floor int [not null]
+  Status varchar(20) [not null]
+  Description nvarchar(500)
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+  indexes {
+    (AreaId, RoomNumber) [unique]
+  }
+}
+
+Table RoomTypes {
+  RoomTypeId int [pk, increment]
+  HotelId int [not null]
+  AreaId int [not null]
+  RoomTypeName nvarchar(100) [not null]
+  Description nvarchar(max)
+  BasePrice decimal(18,2) [not null]
+  Capacity int [not null]
+  NumberOfBeds int [not null, default: 1]
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+  indexes {
+    (HotelId, AreaId, RoomTypeName) [unique]
+  }
+}
+
+Table StaffAreaAssignments {
+  AssignmentId bigint [pk, increment]
+  UserId bigint [not null]
+  AreaId int [not null]
+  AssignedAt datetime2(7) [not null, default: `sysdatetime()`]
+  AssignedByUserId bigint
+  IsActive bit [not null, default: 1]
+  indexes {
+    (UserId, AreaId) [unique]
+  }
+}
+
+Table UserNotificationReads {
+  UserId bigint [not null]
+  NotificationKey varchar(200) [not null]
+  ReadAt datetime2(7) [not null, default: `sysutcdatetime()`]
+  indexes {
+    (UserId, NotificationKey) [pk]
+  }
+}
+
+Table UserRoles {
+  UserId bigint [not null]
+  RoleId int [not null]
+  AssignedAt datetime2(7) [not null, default: `sysdatetime()`]
+  indexes {
+    (UserId, RoleId) [pk]
+  }
+}
+
+Table Users {
+  UserId bigint [pk, increment]
+  FullName nvarchar(150) [not null]
+  Email varchar(255) [not null, unique]
+  PasswordHash varchar(255) [not null]
+  Phone varchar(20)
+  DateOfBirth date
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+  AccessFailedCount int [not null, default: 0]
+  LockoutEnd datetime2(7)
+  LastLoginAt datetime2(7)
+  TokenVersion int [not null, default: 0]
+  AvatarStorageKey varchar(100)
+  AvatarContentType varchar(50)
+  AvatarUpdatedAt datetime2(7)
+  LastReauthenticatedAt datetime2(7)
+  indexes {
+    (Phone) [name: "UX_Users_Phone", note: "unique co dieu kien WHERE (filtered)"]
+  }
+}
+
+Table Vouchers {
+  VoucherId bigint [pk, increment]
+  Code varchar(50) [not null, unique]
+  VoucherType varchar(20) [not null]
+  DiscountValue decimal(18,2) [not null]
+  MinimumOrderAmount decimal(18,2) [not null, default: 0]
+  StartAt datetime2(7) [not null]
+  EndAt datetime2(7) [not null]
+  UsageLimit int
+  UsedCount int [not null, default: 0]
+  IsActive bit [not null, default: 1]
+  CreatedAt datetime2(7) [not null, default: `sysdatetime()`]
+  UpdatedAt datetime2(7)
+  MaxDiscountAmount decimal(18,2)
+  UsageLimitPerCustomer int [not null, default: 1]
+}
+
+Table VoucherUsages {
+  VoucherUsageId bigint [pk, increment]
+  VoucherId bigint [not null]
+  CustomerId bigint [not null]
+  BookingId bigint [not null]
+  DiscountApplied decimal(18,2) [not null]
+  UsedAt datetime2(7) [not null, default: `sysdatetime()`]
+  indexes {
+    (VoucherId, BookingId) [unique]
+  }
+}
+
+Ref FK_AuthOtpChallenges_User: AuthOtpChallenges.UserId > Users.UserId [delete: cascade]
+Ref FK_BookingDetails_Booking: BookingDetails.BookingId > Bookings.BookingId [delete: cascade]
+Ref FK_BookingDetails_Room: BookingDetails.RoomId > Rooms.RoomId
+Ref FK_BookingGuests_Booking: BookingGuests.BookingId > Bookings.BookingId [delete: cascade]
+Ref FK_Bookings_Customer: Bookings.CustomerId > Users.UserId
+Ref FK_Bookings_Voucher: Bookings.VoucherId > Vouchers.VoucherId
+Ref FK_BookingStatusHistory_Booking: BookingStatusHistory.BookingId > Bookings.BookingId [delete: cascade]
+Ref FK_BookingStatusHistory_User: BookingStatusHistory.ChangedByUserId > Users.UserId
+Ref FK_CancellationPolicies_Hotel: CancellationPolicies.HotelId > Hotels.HotelId
+Ref FK_ExternalLogins_User: ExternalLogins.UserId > Users.UserId [delete: cascade]
+Ref FK_HotelAmenities_Amenity: HotelAmenities.AmenityId > Amenities.AmenityId [delete: cascade]
+Ref FK_HotelAmenities_Hotel: HotelAmenities.HotelId > Hotels.HotelId [delete: cascade]
+Ref FK_HotelAreas_Hotel: HotelAreas.HotelId > Hotels.HotelId
+Ref FK_HotelAreas_Parent: HotelAreas.ParentAreaId > HotelAreas.AreaId
+Ref FK_HotelDiscoverySettings_Hotel: HotelDiscoverySettings.HotelId > Hotels.HotelId [delete: cascade]
+Ref FK_HotelImages_Hotel: HotelImages.HotelId > Hotels.HotelId [delete: cascade]
+Ref FK_HotelWishlists_Hotel: HotelWishlists.HotelId > Hotels.HotelId [delete: cascade]
+Ref FK_HotelWishlists_User: HotelWishlists.UserId > Users.UserId [delete: cascade]
+Ref FK_Notifications_Booking: Notifications.BookingId > Bookings.BookingId
+Ref FK_Notifications_User: Notifications.UserId > Users.UserId [delete: cascade]
+Ref FK_Payments_Booking: Payments.BookingId > Bookings.BookingId
+Ref FK_PriceSurgeRules_CreatedByUser: PriceSurgeRules.CreatedByUserId > Users.UserId
+Ref FK_PriceSurgeRules_Hotel: PriceSurgeRules.HotelId > Hotels.HotelId
+Ref FK_PriceSurgeRules_RoomType: PriceSurgeRules.RoomTypeId > RoomTypes.RoomTypeId
+Ref FK_RefreshTokens_User: RefreshTokens.UserId > Users.UserId [delete: cascade]
+Ref FK_ReviewModerationHistory_Actor: ReviewModerationHistory.ActorId > Users.UserId
+Ref FK_ReviewModerationHistory_Review: ReviewModerationHistory.ReviewId > Reviews.ReviewId
+Ref FK_Reviews_Booking: Reviews.BookingId > Bookings.BookingId
+Ref FK_Reviews_Customer: Reviews.CustomerId > Users.UserId
+Ref FK_RolePermissions_Permission: RolePermissions.PermissionId > Permissions.PermissionId [delete: cascade]
+Ref FK_RolePermissions_Role: RolePermissions.RoleId > Roles.RoleId [delete: cascade]
+Ref FK_RoomAmenities_Amenity: RoomAmenities.AmenityId > Amenities.AmenityId [delete: cascade]
+Ref FK_RoomAmenities_Room: RoomAmenities.RoomId > Rooms.RoomId [delete: cascade]
+Ref FK_RoomEmergencyLocks_Creator: RoomEmergencyLocks.CreatedByUserId > Users.UserId
+Ref FK_RoomEmergencyLocks_Hotel: RoomEmergencyLocks.HotelId > Hotels.HotelId
+Ref FK_RoomEmergencyLocks_Releaser: RoomEmergencyLocks.ReleasedByUserId > Users.UserId
+Ref FK_RoomEmergencyLocks_Room: RoomEmergencyLocks.RoomId > Rooms.RoomId
+Ref FK_RoomImages_Room: RoomImages.RoomId > Rooms.RoomId [delete: cascade]
+Ref FK_RoomPriceHistory_RoomType: RoomPriceHistory.RoomTypeId > RoomTypes.RoomTypeId
+Ref FK_RoomPriceHistory_User: RoomPriceHistory.ChangedByUserId > Users.UserId
+Ref FK_Rooms_Area: Rooms.AreaId > HotelAreas.AreaId
+Ref FK_Rooms_RoomType: Rooms.RoomTypeId > RoomTypes.RoomTypeId
+Ref FK_RoomTypes_Area: RoomTypes.AreaId > HotelAreas.AreaId
+Ref FK_RoomTypes_Hotel: RoomTypes.HotelId > Hotels.HotelId
+Ref FK_StaffAreaAssignments_Area: StaffAreaAssignments.AreaId > HotelAreas.AreaId
+Ref FK_StaffAreaAssignments_AssignedBy: StaffAreaAssignments.AssignedByUserId > Users.UserId
+Ref FK_StaffAreaAssignments_User: StaffAreaAssignments.UserId > Users.UserId
+Ref FK_UserNotificationReads_Users: UserNotificationReads.UserId > Users.UserId [delete: cascade]
+Ref FK_UserRoles_Role: UserRoles.RoleId > Roles.RoleId [delete: cascade]
+Ref FK_UserRoles_User: UserRoles.UserId > Users.UserId [delete: cascade]
+Ref FK_VoucherUsages_Booking: VoucherUsages.BookingId > Bookings.BookingId
+Ref FK_VoucherUsages_Customer: VoucherUsages.CustomerId > Users.UserId
+Ref FK_VoucherUsages_Voucher: VoucherUsages.VoucherId > Vouchers.VoucherId

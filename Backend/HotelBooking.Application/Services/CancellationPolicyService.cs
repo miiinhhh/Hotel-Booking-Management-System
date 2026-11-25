@@ -152,9 +152,9 @@ public class CancellationPolicyService : ICancellationPolicyService
 
         bool isEligible = refundAmount > 0m;
         string message = isEligible
-            ? $"Đơn phòng đủ điều kiện hoàn trả {refundPercentage}% số tiền đã thanh toán ({refundAmount:N0} VNĐ). Phí phạt hủy: {penaltyAmount:N0} VNĐ."
+            ? $"Đơn phòng đủ điều kiện hoàn trả {refundPercentage}% số tiền đã thanh toán ({HotelBooking.Application.Common.MoneyText.Vnd(refundAmount)} VNĐ). Phí phạt hủy: {HotelBooking.Application.Common.MoneyText.Vnd(penaltyAmount)} VNĐ."
             : (normalizedPaid > 0m
-                ? $"Đơn phòng không được hoàn tiền theo chính sách hủy ({penaltyPercentage}% phí phạt: {penaltyAmount:N0} VNĐ)."
+                ? $"Đơn phòng không được hoàn tiền theo chính sách hủy ({penaltyPercentage}% phí phạt: {HotelBooking.Application.Common.MoneyText.Vnd(penaltyAmount)} VNĐ)."
                 : "Đơn phòng chưa phát sinh thanh toán, không cần hoàn tiền.");
 
         return new CancelPreviewResponseDto

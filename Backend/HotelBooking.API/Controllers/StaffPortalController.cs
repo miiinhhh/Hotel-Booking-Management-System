@@ -130,7 +130,7 @@ public class StaffPortalController(
                 $"booking-{booking.BookingId}",
                 "BookingCreated",
                 "Booking mới",
-                $"{booking.BookingCode} · {customerName} · Phòng {string.Join(", ", rooms)} · {booking.TotalAmount:N0} ₫",
+                $"{booking.BookingCode} · {customerName} · Phòng {string.Join(", ", rooms)} · {HotelBooking.Application.Common.MoneyText.Vnd(booking.TotalAmount)} ₫",
                 "event_available",
                 booking.CreatedAt);
         }));
@@ -170,7 +170,7 @@ public class StaffPortalController(
             $"price-{history.PriceHistoryId}",
             "RoomPriceChanged",
             "Giá phòng thay đổi",
-            $"{roomTypes.GetValueOrDefault(history.RoomTypeId) ?? $"Hạng phòng #{history.RoomTypeId}"} · {history.Price:N0} ₫ · Hiệu lực {history.EffectiveFrom:dd/MM/yyyy}",
+            $"{roomTypes.GetValueOrDefault(history.RoomTypeId) ?? $"Hạng phòng #{history.RoomTypeId}"} · {HotelBooking.Application.Common.MoneyText.Vnd(history.Price)} ₫ · Hiệu lực {history.EffectiveFrom:dd/MM/yyyy}",
             "sell",
             history.CreatedAt)));
 
@@ -401,7 +401,7 @@ public class StaffPortalController(
                     roomName = rInfo?.RoomTypeName ?? "Phòng tiêu chuẩn",
                     roomNumber = rInfo?.RoomNumber ?? "P.---",
                     dates = $"{b.CheckInDate:dd/MM} - {b.CheckOutDate:dd/MM/yyyy}",
-                    amount = $"{b.TotalAmount:N0} ₫",
+                    amount = $"{HotelBooking.Application.Common.MoneyText.Vnd(b.TotalAmount)} ₫",
                     status = b.BookingStatus.ToString(),
                     isActive = b.BookingStatus is BookingStatus.Confirmed or BookingStatus.CheckedIn
                 };
@@ -439,7 +439,7 @@ public class StaffPortalController(
                 currentRoom,
                 lastStayInfo,
                 totalSpend,
-                totalSpendFormatted = $"{totalSpend:N0} ₫",
+                totalSpendFormatted = $"{HotelBooking.Application.Common.MoneyText.Vnd(totalSpend)} ₫",
                 totalCompletedBookings = completedCount,
                 serviceNotesTags = userBookings
                     .Where(b => !string.IsNullOrWhiteSpace(b.SpecialRequests))

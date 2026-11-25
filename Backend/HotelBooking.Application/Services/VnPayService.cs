@@ -625,7 +625,7 @@ public class VnPayService : IVnPayService
             NewStatus = BookingStatus.Cancelled.ToString(),
             ChangedByUserId = null,
             ChangedAt = now,
-            Note = $"Thanh toán VNPay về sau khi hết hạn giữ chỗ nhưng phòng không còn trống. Chờ hoàn toàn bộ {totalPaid:N0} VNĐ cho khách."
+            Note = $"Thanh toán VNPay về sau khi hết hạn giữ chỗ nhưng phòng không còn trống. Chờ hoàn toàn bộ {HotelBooking.Application.Common.MoneyText.Vnd(totalPaid)} VNĐ cho khách."
         });
         var existing = await _paymentRepository.GetByBookingIdAsync(bookingId);
         if (existing == null || !existing.Any(p => p.PaymentType == PaymentType.Refund))

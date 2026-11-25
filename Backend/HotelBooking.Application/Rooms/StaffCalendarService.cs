@@ -54,6 +54,6 @@ public sealed class StaffCalendarService(IStaffCalendarRepository repository)
             return new StaffCalendarType(type.RoomTypeId.ToString(), type.HotelId, type.AreaId, type.RoomTypeId,
                 type.Rooms.Where(r => r.Sellable).Select(r => r.RoomId).Order().ToArray(), type.AreaName,
                 $"Phân khu {type.AreaName} · {type.Name}", type.Name, ids.Count,
-                $"{type.Capacity} khách • Giá cơ bản: {type.BasePrice:N0} ₫", result);
+                $"{type.Capacity} khách • Giá cơ bản: {HotelBooking.Application.Common.MoneyText.Vnd(type.BasePrice)} ₫", result);
         }).ToArray();
 }

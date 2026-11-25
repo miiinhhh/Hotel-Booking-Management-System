@@ -489,7 +489,7 @@ public class BookingServices : IBookingService
         var who = isAdmin && booking.CustomerId != currentUserId
             ? $"Quản trị viên (ID: {currentUserId})"
             : cancelledByStaff ? $"Nhân viên (ID: {currentUserId})" : "Khách hàng";
-        var auditNote = $"{who} hủy đơn. Lý do: {request.Reason}. Chính sách: {calculation.AppliedPolicyName}. Đã thanh toán: {totalPaid:N0} VNĐ, Hoàn trả: {calculation.RefundAmount:N0} VNĐ ({calculation.RefundPercentage}%), Phí phạt: {calculation.PenaltyAmount:N0} VNĐ ({calculation.PenaltyPercentage}%).";
+        var auditNote = $"{who} hủy đơn. Lý do: {request.Reason}. Chính sách: {calculation.AppliedPolicyName}. Đã thanh toán: {HotelBooking.Application.Common.MoneyText.Vnd(totalPaid)} VNĐ, Hoàn trả: {HotelBooking.Application.Common.MoneyText.Vnd(calculation.RefundAmount)} VNĐ ({calculation.RefundPercentage}%), Phí phạt: {HotelBooking.Application.Common.MoneyText.Vnd(calculation.PenaltyAmount)} VNĐ ({calculation.PenaltyPercentage}%).";
 
         await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
         {
@@ -711,7 +711,7 @@ public class BookingServices : IBookingService
             });
         }
 
-        var note = $"Đổi lịch lưu trú từ [{oldCheckIn:dd/MM/yyyy} - {oldCheckOut:dd/MM/yyyy}] sang [{request.NewCheckInDate:dd/MM/yyyy} - {request.NewCheckOutDate:dd/MM/yyyy}]. Tổng tiền: {oldTotal:N0} -> {pricing.TotalAmount:N0} VNĐ. Lý do: {request.Reason ?? "Theo yêu cầu khách hàng"}.";
+        var note = $"Đổi lịch lưu trú từ [{oldCheckIn:dd/MM/yyyy} - {oldCheckOut:dd/MM/yyyy}] sang [{request.NewCheckInDate:dd/MM/yyyy} - {request.NewCheckOutDate:dd/MM/yyyy}]. Tổng tiền: {HotelBooking.Application.Common.MoneyText.Vnd(oldTotal)} -> {HotelBooking.Application.Common.MoneyText.Vnd(pricing.TotalAmount)} VNĐ. Lý do: {request.Reason ?? "Theo yêu cầu khách hàng"}.";
         await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
         {
             BookingId = booking.BookingId,

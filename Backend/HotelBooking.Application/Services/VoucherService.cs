@@ -95,7 +95,7 @@ public class VoucherService : IVoucherService
             return new ValidateVoucherResponse
             {
                 IsValid = false,
-                Message = $"Đơn hàng chưa đạt giá trị tối thiểu {voucher.MinimumOrderAmount:N0} VNĐ để áp dụng mã này."
+                Message = $"Đơn hàng chưa đạt giá trị tối thiểu {HotelBooking.Application.Common.MoneyText.Vnd(voucher.MinimumOrderAmount)} VNĐ để áp dụng mã này."
             };
         }
 
