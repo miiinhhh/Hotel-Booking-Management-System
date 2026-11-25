@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Backend demo chạy HTTP trong mạng nội bộ (emulator 10.0.2.2 hoặc IP LAN như 192.168.x.x),
+    nên cho phép cleartext. Khi triển khai Backend qua HTTPS thì đổi cleartextTrafficPermitted thành false.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

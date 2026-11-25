@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bảng màu đồng bộ với Frontend/tailwind.config.js (Material 3, tông đất nung). -->
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="md_primary">#9B2F00</color>
+    <color name="md_on_primary">#FFFFFF</color>
+    <color name="md_primary_container">#C2410C</color>
+    <color name="md_on_primary_container">#FFECE7</color>
+    <color name="md_primary_fixed">#FFDBD0</color>
+    <color name="md_secondary">#944A23</color>
+    <color name="md_on_secondary">#FFFFFF</color>
+    <color name="md_secondary_container">#FD9E70</color>
+    <color name="md_on_secondary_container">#76340E</color>
+    <color name="md_secondary_fixed">#FFDBCC</color>
+    <color name="md_tertiary">#983311</color>
+    <color name="md_tertiary_container">#B94A27</color>
+    <color name="md_error">#BA1A1A</color>
+    <color name="md_error_container">#FFDAD6</color>
+    <color name="md_background">#FBF9F6</color>
+    <color name="md_on_background">#1B1C1A</color>
+    <color name="md_surface">#FBF9F6</color>
+    <color name="md_on_surface">#1B1C1A</color>
+    <color name="md_surface_variant">#E4E2DF</color>
+    <color name="md_on_surface_variant">#59413A</color>
+    <color name="md_surface_container_lowest">#FFFFFF</color>
+    <color name="md_surface_container_low">#F5F3F0</color>
+    <color name="md_surface_container">#EFEEEB</color>
+    <color name="md_surface_container_high">#EAE8E5</color>
+    <color name="md_surface_container_highest">#E4E2DF</color>
+    <color name="md_outline">#8D7168</color>
+    <color name="md_outline_variant">#E1BFB5</color>
+    <color name="md_inverse_surface">#30312F</color>
+    <color name="md_inverse_primary">#FFB59D</color>
+
+    <!-- Màu ngữ nghĩa dùng trong layout -->
+    <color name="text_secondary">@color/md_on_surface_variant</color>
+    <color name="price">@color/md_primary</color>
+    <color name="placeholder">@color/md_surface_container_high</color>
+    <color name="success">#2D6A4F</color>
+    <color name="success_container">#D8F3DC</color>
+    <color name="danger">@color/md_error</color>
+    <color name="scrim_bottom">#99000000</color>
+</resources>

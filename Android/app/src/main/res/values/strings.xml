@@ -1,0 +1,578 @@
+<resources>
+    <string name="app_name">StayLuxe</string>
+
+    <!-- Tabs -->
+    <string name="tab_home">Khám phá</string>
+    <string name="tab_bookings">Đơn của tôi</string>
+    <string name="tab_offers">Ưu đãi</string>
+    <string name="tab_account">Tài khoản</string>
+
+    <!-- Chung -->
+    <string name="cancel">Hủy</string>
+    <string name="apply">Áp dụng</string>
+    <string name="send">Gửi</string>
+    <string name="stay">Ở lại</string>
+    <string name="exit">Thoát</string>
+    <string name="not_updated">Chưa cập nhật</string>
+    <string name="err_required">Vui lòng nhập thông tin này</string>
+    <string name="err_phone">Số điện thoại không hợp lệ</string>
+    <string name="err_email">Email không hợp lệ</string>
+
+    <!-- Auth -->
+    <string name="login">Đăng nhập</string>
+    <string name="register">Đăng ký</string>
+    <string name="login_title">Chào mừng trở lại</string>
+    <string name="login_subtitle">Đăng nhập để đặt phòng và quản lý đơn của bạn</string>
+    <string name="register_title">Tạo tài khoản</string>
+    <string name="email">Email</string>
+    <string name="password">Mật khẩu</string>
+    <string name="confirm_password">Xác nhận mật khẩu</string>
+    <string name="full_name">Họ và tên</string>
+    <string name="phone">Số điện thoại</string>
+    <string name="no_account">Chưa có tài khoản? Đăng ký</string>
+    <string name="have_account">Đã có tài khoản? Đăng nhập</string>
+    <string name="login_required_title">Bạn chưa đăng nhập</string>
+    <string name="login_required_message">Đăng nhập để xem đơn đặt phòng và thông tin tài khoản.</string>
+    <string name="login_to_book">Vui lòng đăng nhập để đặt phòng</string>
+    <string name="logout">Đăng xuất</string>
+    <string name="logout_confirm">Bạn có chắc muốn đăng xuất?</string>
+
+    <!-- Home -->
+    <string name="home_title">Bạn muốn đi đâu?</string>
+    <string name="location_hint">Thành phố, khu vực, tên khách sạn</string>
+    <string name="search">Tìm khách sạn</string>
+    <string name="pick_dates">Chọn ngày nhận - trả phòng</string>
+    <string name="err_min_one_night">Vui lòng chọn ít nhất 1 đêm</string>
+    <string name="dates_value">%1$s → %2$s · %3$d đêm</string>
+    <string name="guests_value">%1$d người lớn · %2$d trẻ em · %3$d phòng</string>
+    <string name="guests_and_rooms">Khách và phòng</string>
+    <string name="adults">Người lớn</string>
+    <string name="children">Trẻ em</string>
+    <string name="rooms">Phòng</string>
+    <string name="sort_price_asc">Giá thấp → cao</string>
+    <string name="sort_price_desc">Giá cao → thấp</string>
+    <string name="result_count">%d khách sạn phù hợp</string>
+    <string name="no_hotels">Không tìm thấy khách sạn phù hợp</string>
+    <string name="room_type_capacity">%1$s · tối đa %2$d khách</string>
+    <string name="available_rooms">Còn %d phòng</string>
+    <string name="from_price">Giá mỗi đêm từ</string>
+    <string name="per_night">/đêm</string>
+    <string name="greeting_guest">Xin chào 👋</string>
+    <string name="greeting_user">Xin chào, %s 👋</string>
+    <string name="popular_destinations">Điểm đến phổ biến</string>
+    <string-array name="popular_destinations">
+        <item>Hà Nội</item>
+        <item>Đà Nẵng</item>
+        <item>TP. Hồ Chí Minh</item>
+        <item>Nha Trang</item>
+        <item>Đà Lạt</item>
+        <item>Phú Quốc</item>
+        <item>Hội An</item>
+    </string-array>
+    <string name="about_hotel">Giới thiệu</string>
+    <string name="read_more">Xem thêm</string>
+    <string name="read_less">Thu gọn</string>
+    <string name="select_room">Chọn phòng</string>
+    <string name="sold_out">Hết phòng</string>
+
+    <!-- Hotel detail -->
+    <string name="no_reviews">Chưa có đánh giá</string>
+    <string name="rating_value">★ %1$s · %2$d đánh giá</string>
+    <string name="policies">Chính sách</string>
+    <string name="policy_value">Nhận phòng: %1$s · Trả phòng: %2$s\n%3$s</string>
+    <string name="no_cancel_policy">Khách sạn chưa công bố chính sách hủy.</string>
+    <string name="amenities">Tiện ích</string>
+    <string name="available_rooms_title">Phòng còn trống</string>
+    <string name="no_rooms">Không còn phòng trống cho thời gian đã chọn</string>
+    <string name="stay_value">%1$s → %2$s · %3$d đêm · %4$d khách</string>
+    <string name="room_name_value">%1$s · Phòng %2$s</string>
+    <string name="room_info_value">Tầng %1$d · Tối đa %2$d khách</string>
+    <string name="price_per_night">%s / đêm</string>
+    <string name="book_now">Đặt phòng</string>
+    <string name="err_capacity">Phòng này chỉ chứa tối đa %d khách</string>
+
+    <!-- Checkout -->
+    <string name="checkout_title">Xác nhận đặt phòng</string>
+    <string name="guest_info">Thông tin người đặt</string>
+    <string name="special_requests">Yêu cầu đặc biệt (không bắt buộc)</string>
+    <string name="voucher">Mã giảm giá</string>
+    <string name="payment_method">Phương thức thanh toán</string>
+    <string name="method_deposit">Đặt cọc qua VNPay</string>
+    <string name="method_cash">Thanh toán tại khách sạn</string>
+    <string name="price_summary">Chi tiết giá</string>
+    <string name="subtotal">Tạm tính</string>
+    <string name="discount">Giảm giá</string>
+    <string name="tax_fee">Thuế &amp; phí</string>
+    <string name="total">Tổng cộng</string>
+    <string name="pay_now">Thanh toán ngay</string>
+    <string name="deposit">Tiền cọc</string>
+    <string name="remaining">Còn lại</string>
+    <string name="confirm_and_pay">Đặt phòng &amp; thanh toán cọc</string>
+    <string name="confirm_booking">Xác nhận đặt phòng</string>
+    <string name="booking_created">Đặt phòng thành công: %s</string>
+
+    <!-- Payment -->
+    <string name="vnpay_title">Thanh toán VNPay</string>
+    <string name="payment_success_title">Thanh toán thành công</string>
+    <string name="payment_failed_title">Thanh toán chưa thành công</string>
+    <string name="payment_success">Đã thanh toán %1$s cho đơn %2$s.</string>
+    <string name="payment_failed">Giao dịch không thành công. Bạn có thể thanh toán lại trong chi tiết đơn.</string>
+    <string name="view_booking">Xem đơn đặt phòng</string>
+    <string name="payment_exit_confirm">Thoát khỏi trang thanh toán? Đơn sẽ được giữ trong thời gian ngắn để bạn thanh toán lại.</string>
+
+    <!-- Bookings -->
+    <string name="status_all">Tất cả</string>
+    <string name="status_pending">Chờ thanh toán</string>
+    <string name="status_confirmed">Đã xác nhận</string>
+    <string name="status_completed">Hoàn tất</string>
+    <string name="status_cancelled">Đã hủy</string>
+    <string name="no_bookings">Bạn chưa có đơn đặt phòng nào</string>
+    <string name="booking_code_value">Mã đơn: %s</string>
+    <string name="dates_short">%1$s → %2$s</string>
+    <string name="room_count">%d phòng</string>
+
+    <!-- Booking detail -->
+    <string name="booking_detail_title">Chi tiết đơn</string>
+    <string name="stay_info">Thông tin lưu trú</string>
+    <string name="guests">Khách lưu trú</string>
+    <string name="special_requests_value">Yêu cầu: %s</string>
+    <string name="cancel_reason_value">Lý do hủy: %s</string>
+    <string name="hold_value">Giữ phòng đến %s</string>
+    <string name="pay_deposit">Thanh toán cọc VNPay</string>
+    <string name="cancel_booking">Hủy đặt phòng</string>
+    <string name="keep_booking">Giữ đơn</string>
+    <string name="confirm_cancel">Xác nhận hủy</string>
+    <string name="cancel_reason_hint">Lý do hủy (không bắt buộc)</string>
+    <string name="default_cancel_reason">Khách hàng hủy qua ứng dụng</string>
+    <string name="refund_value">Số tiền hoàn: %1$s\nPhí hủy: %2$s</string>
+    <string name="cancel_success">Đã hủy đơn đặt phòng</string>
+    <string name="write_review">Viết đánh giá</string>
+    <string name="edit_review">Sửa đánh giá</string>
+    <string name="review_hint">Chia sẻ trải nghiệm của bạn</string>
+    <string name="review_saved">Đã lưu đánh giá</string>
+    <string name="my_review_value">Đánh giá của bạn: %1$d★\n%2$s</string>
+
+    <!-- Offers -->
+    <string name="offers_title">Ưu đãi dành cho bạn</string>
+    <string name="no_offers">Hiện chưa có ưu đãi nào</string>
+    <string name="copy_code">Sao chép</string>
+    <string name="voucher_copied">Đã sao chép mã %s. Dán vào ô mã giảm giá khi đặt phòng.</string>
+    <string name="voucher_percent">Giảm %d%%</string>
+    <string name="voucher_percent_short">%d%%</string>
+    <string name="voucher_off">GIẢM</string>
+    <string name="offers_subtitle">Sao chép mã và dán khi đặt phòng</string>
+    <string name="bookings_subtitle">Theo dõi và quản lý các chuyến đi của bạn</string>
+    <string name="voucher_fixed">Giảm %s</string>
+    <string name="voucher_max">(tối đa %s)</string>
+    <string name="voucher_min_order">Đơn tối thiểu %s</string>
+    <string name="voucher_expiry">HSD: %s</string>
+    <string name="voucher_remaining">Bạn còn %d lượt</string>
+    <string name="voucher_limit">Mỗi khách %d lượt</string>
+
+    <!-- ===================== PORTAL (Admin / Staff) ===================== -->
+    <string name="login_subtitle_portal">Tài khoản nội bộ do quản trị viên cấp</string>
+    <string name="internal_login_link">Bạn là nhân viên khách sạn? Đăng nhập nội bộ</string>
+    <string name="internal_portal">Cổng nội bộ</string>
+    <string name="internal_login_title">Đăng nhập nội bộ</string>
+    <string name="portal_staff_hint">Lễ tân và nhân viên vận hành: quản lý đặt phòng, lịch phòng, khách hàng.</string>
+    <string name="portal_admin_hint">Quản trị viên: báo cáo, giá phòng, voucher, tài khoản và phân quyền.</string>
+    <string name="work_email">Email công việc</string>
+    <string name="login_internal_button">Đăng nhập</string>
+    <string name="internal_security_note">Chỉ dành cho tài khoản do quản trị viên cấp. Mọi thao tác đều được ghi nhận.</string>
+    <string name="back_to_customer_login">← Đăng nhập với tư cách khách hàng</string>
+    <string name="login_error_customer">%s\nNếu bạn là nhân viên, hãy dùng "Đăng nhập nội bộ" ở cuối màn hình.</string>
+    <string name="login_error_internal">%1$s\nHãy kiểm tra lại loại tài khoản — có thể bạn cần chọn "%2$s".</string>
+    <string name="portal_customer">Khách hàng</string>
+    <string name="portal_staff">Nhân viên</string>
+    <string name="portal_admin">Quản trị</string>
+    <string name="admin_portal">Admin Portal</string>
+    <string name="staff_portal">Staff Portal</string>
+    <string name="access_rights">Quyền truy cập</string>
+    <string name="permission_count">%d quyền được cấp</string>
+    <string name="customer_view">Về cổng khách hàng</string>
+    <string name="notifications">Thông báo</string>
+    <string name="confirm">Xác nhận</string>
+    <string name="action_done">Đã cập nhật thành công</string>
+
+    <string name="section_overview">Tổng quan kinh doanh</string>
+    <string name="section_bookings">Quản lý đặt phòng</string>
+    <string name="section_customers">Hồ sơ khách hàng</string>
+    <string name="section_vouchers">Voucher</string>
+    <string name="section_reviews">Quản lý đánh giá</string>
+    <string name="section_staff">Nhân viên</string>
+
+    <!-- Đặt phòng -->
+    <string name="status_checked_in">Đang ở</string>
+    <string name="status_checked_out">Đã trả phòng</string>
+    <string name="kpi_today">Đơn hôm nay</string>
+    <string name="kpi_pending_deposit">Chờ đặt cọc</string>
+    <string name="kpi_check_in">Check-in hôm nay</string>
+    <string name="kpi_check_out">Check-out hôm nay</string>
+    <string name="kpi_remaining">Còn %d lượt</string>
+    <string name="booking_count">%d đơn</string>
+    <string name="search_booking_hint">Mã đơn, tên khách, SĐT, số phòng</string>
+    <string name="no_portal_bookings">Không có đơn phù hợp</string>
+    <string name="portal_dates_value">%1$s → %2$s · %3$d đêm · %4$d khách</string>
+    <string name="remaining_value">Còn lại %s</string>
+    <string name="room_prefix">P.%s</string>
+    <string name="no_room_assigned">Chưa gán phòng</string>
+    <string name="customer">Khách hàng</string>
+    <string name="call">Gọi điện</string>
+    <string name="payment">Thanh toán</string>
+    <string name="paid">Đã thu</string>
+
+    <string name="action_confirm">Xác nhận đơn</string>
+    <string name="action_check_in">Check-in</string>
+    <string name="action_check_out">Check-out</string>
+    <string name="action_complete">Hoàn tất đơn</string>
+    <string name="action_collect_cash">Thu tiền mặt %s</string>
+    <string name="action_confirm_refund">Xác nhận đã hoàn tiền</string>
+    <string name="action_no_show">Đánh dấu khách không đến</string>
+    <string name="confirm_action_confirm">Xác nhận đơn %s?</string>
+    <string name="confirm_action_check_in">Xác nhận khách của đơn %s đã nhận phòng?</string>
+    <string name="confirm_action_check_out">Xác nhận khách của đơn %s đã trả phòng?</string>
+    <string name="confirm_action_complete">Đóng và hoàn tất đơn %s?</string>
+    <string name="confirm_action_cash">Xác nhận đã thu đủ %1$s tại quầy cho đơn %2$s?</string>
+    <string name="confirm_action_refund">Xác nhận đã hoàn tiền cho khách của đơn %s (tiền mặt / chuyển khoản)?</string>
+    <string name="confirm_action_no_show">Đánh dấu đơn %s là khách không đến? Thao tác này không hoàn tác được.</string>
+    <string name="note_confirmed">Xác nhận booking bởi %s (ứng dụng)</string>
+    <string name="note_checked_in">Check-in bởi %s (ứng dụng)</string>
+    <string name="note_checked_out">Check-out bởi %s (ứng dụng)</string>
+    <string name="note_completed">Hoàn tất đơn bởi %s (ứng dụng)</string>
+    <string name="note_no_show">Khách không đến — ghi nhận bởi %s (ứng dụng)</string>
+
+    <!-- Lịch phòng & khóa bán -->
+    <string name="section_calendar">Lịch phòng &amp; khóa bán</string>
+    <string name="mode_calendar">Lịch phòng</string>
+    <string name="mode_locks">Lệnh khóa</string>
+    <string name="period_14">14 ngày</string>
+    <string name="area">Phân khu</string>
+    <string name="all_areas">Tất cả phân khu</string>
+    <string name="kpi_available_today">Trống hôm nay</string>
+    <string name="kpi_locked_today">Đang khóa</string>
+    <string name="kpi_occupancy_today">Công suất</string>
+    <string name="calendar_legend">🟩 Còn trống · 🟧 Sắp hết · ⬛ Hết phòng · 🟥 Bị khóa · Chạm vào ngày để xem chi tiết</string>
+    <string name="schedule_summary">%1$d hạng phòng · %2$d phòng</string>
+    <string name="no_schedules">Chưa có hạng phòng trong phân khu được giao</string>
+    <string name="rooms_unit">phòng</string>
+    <string name="today">Hôm nay</string>
+    <string name="available_of">%1$d/%2$d</string>
+    <string name="day_detail">Còn trống %1$d / %2$d phòng · Công suất %3$d%%</string>
+    <string name="day_locked_count">Đang khóa %d phòng</string>
+    <string name="day_locked_room">Phòng bị khóa: %s</string>
+    <string name="day_locked_reason">Lý do: %s</string>
+    <string name="close">Đóng</string>
+    <string name="lock_from_this_day">Khóa bán từ ngày này</string>
+    <string name="choose_room_type">Chọn hạng phòng cần khóa</string>
+
+    <string name="lock_rooms">Khóa bán phòng</string>
+    <string name="select_rooms">Chọn phòng</string>
+    <string name="select_all">Chọn tất cả</string>
+    <string name="room_chip">P.%1$s · T%2$d</string>
+    <string name="lock_time">Thời gian khóa</string>
+    <string name="lock_start">Bắt đầu khóa</string>
+    <string name="lock_end">Kết thúc khóa</string>
+    <string name="lock_from">Từ\n%s</string>
+    <string name="lock_to">Đến\n%s</string>
+    <string name="lock_reason">Lý do</string>
+    <string name="reason_maintenance">Bảo trì</string>
+    <string name="reason_emergency">Sự cố khẩn cấp</string>
+    <string name="reason_vip_hold">Giữ phòng VIP</string>
+    <string name="reason_other">Khác</string>
+    <string name="lock_note_hint">Ghi chú nội bộ</string>
+    <string name="lock_overlap_note">Nếu phòng có booking hoặc lệnh khóa chồng lấn, hệ thống sẽ từ chối toàn bộ yêu cầu.</string>
+    <string name="confirm_lock">Xác nhận khóa bán</string>
+    <string name="confirm_lock_count">Khóa %d phòng</string>
+    <string name="no_lockable_rooms">Không có phòng đang hoạt động trong hạng phòng này.</string>
+    <string name="err_lock_rooms">Vui lòng chọn ít nhất một phòng.</string>
+    <string name="err_lock_time">Thời gian kết thúc phải sau thời gian bắt đầu.</string>
+    <string name="err_lock_reason">Vui lòng chọn hoặc nhập lý do khóa.</string>
+    <string name="lock_success">Đã khóa bán %d phòng</string>
+
+    <string name="lock_summary">%1$d lệnh khóa · %2$d đang hiệu lực</string>
+    <string name="no_locks">Chưa có lệnh khóa bán nào</string>
+    <string name="room_value">Phòng %s</string>
+    <string name="room_id_value">Phòng #%d</string>
+    <string name="lock_range">%1$s → %2$s</string>
+    <string name="lock_active">Đang khóa</string>
+    <string name="lock_scheduled">Đã lên lịch</string>
+    <string name="lock_released">Đã gỡ</string>
+    <string name="lock_expired">Hết hạn</string>
+    <string name="release_lock">Gỡ khóa</string>
+    <string name="confirm_release">Gỡ khóa bán cho phòng %s? Phòng sẽ mở bán lại ngay.</string>
+    <string name="release_success">Đã gỡ khóa phòng</string>
+
+    <!-- Phân khu & hạng phòng -->
+    <string name="section_inventory">Phân khu &amp; hạng phòng</string>
+    <string name="save">Lưu</string>
+    <string name="edit">Sửa</string>
+    <string name="more_actions">Thao tác khác</string>
+    <string name="deactivate">Vô hiệu hóa</string>
+    <string name="reactivate">Kích hoạt lại</string>
+    <string name="err_positive">Phải là số lớn hơn 0</string>
+    <string name="active_areas">Đang hoạt động</string>
+    <string name="include_inactive">Gồm cả đã vô hiệu hóa</string>
+    <string name="inventory_summary">%1$d Zone · %2$d Building · %3$d hạng phòng · %4$d phòng</string>
+    <string name="no_areas">Khách sạn chưa có phân khu. Bấm "Thêm Zone" để bắt đầu.</string>
+    <string name="zone_label">Zone</string>
+    <string name="building_label">Building</string>
+    <string name="zone_meta">%1$d building · %2$d nhân viên phụ trách</string>
+    <string name="building_meta">%1$d hạng phòng · %2$d phòng</string>
+    <string name="floors_value">%d tầng</string>
+    <string name="no_buildings">Chưa có Building trong Zone này</string>
+    <string name="no_parent_zone">Chưa thuộc Zone</string>
+    <string name="no_parent_zone_hint">Zone cha đã bị vô hiệu hóa hoặc chưa gán. Sửa Building để chọn Zone khác.</string>
+    <string name="add_zone">Thêm Zone</string>
+    <string name="add_building">Thêm Building</string>
+    <string name="edit_area">Sửa phân khu</string>
+    <string name="open_room_types">Xem hạng phòng &amp; phòng</string>
+    <string name="parent_zone">Thuộc Zone</string>
+    <string name="area_name">Tên phân khu</string>
+    <string name="location_description">Mô tả vị trí</string>
+    <string name="floor_count">Số tầng (không bắt buộc)</string>
+    <string name="description">Mô tả</string>
+    <string name="err_parent_zone">Building phải thuộc một Zone đang hoạt động</string>
+    <string name="err_need_zone">Cần tạo ít nhất một Zone trước khi thêm Building</string>
+    <string name="confirm_deactivate_area">Vô hiệu hóa %s? Hạng phòng và phòng bên trong sẽ ngừng mở bán.</string>
+    <string name="area_created">Đã tạo phân khu mới</string>
+    <string name="area_updated">Đã cập nhật phân khu</string>
+    <string name="area_deactivated">Đã vô hiệu hóa phân khu</string>
+    <string name="area_reactivated">Đã kích hoạt lại phân khu</string>
+
+    <string name="tab_room_types">Hạng phòng</string>
+    <string name="tab_rooms">Phòng</string>
+    <string name="search_room_type_hint">Tìm hạng phòng</string>
+    <string name="search_room_hint">Số phòng hoặc hạng phòng</string>
+    <string name="room_type_summary">%1$d hạng phòng · %2$d đang mở bán</string>
+    <string name="room_list_summary">%d phòng</string>
+    <string name="no_room_types">Chưa có hạng phòng trong khu này</string>
+    <string name="no_rooms_in_area">Không có phòng phù hợp</string>
+    <string name="room_type_meta">Tối đa %1$d khách · %2$d giường · %3$d phòng</string>
+    <string name="base_price_value">Giá gốc %s / đêm</string>
+    <string name="room_title">Phòng %1$s · Tầng %2$d</string>
+    <string name="room_type_price">%1$s · %2$s</string>
+    <string name="add_room_type">Thêm hạng phòng</string>
+    <string name="edit_room_type">Sửa hạng phòng</string>
+    <string name="room_type_name">Tên hạng phòng</string>
+    <string name="base_price">Giá gốc mỗi đêm</string>
+    <string name="capacity">Sức chứa (khách)</string>
+    <string name="beds">Số giường</string>
+    <string name="room_type_saved">Đã lưu hạng phòng</string>
+    <string name="add_room">Thêm phòng</string>
+    <string name="edit_room">Phòng vật lý</string>
+    <string name="room_number">Số phòng</string>
+    <string name="floor">Tầng</string>
+    <string name="room_type">Hạng phòng</string>
+    <string name="room_status">Trạng thái vận hành</string>
+    <string name="room_note">Ghi chú</string>
+    <string name="room_available">Sẵn sàng</string>
+    <string name="room_occupied">Đang có khách</string>
+    <string name="room_maintenance">Bảo trì</string>
+    <string name="room_inactive">Vô hiệu hóa</string>
+    <string name="room_saved">Đã lưu phòng</string>
+    <string name="room_deactivated">Đã vô hiệu hóa phòng</string>
+    <string name="room_reactivated">Đã kích hoạt lại phòng</string>
+    <string name="err_no_room_type">Khu này chưa có hạng phòng đang hoạt động. Hãy tạo hạng phòng trước.</string>
+
+    <!-- Quản trị tài khoản -->
+    <string name="section_accounts">Quản trị tài khoản</string>
+    <string name="search_account_hint">Tên, email, số điện thoại</string>
+    <string name="role_admin">Admin</string>
+    <string name="role_staff">Nhân viên</string>
+    <string name="role_customer">Khách hàng</string>
+    <string name="account_summary">%1$d tài khoản · %2$d đã khóa · đang hiện %3$d</string>
+    <string name="account_self">%s (bạn)</string>
+    <string name="account_locked_note">Tài khoản đã bị khóa</string>
+    <string name="no_role">Chưa có vai trò</string>
+    <string name="role_count">%1$s +%2$d</string>
+    <string name="confirm_lock_account">Khóa tài khoản %s? Người dùng sẽ bị đăng xuất và không đăng nhập được.</string>
+    <string name="confirm_unlock_account">Mở khóa tài khoản %s?</string>
+    <string name="personal_info">Thông tin cá nhân</string>
+    <string name="dob_value">Ngày sinh: %s</string>
+    <string name="dob_empty">Chọn ngày sinh (không bắt buộc)</string>
+    <string name="assigned_roles">Vai trò được gán</string>
+    <string name="role_assign_note">Quyền của tài khoản là tổng hợp quyền của mọi vai trò được gán.</string>
+    <string name="role_self_note">Bạn không thể tự bỏ vai trò Admin của chính mình.</string>
+    <string name="err_need_role">Tài khoản cần ít nhất một vai trò.</string>
+    <string name="account_saved">Đã lưu tài khoản</string>
+    <string name="no_accounts">Không có tài khoản phù hợp</string>
+
+    <!-- Vai trò & phân quyền -->
+    <string name="section_roles">Vai trò &amp; phân quyền</string>
+    <string name="role_summary">%1$d vai trò · %2$d vai trò tùy chỉnh</string>
+    <string name="system_role">Vai trò hệ thống</string>
+    <string name="custom_role">Vai trò tùy chỉnh</string>
+    <string name="role_meta">%1$d người dùng · %2$d quyền</string>
+    <string name="add_role">Thêm vai trò</string>
+    <string name="add_role_hint">Sau khi tạo, bạn sẽ chọn quyền cho vai trò này.</string>
+    <string name="create">Tạo</string>
+    <string name="no_roles">Chưa có vai trò</string>
+    <string name="role_name">Tên vai trò</string>
+    <string name="role_active">Đang hoạt động</string>
+    <string name="role_users">%d người dùng đang có vai trò này</string>
+    <string name="permissions_title">Quyền</string>
+    <string name="admin_role_locked">Vai trò Admin luôn có toàn bộ quyền, không chỉnh sửa được.</string>
+    <string name="other_group">Khác</string>
+    <string name="fraction">%1$d/%2$d</string>
+    <string name="no_changes">Chưa có thay đổi</string>
+    <string name="unsaved_changes">Có thay đổi chưa lưu</string>
+    <string name="permission_diff">+%1$d quyền · −%2$d quyền</string>
+    <string name="save_changes">Lưu thay đổi</string>
+    <string name="role_saved">Đã lưu vai trò</string>
+    <string name="delete_role">Xóa vai trò</string>
+    <string name="confirm_delete_role">Xóa vai trò %s?</string>
+    <string name="confirm_delete_role_users">Xóa vai trò %1$s? %2$d người dùng đang có vai trò này sẽ mất các quyền tương ứng.</string>
+    <string name="role_deleted">Đã xóa vai trò</string>
+    <string name="discard_changes">Bỏ các thay đổi chưa lưu?</string>
+    <string name="discard">Bỏ thay đổi</string>
+
+    <!-- Tiện ích & hình ảnh -->
+    <string name="section_content">Tiện ích &amp; hình ảnh</string>
+    <string name="content_scope">Phạm vi</string>
+    <string name="scope_hotel">Toàn khách sạn</string>
+    <string name="room_label">Phòng</string>
+    <string name="apply_to_room_type">Áp dụng tải ảnh / gán tiện ích cho mọi phòng cùng hạng</string>
+    <string name="tab_images">Hình ảnh</string>
+    <string name="tab_amenities">Tiện ích</string>
+    <string name="tab_images_count">Hình ảnh (%d)</string>
+    <string name="tab_amenities_count">Tiện ích (%d)</string>
+    <string name="scope_summary_hotel">Đang quản lý nội dung hiển thị cho toàn khách sạn</string>
+    <string name="scope_summary_room">Đang quản lý nội dung của phòng đã chọn</string>
+    <string name="scope_summary_type">Thao tác tải ảnh / gán tiện ích sẽ áp dụng cho %d phòng cùng hạng</string>
+    <string name="no_rooms_for_type">Hạng phòng này chưa có phòng nào để quản lý nội dung.</string>
+    <string name="no_images">Chưa có hình ảnh. Bấm "Tải ảnh lên" để thêm.</string>
+    <string name="no_amenities">Danh mục tiện ích trống. Bấm "Thêm tiện ích" để tạo.</string>
+    <string name="upload_images">Tải ảnh lên</string>
+    <string name="uploading">Đang tải ảnh %1$d/%2$d…</string>
+    <string name="upload_done">Đã tải %1$d ảnh (áp dụng cho %2$d phạm vi)</string>
+    <string name="err_read_image">Không đọc được tệp ảnh</string>
+    <string name="err_image_too_large">%s vượt quá 6MB, đã bỏ qua</string>
+    <string name="primary_image">Ảnh chính</string>
+    <string name="no_alt">(Chưa có mô tả)</string>
+    <string name="view_image">Xem ảnh</string>
+    <string name="set_primary">Đặt làm ảnh chính</string>
+    <string name="move_up">Chuyển lên trước</string>
+    <string name="move_down">Chuyển xuống sau</string>
+    <string name="delete_image">Xóa ảnh</string>
+    <string name="confirm_delete_image">Xóa ảnh này? Không thể hoàn tác.</string>
+    <string name="confirm_delete_primary">Đây là ảnh chính. Xóa ảnh này? Hãy chọn ảnh chính khác sau khi xóa.</string>
+    <string name="primary_set">Đã đặt ảnh chính</string>
+    <string name="order_saved">Đã lưu thứ tự ảnh</string>
+    <string name="image_deleted">Đã xóa ảnh</string>
+    <string name="add_amenity">Thêm tiện ích</string>
+    <string name="edit_amenity">Sửa tiện ích</string>
+    <string name="amenity_name">Tên tiện ích</string>
+    <string name="amenity_catalog_hint">Thay đổi áp dụng cho danh mục chung của mọi khách sạn.</string>
+    <string name="amenity_linked">✓ Đã gán</string>
+    <string name="amenity_saved">Đã lưu tiện ích</string>
+    <string name="amenity_deleted">Đã xóa tiện ích</string>
+    <string name="confirm_delete_amenity">Xóa "%s" khỏi danh mục? Tiện ích sẽ bị gỡ khỏi mọi khách sạn và phòng.</string>
+    <string name="applied_to_rooms">Đã áp dụng cho %1$d/%2$d phòng</string>
+    <string name="no_description">Không có mô tả</string>
+    <string name="delete">Xóa</string>
+
+    <!-- Giá phòng -->
+    <string name="section_pricing">Giá phòng</string>
+    <string name="no_room_types_pricing">Khách sạn chưa có hạng phòng. Tạo hạng phòng ở mục "Phân khu &amp; hạng phòng" trước.</string>
+    <string name="room_type_option">%1$s — Giá gốc %2$s</string>
+    <string name="current_price">Giá đang áp dụng / đêm</string>
+    <string name="source_schedule">Theo lịch giá</string>
+    <string name="source_base">Giá gốc</string>
+    <string name="no_active_schedule">Không có lịch giá đang hiệu lực — dùng giá gốc</string>
+    <string name="price_range">%1$s → %2$s</string>
+    <string name="no_end">Không thời hạn</string>
+    <string name="base_price_label">Giá gốc</string>
+    <string name="vs_base">So với giá gốc</string>
+    <string name="equal_base">Bằng giá gốc</string>
+    <string name="room_spec">Sức chứa</string>
+    <string name="room_spec_value">%1$d khách · %2$d giường</string>
+    <string name="price_history_chart">Biến động giá</string>
+    <string name="price_chart_note">%d khoảng giá gần nhất, theo ngày bắt đầu</string>
+    <string name="price_history_title">Lịch sử giá (%d)</string>
+    <string name="no_price_history">Chưa có cấu hình giá theo thời gian</string>
+    <string name="period_applying">Đang áp dụng</string>
+    <string name="period_overlapped">Bị ghi đè</string>
+    <string name="period_upcoming">Sắp áp dụng</string>
+    <string name="period_ended">Đã kết thúc</string>
+    <string name="price_meta">%1$s · tạo ngày %2$s</string>
+
+    <string name="new_price">Đặt giá mới</string>
+    <string name="price_form_subtitle">%1$s · giá gốc %2$s</string>
+    <string name="price_per_night_input">Giá mỗi đêm</string>
+    <string name="price_preview">%1$s · %2$s so với giá gốc</string>
+    <string name="quick_base">Giá gốc</string>
+    <string name="price_effective">Thời gian hiệu lực</string>
+    <string name="no_end_date">Bỏ ngày kết thúc</string>
+    <string name="also_update_base">Cập nhật luôn làm giá gốc</string>
+    <string name="also_update_base_hint">Ghi đè RoomTypes.BasePrice — giá dùng khi không có lịch giá nào hiệu lực.</string>
+    <string name="apply_price">Áp dụng giá</string>
+    <string name="price_saved">Đã lưu cấu hình giá</string>
+    <string name="price_and_base_saved">Đã lưu cấu hình giá và cập nhật giá gốc</string>
+    <string name="price_saved_base_failed">Đã lưu cấu hình giá, nhưng chưa cập nhật được giá gốc: %s</string>
+
+    <!-- Khách hàng -->
+    <string name="search_customer_hint">Tên, SĐT, email, mã khách</string>
+    <string name="customer_summary">%1$d khách · %2$d đang lưu trú</string>
+    <string name="customer_staying">Đang lưu trú %s</string>
+    <string name="customer_spend">Chi tiêu %1$s · %2$d lượt hoàn tất</string>
+    <string name="no_customers">Chưa có hồ sơ khách hàng</string>
+
+    <!-- Thông báo -->
+    <string name="unread">Chưa đọc</string>
+    <string name="unread_summary">%d chưa đọc · Chạm để đánh dấu đã đọc tất cả</string>
+    <string name="all_read">Đã đọc hết thông báo</string>
+    <string name="needs_action">Cần xử lý</string>
+    <string name="new_label">Mới</string>
+    <string name="no_notifications">Không có thông báo</string>
+
+    <!-- Đánh giá -->
+    <string name="select_hotel">Khách sạn</string>
+    <string name="review_visible">Đang hiển thị</string>
+    <string name="review_hidden">Đã ẩn</string>
+    <string name="review_deleted">Đã xóa</string>
+    <string name="review_summary">%d đánh giá</string>
+    <string name="no_comment">(Không có nhận xét)</string>
+    <string name="review_meta">Đơn #%1$d · %2$s</string>
+    <string name="hide_review">Ẩn đánh giá</string>
+    <string name="show_review">Hiển thị lại</string>
+    <string name="hide_reason_hint">Lý do ẩn (bắt buộc)</string>
+    <string name="err_hide_reason">Vui lòng nhập lý do khi ẩn đánh giá</string>
+    <string name="no_reviews_admin">Chưa có đánh giá nào</string>
+
+    <!-- Voucher -->
+    <string name="search_voucher_hint">Tìm mã voucher</string>
+    <string name="active">Đang bật</string>
+    <string name="inactive">Đã tắt</string>
+    <string name="voucher_summary">%1$d voucher · %2$d đang bật</string>
+    <string name="voucher_usage_limit">Đã dùng %1$d/%2$d lượt</string>
+    <string name="voucher_usage">Đã dùng %d lượt · không giới hạn</string>
+
+    <!-- Nhân viên -->
+    <string name="search_staff_hint">Tên, email, SĐT</string>
+    <string name="locked">Đã khóa</string>
+    <string name="staff_summary">%1$d nhân viên · %2$d đang hoạt động</string>
+    <string name="confirm_lock_staff">Khóa tài khoản của %s? Nhân viên sẽ không đăng nhập được.</string>
+    <string name="confirm_unlock_staff">Mở khóa tài khoản của %s?</string>
+    <string name="no_staff">Chưa có nhân viên</string>
+
+    <!-- Tổng quan -->
+    <string name="period_7">7 ngày</string>
+    <string name="period_30">30 ngày</string>
+    <string name="period_90">90 ngày</string>
+    <string name="report_range">Từ %1$s đến %2$s</string>
+    <string name="kpi_revenue">Thu tiền ròng</string>
+    <string name="kpi_occupancy">Công suất phòng</string>
+    <string name="kpi_new_bookings">Booking tạo mới</string>
+    <string name="kpi_cancel_rate">Tỷ lệ hủy</string>
+    <string name="cancelled_count">%d đơn bị hủy</string>
+    <string name="revenue_by_day">Doanh thu theo ngày</string>
+    <string name="peak_day">Cao nhất: %1$s · %2$s</string>
+    <string name="no_revenue">Chưa có doanh thu trong kỳ</string>
+    <string name="room_nights">Đêm phòng</string>
+    <string name="room_nights_value">%1$d / %2$d đêm phòng đã bán</string>
+
+    <!-- Account -->
+    <string name="account_title">Tài khoản</string>
+    <string name="member_since">Thành viên từ %s</string>
+    <string name="date_of_birth">Ngày sinh</string>
+</resources>

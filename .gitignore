@@ -44,5 +44,4 @@ Thumbs.db
 !Database&Docs/DynamicAuthorization.sql
 !Database&Docs/CreateMissingBaseTables.sql
 
-# Android
-Android/
+# Android: mã nguồn được đưa vào repo; file build bị loại trong Android/.gitignore

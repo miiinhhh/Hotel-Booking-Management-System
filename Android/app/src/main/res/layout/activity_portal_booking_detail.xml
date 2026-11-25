@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chi tiết đơn cho nhân viên: các thẻ thông tin + thao tác phụ; thao tác chính ở thanh dưới cố định. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/md_background"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/md_surface_container_lowest"
+        android:elevation="2dp"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:title="@string/booking_detail_title" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Mã đơn + trạng thái -->
+            <TextView
+                android:id="@+id/tvCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:textColor="@color/md_on_surface"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    style="@style/Badge"
+                    android:background="@drawable/bg_badge_light" />
+
+                <TextView
+                    android:id="@+id/tvPayment"
+                    style="@style/Badge"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_badge_light" />
+            </LinearLayout>
+
+            <!-- Khách hàng -->
+            <com.google.android.material.card.MaterialCardView style="@style/SectionCard">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/SectionTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/customer" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvInitials"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:background="@drawable/bg_icon_circle"
+                            android:gravity="center"
+                            android:textColor="@color/md_primary"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvCustomer"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/md_on_surface"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvContact"
+                                style="@style/SecondaryText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnCall"
+                            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/call"
+                            app:icon="@drawable/ic_phone" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Lưu trú -->
+            <com.google.android.material.card.MaterialCardView style="@style/SectionCard">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/SectionTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stay_info" />
+
+                    <TextView
+                        android:id="@+id/tvRooms"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="8dp"
+                        android:gravity="center_vertical"
+                        android:textColor="@color/md_on_surface"
+                        app:drawableStartCompat="@drawable/ic_villa"
+                        app:drawableTint="@color/md_primary" />
+
+                    <TextView
+                        android:id="@+id/tvDates"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:drawablePadding="8dp"
+                        android:gravity="center_vertical"
+                        android:textColor="@color/md_on_surface"
+                        app:drawableStartCompat="@drawable/ic_booking"
+                        app:drawableTint="@color/md_primary" />
+
+                    <TextView
+                        android:id="@+id/tvRequests"
+                        style="@style/SecondaryText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Thanh toán -->
+            <com.google.android.material.card.MaterialCardView style="@style/SectionCard">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/SectionTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/payment" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content">
+                        <TextView style="@style/PriceRowLabel" android:text="@string/total" />
+                        <TextView android:id="@+id/tvTotal" style="@style/PriceRowValue" android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp">
+                        <TextView style="@style/PriceRowLabel" android:text="@string/deposit" />
+                        <TextView android:id="@+id/tvDeposit" style="@style/PriceRowValue" />
+                    </LinearLayout>
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp">
+                        <TextView style="@style/PriceRowLabel" android:text="@string/paid" />
+                        <TextView android:id="@+id/tvPaid" style="@style/PriceRowValue" android:textColor="@color/success" />
+                    </LinearLayout>
+
+                    <com.google.android.material.divider.MaterialDivider
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginVertical="8dp"
+                        app:dividerColor="@color/md_surface_container_high" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content">
+                        <TextView style="@style/PriceRowLabel" android:text="@string/remaining" android:textStyle="bold" />
+                        <TextView android:id="@+id/tvRemaining" style="@style/PriceRowValue" android:textColor="@color/price" android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Thao tác phụ (nút được thêm theo trạng thái) -->
+            <LinearLayout
+                android:id="@+id/layoutSecondaryActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Thao tác chính -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        style="@style/BottomBar">
+
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="12dp"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPrimary"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:backgroundTint="@color/md_primary_container" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,18 @@
+# Gradle / Android Studio
+.gradle/
+build/
+/app/build/
+/app/release/
+.idea/
+*.iml
+.cxx/
+.externalNativeBuild/
+captures/
+.kotlin/
+
+# Đường dẫn SDK và địa chỉ API riêng từng máy
+local.properties
+
+# Khóa ký ứng dụng
+*.jks
+*.keystore
