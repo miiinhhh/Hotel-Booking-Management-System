@@ -122,7 +122,20 @@ public class HotelDetailActivity extends AppCompatActivity {
         HotelModels.SearchCriteria c = viewModel.criteria();
         binding.tvStay.setText(getString(R.string.stay_value, DateUtils.display(h.checkIn), DateUtils.display(h.checkOut),
                 DateUtils.nights(h.checkIn, h.checkOut), c.totalGuests()));
-        roomAdapter.submit(h.rooms);
+        // Khách đặt theo HẠNG phòng: mỗi hạng một dòng (giá thấp nhất), số phòng cụ thể do lễ tân xếp khi nhận phòng.
+        java.util.LinkedHashMap<Integer, HotelModels.DiscoveryRoom> byType = new java.util.LinkedHashMap<>();
+        if (h.rooms != null) {
+            for (HotelModels.DiscoveryRoom r : h.rooms) {
+                HotelModels.DiscoveryRoom first = byType.get(r.roomTypeId);
+                if (first == null) { r.availableCount = 1; byType.put(r.roomTypeId, r); }
+                else {
+                    int count = first.availableCount + 1;
+                    if (r.pricePerNight < first.pricePerNight) { r.availableCount = count; byType.put(r.roomTypeId, r); }
+                    else first.availableCount = count;
+                }
+            }
+        }
+        roomAdapter.submit(new java.util.ArrayList<>(byType.values()));
         UiUtils.visible(binding.tvNoRooms, h.rooms == null || h.rooms.isEmpty());
     }
 

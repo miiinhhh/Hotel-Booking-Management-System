@@ -70,6 +70,25 @@ public static class TextEncodingRepair
                     """;
                 await widen.ExecuteNonQueryAsync(ct);
             }
+            // Hàng đợi dọn file ảnh phải có Id BIGINT (khớp code); CSDL tạo nhầm INT làm lỗi 500 khi xóa ảnh.
+            await using (var fixQueue = connection.CreateCommand())
+            {
+                fixQueue.CommandText = """
+                    IF EXISTS (SELECT 1 FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
+                               WHERE c.object_id = OBJECT_ID('dbo.ImageFileDeletions') AND c.name = 'Id' AND t.name <> 'bigint')
+                    BEGIN
+                        SET XACT_ABORT ON;
+                        BEGIN TRANSACTION;
+                        CREATE TABLE dbo.ImageFileDeletions_New (Id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            StorageKey varchar(100) NOT NULL, CreatedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME());
+                        INSERT INTO dbo.ImageFileDeletions_New (StorageKey, CreatedAt) SELECT StorageKey, CreatedAt FROM dbo.ImageFileDeletions ORDER BY Id;
+                        DROP TABLE dbo.ImageFileDeletions;
+                        EXEC sp_rename 'dbo.ImageFileDeletions_New', 'ImageFileDeletions';
+                        COMMIT TRANSACTION;
+                    END
+                    """;
+                await fixQueue.ExecuteNonQueryAsync(ct);
+            }
 
             foreach (var (table, key, columns) in Targets)
             {

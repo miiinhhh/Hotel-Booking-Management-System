@@ -42,7 +42,7 @@ export const RoomDetailModal: React.FC<RoomDetailModalProps> = ({
           </button>
           <div className="absolute bottom-3 left-4">
             <span className="px-3 py-1 rounded-full bg-surface-container-lowest/90 text-on-surface font-label-sm text-label-sm font-semibold shadow-sm">
-              {room.tag} • {room.floor}
+              {room.tag}{room.floor ? ` • ${room.floor}` : ''}
             </span>
           </div>
         </div>

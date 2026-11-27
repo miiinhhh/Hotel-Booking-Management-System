@@ -318,6 +318,8 @@ export const vi = {
   'pw.ruleSpecial': 'Có ký tự đặc biệt',
   'pw.rulesLabel': 'Điều kiện mật khẩu',
   'pw.invalid': 'Mật khẩu cần tối thiểu 8 ký tự, có chữ in hoa và ký tự đặc biệt.',
+  'bkd.roomNumber': 'Phòng của bạn: {number}',
+  'bkd.roomAssigned': 'Số phòng được lễ tân xếp khi bạn nhận phòng',
   'review.delete': 'Xóa đánh giá',
   'review.deleteConfirm': 'Xóa vĩnh viễn?',
   'review.deleteFailed': 'Không xóa được đánh giá.',

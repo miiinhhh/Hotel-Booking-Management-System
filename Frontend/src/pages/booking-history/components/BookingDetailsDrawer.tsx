@@ -44,7 +44,7 @@ export const BookingDetailsDrawer: React.FC<Props> = ({ booking, onClose }) => {
         <div className="flex flex-col gap-4 px-5 pb-8">
           <div className={section}>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <div className="col-span-2"><dt className="text-xs text-on-surface-variant">{t('bkd.room')}</dt><dd className="font-medium text-on-surface">{booking.roomType}</dd></div>
+              <div className="col-span-2"><dt className="text-xs text-on-surface-variant">{t('bkd.room')}</dt><dd className="font-medium text-on-surface">{booking.roomType}</dd><dd className="mt-0.5 text-xs text-on-surface-variant">{booking.roomNumbers ? t('bkd.roomNumber', { number: booking.roomNumbers }) : booking.status === 'cancelled' ? '' : t('bkd.roomAssigned')}</dd></div>
               <div><dt className="text-xs text-on-surface-variant">{t('bkd.checkIn')}</dt><dd className="font-medium text-on-surface">{booking.checkInDate}</dd><dd className="text-xs text-on-surface-variant">{booking.checkInDetail}</dd></div>
               <div><dt className="text-xs text-on-surface-variant">{t('bkd.checkOut')}</dt><dd className="font-medium text-on-surface">{booking.checkOutDate}</dd><dd className="text-xs text-on-surface-variant">{booking.checkOutDetail}</dd></div>
               <div><dt className="text-xs text-on-surface-variant">{t('bkd.stay')}</dt><dd className="text-on-surface">{booking.nightsText}</dd></div>

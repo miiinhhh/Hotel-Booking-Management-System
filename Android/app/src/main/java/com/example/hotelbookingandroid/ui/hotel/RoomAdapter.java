@@ -41,8 +41,8 @@ public class RoomAdapter extends RecyclerView.Adapter<RoomAdapter.VH> {
     public void onBindViewHolder(@NonNull VH h, int position) {
         HotelModels.DiscoveryRoom r = items.get(position);
         var ctx = h.b.getRoot().getContext();
-        h.b.tvRoomName.setText(ctx.getString(R.string.room_name_value, r.name, r.roomNumber));
-        h.b.tvRoomInfo.setText(ctx.getString(R.string.room_info_value, r.floor, r.capacity));
+        h.b.tvRoomName.setText(r.name);
+        h.b.tvRoomInfo.setText(ctx.getString(R.string.room_info_value, r.availableCount, r.capacity));
         StringBuilder amenities = new StringBuilder();
         if (r.amenities != null) {
             for (HotelModels.Amenity a : r.amenities) {

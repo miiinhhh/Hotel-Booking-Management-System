@@ -36,6 +36,8 @@ export const AdminContent: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /** Ảnh đầu tiên (theo tên file) của lần tải lên thay ảnh đại diện hiện tại. */
+  const [firstAsPrimary, setFirstAsPrimary] = useState(true);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [modalError, setModalError] = useState('');
@@ -123,20 +125,23 @@ export const AdminContent: React.FC = () => {
     const files = Array.from(fileList);
     const invalid = files.filter(f => !ACCEPTED.includes(f.type) || f.size > MAX_SIZE);
     if (invalid.length) { setError(`Bỏ qua ${invalid.map(f => f.name).join(', ')}: chỉ nhận JPG, PNG, WebP tối đa 5 MB.`); }
-    const valid = files.filter(f => !invalid.includes(f));
+    // Tải theo thứ tự tên file (1, 2, 10…), không theo thứ tự trình duyệt trả về.
+    const valid = files.filter(f => !invalid.includes(f))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true, sensitivity: 'base' }));
     if (!valid.length) return;
     setSaving(true); if (!invalid.length) setError('');
     try {
       let done = 0;
       const total = valid.length * targets.length;
       for (const target of targets) {
-        for (const file of valid) {
+        for (const [index, file] of valid.entries()) {
           setProgress(`Đang tải ${++done}/${total}…`);
-          await propertyContentApi.uploadImage(target, file, altFromFileName(file.name), false);
+          await propertyContentApi.uploadImage(target, file, altFromFileName(file.name), firstAsPrimary && index === 0);
         }
       }
       await reloadImages();
-      notify(targets.length > 1 ? `Đã tải ${valid.length} ảnh lên ${targets.length} phòng.` : `Đã tải ${valid.length} ảnh lên.`);
+      const cover = firstAsPrimary ? ` Ảnh đại diện mới: ${valid[0].name}.` : '';
+      notify((targets.length > 1 ? `Đã tải ${valid.length} ảnh lên ${targets.length} phòng.` : `Đã tải ${valid.length} ảnh lên.`) + cover);
     } catch (reason) { fail(reason, 'Không tải được ảnh.'); }
     finally { setSaving(false); setProgress(''); if (fileInput.current) fileInput.current.value = ''; }
   };
@@ -292,9 +297,13 @@ export const AdminContent: React.FC = () => {
           <span>{progress || <>Kéo ảnh vào đây hoặc <strong className="text-primary">bấm để chọn</strong> (nhiều ảnh) · JPG, PNG, WebP ≤ 5 MB</>}</span>
           <input ref={fileInput} type="file" multiple accept={ACCEPTED.join(',')} className="hidden" onChange={e => e.target.files && void uploadFiles(e.target.files)} />
         </div>
+        <label className="-mt-2 mb-5 flex items-center gap-2 text-sm text-on-surface-variant">
+          <input type="checkbox" checked={firstAsPrimary} onChange={e => setFirstAsPrimary(e.target.checked)} disabled={saving} className="h-4 w-4 accent-primary" />
+          Dùng ảnh đầu tiên (theo tên file) làm <strong className="text-on-surface">ảnh đại diện</strong> hiển thị trên website
+        </label>
 
         {loading ? <p role="status">Đang tải thư viện ảnh…</p>
-          : !images.length ? <p className="py-8 text-center text-on-surface-variant">Chưa có ảnh. Ảnh đầu tiên tải lên sẽ tự động làm ảnh đại diện.</p>
+          : !images.length ? <p className="py-8 text-center text-on-surface-variant">Chưa có ảnh. Ảnh đầu tiên (theo tên file) sẽ làm ảnh đại diện.</p>
           : <>
             <p className="mb-3 text-xs text-outline">Kéo thả ảnh để đổi thứ tự. Rê chuột vào ảnh để đặt ảnh đại diện hoặc xóa.</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">

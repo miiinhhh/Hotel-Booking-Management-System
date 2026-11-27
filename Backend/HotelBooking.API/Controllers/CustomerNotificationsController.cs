@@ -104,7 +104,8 @@ public sealed class CustomerNotificationsController(
                 _ => null,
             };
             // Hoàn tất tự động sau khi đã trả phòng không cần báo lần nữa.
-            if (type is null || (h.NewStatus == nameof(BookingStatus.Completed) && h.OldStatus == nameof(BookingStatus.CheckedOut))) continue;
+            // Dòng giữ nguyên trạng thái (đổi lịch, xếp phòng) không phải sự kiện xác nhận/nhận phòng mới.
+            if (type is null || h.OldStatus == h.NewStatus || (h.NewStatus == nameof(BookingStatus.Completed) && h.OldStatus == nameof(BookingStatus.CheckedOut))) continue;
             items.Add(N($"c-st-{h.BookingStatusHistoryId}", type, type is "BookingCancelled" or "BookingExpired" ? Action : Info, h.ChangedAt, h.BookingId, detail: h.Note));
         }
 

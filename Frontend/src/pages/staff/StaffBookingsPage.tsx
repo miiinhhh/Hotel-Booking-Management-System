@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { StaffSidebar } from './components/StaffSidebar';
 import { StaffHeader } from './components/StaffHeader';
 import { StaffMetrics } from './components/StaffMetrics';
-import { StaffFilterBar, UPCOMING_REQUESTS, REFUND_PENDING } from './components/StaffFilterBar';
+import { StaffFilterBar, UPCOMING_REQUESTS, REFUND_PENDING, ROOM_UNASSIGNED } from './components/StaffFilterBar';
 import { StaffBookingTable } from './components/StaffBookingTable';
 import { StaffPagination } from './components/StaffPagination';
 import { BookingDetailDrawer } from './components/BookingDetailDrawer';
@@ -38,6 +38,10 @@ const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+/** Đơn sắp đến mà lễ tân chưa chốt phòng (vẫn là phòng hệ thống xếp tạm khi khách đặt). */
+const isRoomUnassigned = (b: StaffBooking) =>
+  (b.status === 'pending_deposit' || b.status === 'confirmed_deposit') && !b.roomAssigned && Boolean(b.rooms?.length);
 
 /** Đơn chưa nhận phòng (chờ xác nhận / đã xác nhận), ngày đến từ hôm nay, có yêu cầu đặc biệt. */
 const isUpcomingWithRequest = (b: StaffBooking) =>
@@ -160,6 +164,10 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
           membershipTier: 'Standard',
           zone: b.areas.join(', ') || 'Chưa xếp khu vực',
           roomNumber: b.roomNumbers.join(', ') || 'Chưa xếp phòng',
+          rooms: b.rooms ?? [],
+          roomAssigned: Boolean(b.roomAssigned),
+          roomAssignedAt: b.roomAssignedAt ?? undefined,
+          roomAssignedBy: b.roomAssignedBy ?? undefined,
           roomType: b.roomTypes.join(', ') || 'Chưa xác định',
           roomDetails: `${b.numberOfGuests} khách · ${b.roomNumbers.length} phòng`,
           checkInDate: b.checkInDate,
@@ -238,6 +246,8 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
         if (!isUpcomingWithRequest(b)) return false;
       } else if (selectedStatus === REFUND_PENDING) {
         if (b.depositStatus !== 'refund_pending') return false;
+      } else if (selectedStatus === ROOM_UNASSIGNED) {
+        if (!isRoomUnassigned(b)) return false;
       } else if (selectedStatus !== 'all' && b.status !== selectedStatus) {
         return false;
       }
@@ -256,7 +266,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
       return true;
     });
     // Đơn sắp đến: khách tới sớm nhất lên trước để chuẩn bị theo thứ tự.
-    if (selectedStatus === UPCOMING_REQUESTS) list.sort((a, b) => a.checkInDate.localeCompare(b.checkInDate));
+    if (selectedStatus === UPCOMING_REQUESTS || selectedStatus === ROOM_UNASSIGNED) list.sort((a, b) => a.checkInDate.localeCompare(b.checkInDate));
     return list;
   }, [bookings, selectedZone, selectedStatus, searchQuery, matchesScope]);
 
@@ -280,6 +290,7 @@ export const StaffBookingsPage: React.FC<StaffBookingsPageProps> = ({
     for (const s of ['pending_deposit', 'confirmed_deposit', 'checked_in', 'staying', 'cancelled']) counts[s] ??= 0;
     counts[UPCOMING_REQUESTS] = base.filter(isUpcomingWithRequest).length;
     counts[REFUND_PENDING] = base.filter(b => b.depositStatus === 'refund_pending').length;
+    counts[ROOM_UNASSIGNED] = base.filter(isRoomUnassigned).length;
     return counts;
   }, [bookings, selectedZone, searchQuery, matchesScope]);
   const hotelOptions = useMemo(() => Array.from(new Map(bookings.filter(b => b.hotelId).map(b => [b.hotelId!, { id: b.hotelId!, name: b.hotelName || `Khách sạn #${b.hotelId}` }])).values()), [bookings]);

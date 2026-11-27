@@ -196,7 +196,7 @@ public class BookingRepository : IBookingRepository
         if (_roomContext == null || roomIds.Count == 0) return new Dictionary<long, BookingRoomDisplay>();
         var rooms = await _roomContext.Rooms.AsNoTracking()
             .Where(r => roomIds.Contains(r.RoomId))
-            .Select(r => new { r.RoomId, r.RoomType.HotelId, r.RoomType.RoomTypeName })
+            .Select(r => new { r.RoomId, r.RoomType.HotelId, r.RoomType.RoomTypeName, r.RoomNumber })
             .ToListAsync();
         var hotelIds = rooms.Select(r => r.HotelId).Distinct().ToList();
         // Entity khách sạn trong context này không ánh xạ cột tên → đọc trực tiếp bằng Dapper.
@@ -222,7 +222,8 @@ public class BookingRepository : IBookingRepository
             r => new BookingRoomDisplay(
                 hotelNames.GetValueOrDefault(r.HotelId, string.Empty),
                 r.RoomTypeName,
-                roomImages.GetValueOrDefault(r.RoomId) ?? hotelImages.GetValueOrDefault(r.HotelId)));
+                roomImages.GetValueOrDefault(r.RoomId) ?? hotelImages.GetValueOrDefault(r.HotelId),
+                r.RoomNumber));
     }
 
     public async Task<List<int>> GetAssignedAreaIdsAsync(long staffUserId)
@@ -269,6 +270,10 @@ public class BookingRepository : IBookingRepository
     public Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut)
         => new RoomInventoryRepository(_context).AreFree(roomIds, checkIn, checkOut, bookingId);
     public Task<bool> TrySaveReservedAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking, updating: true);
+    public Task<long?> FindAlternativeRoomAsync(long roomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<long> exclude)
+        => new RoomInventoryRepository(_context).FindAlternative(roomId, checkIn, checkOut, exclude);
+    public Task<List<RoomChangeOption>> RoomChangeOptionsAsync(long bookingId, long currentRoomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<int>? areaIds)
+        => new RoomInventoryRepository(_context).RoomChangeOptions(bookingId, currentRoomId, checkIn, checkOut, areaIds);
 
     public Task UpdateAsync(Booking booking)
     {

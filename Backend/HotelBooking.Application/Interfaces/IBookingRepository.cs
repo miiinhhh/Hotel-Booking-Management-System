@@ -31,9 +31,21 @@ public interface IBookingRepository
     }
     Task<bool> TrySaveReservedAsync(Booking booking);
     Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut);
+    /// <summary>
+    /// Một phòng khác CÙNG HẠNG, còn trống trong khoảng ngày (bỏ qua các phòng trong <paramref name="exclude"/>).
+    /// Dùng khi phòng hệ thống xếp tạm vừa bị người khác giữ: khách đặt theo hạng phòng, không theo số phòng.
+    /// </summary>
+    Task<long?> FindAlternativeRoomAsync(long roomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<long> exclude)
+        => Task.FromResult<long?>(null);
+    /// <summary>Các phòng cùng hạng còn trống cho đơn (bỏ qua chính đơn), lọc theo phân khu nếu có.</summary>
+    Task<List<RoomChangeOption>> RoomChangeOptionsAsync(long bookingId, long currentRoomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<int>? areaIds)
+        => Task.FromResult(new List<RoomChangeOption>());
     Task UpdateAsync(Booking booking);
     Task AddStatusHistoryAsync(BookingStatusHistory history);
     Task SaveChangesAsync();
 }
 
-public sealed record BookingRoomDisplay(string HotelName, string RoomTypeName, string? ImageUrl);
+public sealed record BookingRoomDisplay(string HotelName, string RoomTypeName, string? ImageUrl, string RoomNumber = "");
+
+/// <summary>Phòng có thể chuyển sang (cùng hạng, còn trống).</summary>
+public sealed record RoomChangeOption(long RoomId, string RoomNumber, int Floor, string RoomTypeName);

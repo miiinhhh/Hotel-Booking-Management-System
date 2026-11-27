@@ -249,6 +249,28 @@ public class BookingController : BaseAPIController
         return Ok(result);
     }
 
+    /// <summary>Phòng cùng hạng còn trống để xếp/đổi phòng cho đơn (Lễ tân / Admin).</summary>
+    [HttpGet("{id:long}/room-options")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.BookingManage)]
+    public async Task<IActionResult> RoomOptions(long id, [FromQuery] long currentRoomId)
+    {
+        var (staffUserId, isAdmin, _) = GetUserContext();
+        var result = await _bookingService.GetRoomChangeOptionsAsync(id, currentRoomId, staffUserId, isAdmin);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>Xếp/đổi số phòng sang phòng khác cùng hạng, không đổi ngày và giá (Lễ tân / Admin).</summary>
+    [HttpPost("{id:long}/change-room")]
+    [Authorize(Policy = AuthorizationPolicies.StaffOrAdmin)]
+    [RequirePermission(SystemPermissions.BookingManage)]
+    public async Task<IActionResult> ChangeRoom(long id, [FromBody] ChangeRoomRequest request)
+    {
+        var (staffUserId, isAdmin, _) = GetUserContext();
+        var result = await _bookingService.ChangeRoomAsync(id, staffUserId, isAdmin, request);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     /// <summary>
     /// Đánh dấu khách vắng mặt (No-Show) - Lễ tân / Quản trị viên
     /// </summary>

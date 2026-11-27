@@ -13,6 +13,8 @@ export interface BookingItem {
   hotelCategory: string;
   location: string;
   roomType: string;
+  /** Số phòng do lễ tân xếp — chỉ có sau khi nhận phòng. */
+  roomNumbers?: string;
   image: string;
   imageAlt?: string;
   nightsText: string;

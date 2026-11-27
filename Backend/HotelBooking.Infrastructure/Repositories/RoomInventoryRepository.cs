@@ -32,6 +32,28 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         var locks = db.Set<RoomEmergencyLock>().Where(x => !x.IsReleased && x.StartsAt < end && x.EndsAt > start).Select(x => x.RoomId);
         return bookings.Union(locks);
     }
+    /// <summary>Phòng khác cùng hạng (cùng khách sạn, đang mở bán) còn trống trong khoảng ngày.</summary>
+    public async Task<long?> FindAlternative(long roomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<long> exclude)
+    {
+        var typeId = await db.Set<InventoryRoom>().AsNoTracking().Where(r => r.RoomId == roomId).Select(r => (int?)r.RoomTypeId).FirstOrDefaultAsync();
+        if (typeId is null) return null;
+        var busy = Busy(checkIn.ToDateTime(TimeOnly.MinValue), checkOut.ToDateTime(TimeOnly.MinValue));
+        return await Stock().Where(r => r.RoomTypeId == typeId && r.RoomId != roomId && !exclude.Contains(r.RoomId) && !busy.Contains(r.RoomId))
+            .OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).Select(r => (long?)r.RoomId).FirstOrDefaultAsync();
+    }
+
+    /// <summary>Phòng cùng hạng còn trống để chuyển đơn sang (bỏ qua chính đơn), lọc theo phân khu nếu có.</summary>
+    public async Task<List<RoomChangeOption>> RoomChangeOptions(long bookingId, long currentRoomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<int>? areaIds)
+    {
+        var typeId = await db.Set<InventoryRoom>().AsNoTracking().Where(r => r.RoomId == currentRoomId).Select(r => (int?)r.RoomTypeId).FirstOrDefaultAsync();
+        if (typeId is null) return [];
+        var busy = Busy(checkIn.ToDateTime(TimeOnly.MinValue), checkOut.ToDateTime(TimeOnly.MinValue), bookingId);
+        var rooms = await Stock().Where(r => r.RoomTypeId == typeId && r.RoomId != currentRoomId && !busy.Contains(r.RoomId)
+                && (areaIds == null || areaIds.Contains(r.AreaId)))
+            .OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).ToListAsync();
+        return rooms.Select(r => new RoomChangeOption(r.RoomId, r.RoomNumber, r.Floor, r.RoomTypeName)).ToList();
+    }
+
     /// <summary>Các phòng có trống trong khoảng ngày mới không (bỏ qua chính đơn đang đổi lịch).</summary>
     public async Task<bool> AreFree(IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut, long excludeBookingId)
     {

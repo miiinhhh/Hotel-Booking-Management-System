@@ -312,6 +312,8 @@ export const en: Partial<Record<keyof typeof vi, string>> = {
   'pw.ruleSpecial': 'A special character',
   'pw.rulesLabel': 'Password requirements',
   'pw.invalid': 'Use at least 8 characters with an uppercase letter and a special character.',
+  'bkd.roomNumber': 'Your room: {number}',
+  'bkd.roomAssigned': 'Your room number is assigned at check-in',
   'review.delete': 'Delete review',
   'review.deleteConfirm': 'Delete permanently?',
   'review.deleteFailed': 'Could not delete the review.',

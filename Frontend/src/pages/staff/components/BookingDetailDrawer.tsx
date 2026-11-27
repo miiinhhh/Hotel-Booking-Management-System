@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS } from '../../../auth/permissions';
 import { StaffBooking } from '../types';
 import { RescheduleDialog } from '../../../components/booking/RescheduleDialog';
+import { RoomChangeDialog } from './RoomChangeDialog';
 import { markNoShow } from '../../../services/staffPortalApi';
 import { refundVnPayPayment, confirmManualRefund, confirmCashPayment } from '../../../services/paymentApi';
 import { PAYMENT_UI, PaidBar, shortDate, StatusBadge, viDate, vnd } from './staffUi';
@@ -43,6 +44,7 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [roomChangeOpen, setRoomChangeOpen] = useState(false);
 
   useEffect(() => { setPending(null); setError(''); setCopied(false); }, [booking?.id]);
 
@@ -106,13 +108,23 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
     }
   };
 
+  // Lễ tân xếp/đổi phòng cùng hạng cho đơn chưa trả phòng.
+  const canChangeRoom = canManageBooking && Boolean(onRescheduled) && Boolean(booking.rooms?.length)
+    && (booking.status === 'pending_deposit' || booking.status === 'confirmed_deposit' || booking.status === 'checked_in');
   /** Nội dung hộp xác nhận cho từng thao tác. */
   const confirmCopy: Record<Pending, { title: string; body: React.ReactNode; cta: string; danger?: boolean }> = {
     checkin: {
       title: `Check-in phòng ${booking.roomNumber}?`,
-      body: owing
-        ? <p className="rounded bg-amber-50 p-3 text-amber-900"><b>Chưa thu đủ tiền:</b> đơn còn thiếu <b>{vnd(booking.remainingAmount)}</b>. Bạn vẫn muốn cho khách nhận phòng?</p>
-        : <p>Xác nhận khách <b>{booking.customerName}</b> đã nhận phòng.</p>,
+      body: <>
+        {/* Chốt phòng giao cho khách ngay lúc nhận phòng. */}
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-surface-container-low p-3">
+          <span>Phòng giao cho khách: <b>{booking.roomNumber}</b> <span className={booking.roomAssigned ? 'text-emerald-700' : 'text-amber-800'}>· {booking.roomAssigned ? 'đã xếp' : 'hệ thống xếp tạm'}</span></span>
+          {canChangeRoom && <button type="button" onClick={() => { setPending(null); setRoomChangeOpen(true); }} className="shrink-0 rounded-full border border-outline-variant px-3 py-1 text-xs font-semibold text-primary hover:bg-surface-container">Đổi phòng</button>}
+        </div>
+        {owing
+          ? <p className="rounded bg-amber-50 p-3 text-amber-900"><b>Chưa thu đủ tiền:</b> đơn còn thiếu <b>{vnd(booking.remainingAmount)}</b>. Bạn vẫn muốn cho khách nhận phòng?</p>
+          : <p>Xác nhận khách <b>{booking.customerName}</b> đã nhận phòng.</p>}
+      </>,
       cta: owing ? 'Vẫn check-in' : 'Check-in',
     },
     noshow: {
@@ -256,7 +268,14 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
               </div>
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <div><dt className={label}>Phòng</dt><dd className="font-semibold text-on-surface">{booking.roomNumber}</dd></div>
+              <div><dt className={label}>Phòng</dt><dd className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-on-surface">{booking.roomNumber}
+                {booking.rooms?.length ? (booking.roomAssigned
+                  ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" title={booking.roomAssignedBy ? `Xếp bởi ${booking.roomAssignedBy}${booking.roomAssignedAt ? ` · ${new Date(booking.roomAssignedAt.endsWith('Z') ? booking.roomAssignedAt : booking.roomAssignedAt + 'Z').toLocaleString('vi-VN')}` : ''}` : undefined}>đã xếp</span>
+                  : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Hệ thống xếp tạm khi khách đặt; lễ tân chốt hoặc đổi khi nhận phòng">tạm xếp</span>) : null}
+                {canChangeRoom && <button type="button" disabled={busy} onClick={() => setRoomChangeOpen(true)} className="text-xs font-semibold text-primary hover:underline disabled:opacity-40">{booking.roomAssigned ? 'Đổi phòng' : 'Xếp phòng'}</button>}
+              </dd>
+              {booking.roomAssigned && booking.roomAssignedBy && <dd className="mt-0.5 text-xs text-on-surface-variant">Xếp bởi {booking.roomAssignedBy}</dd>}
+              </div>
               <div><dt className={label}>Hạng phòng</dt><dd className="text-on-surface">{booking.roomType}</dd></div>
               <div><dt className={label}>Phân khu</dt><dd className="text-on-surface">{booking.zone}</dd></div>
               <div><dt className={label}>Số khách · số phòng</dt><dd className="text-on-surface">{booking.roomDetails}</dd></div>
@@ -347,6 +366,10 @@ export const BookingDetailDrawer: React.FC<BookingDetailDrawerProps> = ({
         checkInDate={booking.checkInDate} checkOutDate={booking.checkOutDate}
         onClose={() => setRescheduleOpen(false)}
         onDone={(msg) => { setRescheduleOpen(false); onRescheduled?.(msg); }} />
+
+      <RoomChangeDialog open={roomChangeOpen} bookingId={Number(booking.id)} bookingCode={booking.bookingCode} rooms={booking.rooms ?? []} assigned={Boolean(booking.roomAssigned)}
+        onClose={() => setRoomChangeOpen(false)}
+        onDone={(msg) => { setRoomChangeOpen(false); onRescheduled?.(msg); }} />
 
       {/* ===== Hộp xác nhận chung ===== */}
       {pending && (

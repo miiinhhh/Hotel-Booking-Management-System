@@ -9,6 +9,10 @@ export interface StaffPortalBookingDto {
   customerPhone?: string;
   customerEmail?: string;
   roomNumbers: string[];
+  rooms?: { roomId: number; roomNumber: string }[];
+  roomAssigned?: boolean;
+  roomAssignedAt?: string | null;
+  roomAssignedBy?: string | null;
   hotelId: number | null;
   hotelName: string | null;
   roomTypes: string[];

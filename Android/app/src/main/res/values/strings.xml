@@ -85,8 +85,7 @@
     <string name="available_rooms_title">Phòng còn trống</string>
     <string name="no_rooms">Không còn phòng trống cho thời gian đã chọn</string>
     <string name="stay_value">%1$s → %2$s · %3$d đêm · %4$d khách</string>
-    <string name="room_name_value">%1$s · Phòng %2$s</string>
-    <string name="room_info_value">Tầng %1$d · Tối đa %2$d khách</string>
+        <string name="room_info_value">Còn %1$d phòng · Tối đa %2$d khách</string>
     <string name="price_per_night">%s / đêm</string>
     <string name="book_now">Đặt phòng</string>
     <string name="err_capacity">Phòng này chỉ chứa tối đa %d khách</string>

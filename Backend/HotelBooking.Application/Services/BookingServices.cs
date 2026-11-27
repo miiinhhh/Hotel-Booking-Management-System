@@ -64,14 +64,21 @@ public class BookingServices : IBookingService
         if (request.Rooms.Any(r => r.RoomId <= 0) || request.Rooms.Select(r => r.RoomId).Distinct().Count() != request.Rooms.Count)
             return ApiResponse<BookingResponseDto>.FailureResult("Room IDs must be positive and distinct.");
 
-        // 2. Kiểm tra xung đột lịch đặt từng phòng (Double booking check)
+        // 2. Kiểm tra xung đột lịch. Khách đặt theo HẠNG PHÒNG: phòng hệ thống xếp tạm đã có người giữ
+        //    thì tự chuyển sang phòng khác cùng hạng còn trống; lễ tân có thể đổi phòng lại khi check-in.
+        var chosen = new List<long>();
         foreach (var room in request.Rooms)
         {
-            var isBooked = await _bookingRepository.IsRoomBookedAsync(room.RoomId, request.CheckInDate, request.CheckOutDate);
-            if (isBooked)
+            if (!await _bookingRepository.IsRoomBookedAsync(room.RoomId, request.CheckInDate, request.CheckOutDate) && !chosen.Contains(room.RoomId))
             {
-                return ApiResponse<BookingResponseDto>.FailureResult($"Phòng (ID: {room.RoomId}) đã được đặt trong khoảng thời gian này.");
+                chosen.Add(room.RoomId);
+                continue;
             }
+            var alternative = await _bookingRepository.FindAlternativeRoomAsync(room.RoomId, request.CheckInDate, request.CheckOutDate, chosen);
+            if (alternative is null)
+                return ApiResponse<BookingResponseDto>.FailureResult("Hạng phòng này đã hết phòng trống trong khoảng thời gian bạn chọn. Vui lòng chọn ngày hoặc hạng phòng khác.");
+            room.RoomId = alternative.Value;
+            chosen.Add(alternative.Value);
         }
 
         // 3. Tính toán chi phí chuẩn xác từ hệ thống (Server-authoritative calculation)
@@ -293,7 +300,7 @@ public class BookingServices : IBookingService
         );
 
         // Thông tin hiển thị: khách sạn, hạng phòng, ảnh (theo phòng đầu tiên của đơn).
-        var firstRoomIds = bookings.Select(b => b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0).Where(id => id > 0).Distinct().ToList();
+        var firstRoomIds = bookings.SelectMany(b => b.BookingDetails?.Select(d => d.RoomId) ?? []).Where(id => id > 0).Distinct().ToList();
         var display = await _bookingRepository.GetRoomDisplayInfoAsync(firstRoomIds);
         // Số tiền hoàn thật cho đơn đã/đang hoàn tiền.
         var refunds = new Dictionary<long, (decimal Amount, DateTime? At)>();
@@ -322,6 +329,10 @@ public class BookingServices : IBookingService
             CreatedAt = b.CreatedAt,
             HotelName = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.HotelName,
             RoomTypeName = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.RoomTypeName,
+            // Khách đặt theo hạng phòng: số phòng chỉ báo cho khách khi đã nhận phòng; nhân viên luôn thấy.
+            RoomNumbers = isAdmin || isStaff || b.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed
+                ? string.Join(", ", (b.BookingDetails ?? []).Select(d => display.GetValueOrDefault(d.RoomId)?.RoomNumber).Where(n => !string.IsNullOrEmpty(n)))
+                : null,
             ImageUrl = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.ImageUrl,
             RefundAmount = refunds.TryGetValue(b.BookingId, out var rf) ? rf.Amount : null,
             RefundedAt = refunds.TryGetValue(b.BookingId, out var rf2) ? rf2.At : null
@@ -733,6 +744,85 @@ public class BookingServices : IBookingService
         }
 
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đổi lịch đặt phòng thành công.");
+    }
+
+    /// <summary>Phòng cùng hạng còn trống mà nhân viên có thể chuyển đơn sang (trong phân khu của mình).</summary>
+    public async Task<ApiResponse<List<RoomChangeOption>>> GetRoomChangeOptionsAsync(long bookingId, long currentRoomId, long staffUserId, bool isAdmin)
+    {
+        var (error, booking, areaIds) = await PrepareRoomChangeAsync(bookingId, currentRoomId, staffUserId, isAdmin);
+        if (error != null) return ApiResponse<List<RoomChangeOption>>.FailureResult(error);
+        var options = await _bookingRepository.RoomChangeOptionsAsync(bookingId, currentRoomId, booking!.CheckInDate, booking.CheckOutDate, areaIds);
+        return ApiResponse<List<RoomChangeOption>>.SuccessResult(options);
+    }
+
+    /// <summary>
+    /// Lễ tân xếp/đổi số phòng cho đơn sang phòng khác CÙNG HẠNG còn trống (không đổi ngày, không đổi giá).
+    /// Dùng khi nhận phòng, khi phòng cần bảo trì, hoặc khách muốn đổi tầng/view.
+    /// </summary>
+    public async Task<ApiResponse<BookingResponseDto>> ChangeRoomAsync(long bookingId, long staffUserId, bool isAdmin, ChangeRoomRequest request)
+    {
+        var (error, booking, areaIds) = await PrepareRoomChangeAsync(bookingId, request.CurrentRoomId, staffUserId, isAdmin);
+        if (error != null) return ApiResponse<BookingResponseDto>.FailureResult(error);
+        booking = booking!;
+        // Giữ nguyên phòng đang xếp tạm: chỉ ghi nhận lễ tân đã chốt phòng.
+        if (request.NewRoomId == request.CurrentRoomId)
+        {
+            var current = (await _bookingRepository.GetRoomDisplayInfoAsync([request.CurrentRoomId])).GetValueOrDefault(request.CurrentRoomId);
+            var number = current?.RoomNumber ?? request.CurrentRoomId.ToString();
+            await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
+            {
+                BookingId = booking.BookingId,
+                OldStatus = booking.BookingStatus.ToString(),
+                NewStatus = booking.BookingStatus.ToString(),
+                ChangedByUserId = staffUserId,
+                ChangedAt = DateTime.UtcNow,
+                Note = $"Xếp phòng: giữ phòng {number}{(current is null ? "" : $" ({current.RoomTypeName})")}.{(string.IsNullOrWhiteSpace(request.Reason) ? "" : $" Lý do: {request.Reason.Trim()}.")}"
+            });
+            await _bookingRepository.SaveChangesAsync();
+            return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), $"Đã xếp phòng {number} cho đơn.");
+        }
+
+        var options = await _bookingRepository.RoomChangeOptionsAsync(bookingId, request.CurrentRoomId, booking.CheckInDate, booking.CheckOutDate, areaIds);
+        var target = options.FirstOrDefault(o => o.RoomId == request.NewRoomId);
+        if (target == null)
+            return ApiResponse<BookingResponseDto>.FailureResult("Phòng mới phải cùng hạng phòng, còn trống trong thời gian lưu trú và thuộc khu vực bạn phụ trách.");
+
+        var detail = booking.BookingDetails.First(d => d.RoomId == request.CurrentRoomId);
+        detail.RoomId = request.NewRoomId;
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        await _bookingRepository.AddStatusHistoryAsync(new BookingStatusHistory
+        {
+            BookingId = booking.BookingId,
+            OldStatus = booking.BookingStatus.ToString(),
+            NewStatus = booking.BookingStatus.ToString(),
+            ChangedByUserId = staffUserId,
+            ChangedAt = DateTime.UtcNow,
+            Note = $"Xếp phòng: chuyển sang phòng {target.RoomNumber} ({target.RoomTypeName}).{(string.IsNullOrWhiteSpace(request.Reason) ? "" : $" Lý do: {request.Reason.Trim()}.")}"
+        });
+
+        if (!await _bookingRepository.TrySaveReservedAsync(booking))
+            throw new HotelBooking.Application.Rooms.ConflictException("Phòng vừa được giữ cho đơn khác. Vui lòng chọn phòng khác.");
+        return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), $"Đã chuyển sang phòng {target.RoomNumber}.");
+    }
+
+    private async Task<(string? Error, Booking? Booking, IReadOnlyCollection<int>? AreaIds)> PrepareRoomChangeAsync(long bookingId, long currentRoomId, long staffUserId, bool isAdmin)
+    {
+        var booking = await _bookingRepository.GetByIdWithDetailsAsync(bookingId);
+        if (booking == null) return ("Không tìm thấy đơn đặt phòng.", null, null);
+        if (booking.BookingStatus is not (BookingStatus.Pending or BookingStatus.Confirmed or BookingStatus.CheckedIn))
+            return ("Chỉ đổi phòng được đơn chưa trả phòng (chờ xác nhận, đã xác nhận hoặc đang lưu trú).", null, null);
+        if (!booking.BookingDetails.Any(d => d.RoomId == currentRoomId))
+            return ("Phòng hiện tại không thuộc đơn này.", null, null);
+        IReadOnlyCollection<int>? areaIds = null;
+        if (!isAdmin)
+        {
+            if (!await _bookingRepository.IsStaffAssignedToBookingAsync(bookingId, staffUserId))
+                return ("Bạn không có quyền xếp phòng cho đơn ngoài phân khu được phân công.", null, null);
+            var assigned = await _bookingRepository.GetAssignedAreaIdsAsync(staffUserId);
+            areaIds = assigned;
+        }
+        return (null, booking, areaIds);
     }
 
     public async Task<ApiResponse<bool>> MarkNoShowAsync(long bookingId, long staffUserId, bool isAdmin, NoShowRequest request)

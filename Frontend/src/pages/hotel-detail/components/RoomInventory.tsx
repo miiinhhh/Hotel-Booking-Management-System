@@ -68,8 +68,7 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     try {
       const result = await roomApi.availability(hotel, selectedCheckIn, selectedCheckOut);
       if (version !== confirmationVersion.current) return;
-      const latest = result.rooms.find(room => room.roomId === Number(calendarRequest.room.id));
-      const selection = resolveRoomSelection(calendarRequest.room, latest, hotel, selectedCheckIn, selectedCheckOut, guests);
+      const selection = resolveRoomSelection(calendarRequest.room, result.rooms, hotel, selectedCheckIn, selectedCheckOut, guests);
       onBookRoom?.(selection.room, calendarRequest.packageId, selection.totalPrice);
       setCalendarRequest(null);
     } catch (reason) {
@@ -81,12 +80,21 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     }
     finally { if (version === confirmationVersion.current) setPending(false); }
   };
-  const cards: Room[] = validSelection ? available.filter(r => r.capacity >= guests).map(r => ({ id: String(r.roomId), roomId: r.roomId, hotelId: r.hotelId, hotelName: checked.hotelName, hotelAddress: checked.hotelAddress, requestedGuests: guests, checkIn, checkOut,
-    name: t('rooms.roomName', { type: r.roomTypeName, number: r.roomNumber }), tag: t('rooms.available'), floor: t('rooms.floor', { floor: r.floor }), remainingRooms: 1,
-    image: rooms.find(room => room.roomId === r.roomId)?.image || '/room-placeholder.svg', specs: [{ icon: 'person', text: t('rooms.capacity', { count: r.capacity }) }], features: rooms.find(room => room.roomId === r.roomId)?.features || [],
-    packages: [{ id: 'base', name: t('rooms.avgPrice'), description: t('rooms.avgPriceNote'), pricePerNight: r.price }],
-    cancellationPolicy: rooms.find(room => room.roomId === r.roomId)?.cancellationPolicy || t('rooms.policyFallback'),
-  })) : [];
+  // Khách đặt theo HẠNG phòng: gộp các phòng trống cùng hạng thành một thẻ, không hiện số phòng/tầng.
+  const byType = new Map<number, AvailableRoom[]>();
+  if (validSelection) for (const r of available.filter(x => x.capacity >= guests)) byType.set(r.roomTypeId, [...(byType.get(r.roomTypeId) ?? []), r]);
+  const cards: Room[] = Array.from(byType.values()).map(group => {
+    const r = [...group].sort((a, b) => a.price - b.price)[0];
+    const info = rooms.find(room => room.roomTypeId === r.roomTypeId || room.typeName === r.roomTypeName || room.roomId === r.roomId);
+    return { id: String(r.roomId), roomId: r.roomId, roomTypeId: r.roomTypeId, typeName: r.roomTypeName, hotelId: r.hotelId, hotelName: checked!.hotelName, hotelAddress: checked!.hotelAddress, requestedGuests: guests, checkIn, checkOut,
+      name: r.roomTypeName, tag: t('rooms.left', { count: group.length }), floor: '', remainingRooms: group.length,
+      image: info?.image || '/room-placeholder.svg',
+      specs: [{ icon: 'person', text: t('rooms.capacity', { count: r.capacity }) }, { icon: 'meeting_room', text: t('rooms.left', { count: group.length }) }],
+      features: info?.features || [],
+      packages: [{ id: 'base', name: t('rooms.avgPrice'), description: t('rooms.avgPriceNote'), pricePerNight: r.price }],
+      cancellationPolicy: info?.cancellationPolicy || t('rooms.policyFallback'),
+    };
+  });
   const field = 'mt-1.5 block h-11 w-full rounded-full border border-outline-variant/60 bg-surface-container-lowest px-4 text-sm font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15';
   const label = 'text-xs font-semibold uppercase tracking-wider text-on-surface-variant';
   return <><section id="room-inventory" aria-labelledby="rooms-title" className="space-y-4">

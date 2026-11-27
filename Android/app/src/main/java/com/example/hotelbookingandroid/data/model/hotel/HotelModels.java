@@ -58,6 +58,8 @@ public final class HotelModels {
         public int capacity;
         public String imageUrl;
         public List<Amenity> amenities;
+        /** Số phòng trống cùng hạng (app tự gộp; không có trong JSON). */
+        public transient int availableCount = 1;
     }
 
     /** GET /api/discovery/hotels/{id} */

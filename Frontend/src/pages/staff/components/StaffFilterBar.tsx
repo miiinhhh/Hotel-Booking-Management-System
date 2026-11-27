@@ -40,6 +40,9 @@ export const UPCOMING_REQUESTS = 'upcoming_requests';
 /** Đơn đã hủy đang chờ nhân viên hoàn tiền cho khách. */
 export const REFUND_PENDING = 'refund_pending';
 
+/** Đơn chưa nhận phòng mà lễ tân chưa chốt phòng (vẫn là phòng hệ thống xếp tạm). */
+export const ROOM_UNASSIGNED = 'room_unassigned';
+
 export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
   searchQuery,
   onSearchChange,
@@ -110,6 +113,7 @@ export const StaffFilterBar: React.FC<StaffFilterBarProps> = ({
         {/* Bộ lọc nhanh nghiệp vụ — cùng hàng với ô tìm kiếm */}
         {([
           { id: UPCOMING_REQUESTS, label: 'Khách có ghi chú', icon: 'sticky_note_2', title: 'Khách sắp đến (chưa nhận phòng) có ghi chú khi đặt, xếp theo ngày đến gần nhất', tone: 'text-amber-800', activeTone: 'border-amber-600 bg-amber-50 text-amber-900', badge: 'bg-amber-100' },
+          { id: ROOM_UNASSIGNED, label: 'Chưa xếp phòng', icon: 'meeting_room', title: 'Đơn sắp đến (chờ xác nhận / đã xác nhận) mà lễ tân chưa chốt phòng, xếp theo ngày đến gần nhất', tone: 'text-primary', activeTone: 'border-primary bg-primary-fixed/30 text-primary', badge: 'bg-primary-fixed/60' },
           { id: REFUND_PENDING, label: 'Chờ hoàn tiền', icon: 'currency_exchange', title: 'Đơn đã hủy, khách đã thanh toán và đang chờ hoàn tiền', tone: 'text-error', activeTone: 'border-error bg-error-container/40 text-error', badge: 'bg-error-container/70' },
         ]).map(q => {
           const active = selectedStatus === q.id;

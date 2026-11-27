@@ -45,6 +45,8 @@ public class StaffPortalController(
     }
 
     private bool IsAdmin => User.IsInRole(SystemRoles.Admin);
+    /// <summary>Tiền tố ghi chú lịch sử khi lễ tân xếp/giữ/đổi phòng (BookingServices.ChangeRoomAsync).</summary>
+    private const string RoomAssignmentNote = "Xếp phòng:";
 
     private async Task<HashSet<int>?> GetAllowedAreaIdsAsync(CancellationToken ct)
     {
@@ -221,6 +223,18 @@ public class StaffPortalController(
         var hotelNames = await hotelDb.Hotels.AsNoTracking().Where(h => hotelIds.Contains(h.HotelId))
             .ToDictionaryAsync(h => h.HotelId, h => h.HotelName, ct);
 
+        // "Đã xếp phòng" = lễ tân đã chọn/giữ phòng (dòng lịch sử "Xếp phòng: …"); chưa có = phòng do hệ thống xếp tạm.
+        var listedIds = bookings.Select(x => x.BookingId).ToList();
+        var assignments = (await bookingDb.BookingStatusHistory.AsNoTracking()
+                .Where(h => listedIds.Contains(h.BookingId) && h.Note != null && h.Note.StartsWith(RoomAssignmentNote))
+                .Select(h => new { h.BookingId, h.ChangedAt, h.ChangedByUserId })
+                .ToListAsync(ct))
+            .GroupBy(h => h.BookingId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.ChangedAt).First());
+        var assignerIds = assignments.Values.Where(a => a.ChangedByUserId.HasValue).Select(a => a.ChangedByUserId!.Value).Distinct().ToList();
+        var assigners = await roomDb.Users.AsNoTracking().Where(u => assignerIds.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, u => u.FullName, ct);
+
         var customerIds = bookings.Select(x => x.CustomerId).Distinct().ToList();
         var customers = await roomDb.Users.AsNoTracking()
             .Where(x => customerIds.Contains(x.UserId))
@@ -260,6 +274,10 @@ public class StaffPortalController(
                 roomNumbers,
                 roomTypes,
                 areas,
+                rooms = roomInfo.Select(x => new { roomId = x!.RoomId, roomNumber = x.RoomNumber }).ToList(),
+                roomAssigned = assignments.ContainsKey(booking.BookingId),
+                roomAssignedAt = assignments.TryGetValue(booking.BookingId, out var asg) ? asg.ChangedAt : (DateTime?)null,
+                roomAssignedBy = asg?.ChangedByUserId is long by ? assigners.GetValueOrDefault(by) : null,
                 hotelId,
                 hotelName = hotelId is int hid ? hotelNames.GetValueOrDefault(hid) : null,
                 booking.CheckInDate,

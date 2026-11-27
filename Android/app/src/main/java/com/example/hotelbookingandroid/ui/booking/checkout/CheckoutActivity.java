@@ -44,7 +44,7 @@ public class CheckoutActivity extends AppCompatActivity {
             a.hotelId = hotel.hotelId;
             a.hotelName = hotel.name;
             a.roomId = room.roomId;
-            a.roomName = room.name + " · " + room.roomNumber;
+            a.roomName = room.name; // đặt theo hạng phòng; số phòng xếp khi nhận phòng
             a.checkIn = hotel.checkIn;
             a.checkOut = hotel.checkOut;
             a.guests = c.totalGuests();

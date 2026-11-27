@@ -30,6 +30,9 @@ export interface Room {
   tag: string;
   floor: string;
   remainingRooms: number;
+  /** Khách đặt theo HẠNG phòng: số phòng cụ thể do hệ thống xếp tạm, lễ tân xếp lại khi nhận phòng. */
+  roomTypeId?: number;
+  typeName?: string;
   remainingBadgeColor?: 'error' | 'secondary' | 'neutral';
   image: string;
   imageAlt?: string;

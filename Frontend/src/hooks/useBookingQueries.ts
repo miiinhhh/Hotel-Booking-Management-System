@@ -32,6 +32,7 @@ export function useBookingsQuery() {
       hotelCategory: '',
       location: '',
       roomType: b.roomTypeName || '',
+      roomNumbers: b.roomNumbers || undefined,
       image: mediaUrl(b.imageUrl),
       imageAlt: b.hotelName || '',
       checkInDate: b.checkInDate,

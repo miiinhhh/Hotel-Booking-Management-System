@@ -25,6 +25,12 @@ export interface StaffBooking {
   membershipTier: string;
   zone: string; // e.g. "Tòa A", "Tòa B"
   roomNumber: string; // e.g. "P.402", "Villa 105"
+  /** Từng phòng của đơn (để lễ tân xếp/đổi phòng). */
+  rooms?: { roomId: number; roomNumber: string }[];
+  /** Lễ tân đã chốt phòng; false = phòng do hệ thống xếp tạm khi khách đặt. */
+  roomAssigned?: boolean;
+  roomAssignedAt?: string;
+  roomAssignedBy?: string;
   roomType: string;
   roomDetails: string;
   checkInDate: string;
