@@ -45,7 +45,7 @@ public class CheckoutViewModel extends BaseViewModel {
         BookingModels.CalculatePriceRequest r = new BookingModels.CalculatePriceRequest();
         r.checkInDate = args.checkIn;
         r.checkOutDate = args.checkOut;
-        r.roomIds.add(args.roomId);
+        r.roomIds.addAll(roomIdsOf(args));
         r.voucherCode = voucherCode;
         r.paymentMethod = paymentMethod;
         r.numberOfGuests = args.guests;
@@ -61,9 +61,13 @@ public class CheckoutViewModel extends BaseViewModel {
         r.paymentMethod = paymentMethod;
         r.voucherCode = voucherCode;
         r.specialRequests = specialRequests == null || specialRequests.trim().isEmpty() ? null : specialRequests.trim();
-        r.rooms.add(new BookingModels.RoomRef(args.roomId));
+        for (Long id : roomIdsOf(args)) r.rooms.add(new BookingModels.RoomRef(id));
         r.guests.add(new BookingModels.GuestInput(fullName.trim(), phone.trim(), email.trim(), true));
         return bookingRepository.create(r);
+    }
+
+    private static java.util.List<Long> roomIdsOf(CheckoutActivity.Args args) {
+        return args.roomIds != null && !args.roomIds.isEmpty() ? args.roomIds : java.util.Collections.singletonList(args.roomId);
     }
 
     public LiveData<Resource<PaymentModels.VnPayPaymentResponse>> startVnPay(long bookingId) {

@@ -151,6 +151,7 @@ function App() {
         location: room.hotelAddress || currentHotelDetail?.address || '',
         roomName: room.name,
         roomId: room.roomId,
+        roomIds: room.roomIds && room.roomIds.length ? room.roomIds : room.roomId ? [room.roomId] : [],
         hotelId: room.hotelId,
         checkIn: room.checkIn,
         checkOut: room.checkOut,

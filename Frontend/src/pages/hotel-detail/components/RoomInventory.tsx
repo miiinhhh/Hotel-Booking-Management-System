@@ -1,3 +1,4 @@
+import { discoveryApi, defaultSelection, mediaUrl } from '../../../services/discoveryApi';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Room } from '../types';
 import { RoomCard } from './RoomCard';
@@ -26,6 +27,8 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
   const [calendarRequest, setCalendarRequest] = useState<{ room: Room; packageId?: string } | null>(null);
   const requestVersion = useRef(0);
   const confirmationVersion = useRef(0);
+  /** Ảnh, tiện ích, chính sách theo HẠNG phòng cho đúng khoảng ngày đang tìm (không phụ thuộc danh sách lúc mở trang). */
+  const [typeInfo, setTypeInfo] = useState<Map<number, { image: string; features: Room['features']; policy: string | null }>>(new Map());
   const validSelection = checked && checked.hotel === Number(hotelInput) && checked.checkIn === checkIn && checked.checkOut === checkOut;
   const nights = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86400000);
   const loadAvailability = useCallback(async (hotel: number, arrival: string, departure: string) => {
@@ -36,9 +39,20 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
     }
     setLoading(true);
     try {
-      const [result, info] = await Promise.all([roomApi.availability(hotel, arrival, departure), roomApi.hotel(hotel)]);
+      const [result, info, detail] = await Promise.all([roomApi.availability(hotel, arrival, departure), roomApi.hotel(hotel),
+        discoveryApi.detail(hotel, { ...defaultSelection(), checkIn: arrival, checkOut: departure }).catch(() => null)]);
       if (version !== requestVersion.current) return;
       setAvailable(result.rooms);
+      const map = new Map<number, { image: string; features: Room['features']; policy: string | null }>();
+      for (const r of detail?.rooms ?? []) {
+        if (r.roomTypeId == null) continue;
+        const current = map.get(r.roomTypeId);
+        const uploaded = Boolean(r.imageUrl?.startsWith('/api/'));
+        // Ưu tiên ảnh do khách sạn tự tải lên (/api/...) hơn ảnh mẫu.
+        if (!current || (uploaded && !current.image.includes('/api/')))
+          map.set(r.roomTypeId, { image: mediaUrl(r.imageUrl), features: r.amenities.map(a => ({ icon: 'check', text: a.name })), policy: detail?.policies.cancellationPolicy ?? null });
+      }
+      setTypeInfo(map);
       setChecked({ hotel, hotelName: info.hotelName, hotelAddress: info.address, checkIn: arrival, checkOut: departure });
     }
     catch (reason) { if (version === requestVersion.current) setError(reason instanceof Error ? reason.message : t('rooms.loadFailed')); }
@@ -82,17 +96,18 @@ export const RoomInventory: React.FC<RoomInventoryProps> = ({ hotelId, rooms, in
   };
   // Khách đặt theo HẠNG phòng: gộp các phòng trống cùng hạng thành một thẻ, không hiện số phòng/tầng.
   const byType = new Map<number, AvailableRoom[]>();
-  if (validSelection) for (const r of available.filter(x => x.capacity >= guests)) byType.set(r.roomTypeId, [...(byType.get(r.roomTypeId) ?? []), r]);
-  const cards: Room[] = Array.from(byType.values()).map(group => {
+  if (validSelection) for (const r of available) byType.set(r.roomTypeId, [...(byType.get(r.roomTypeId) ?? []), r]);
+  const cards: Room[] = Array.from(byType.values()).filter(group => group.slice(0, 5).reduce((s, x) => s + x.capacity, 0) >= guests).map(group => {
     const r = [...group].sort((a, b) => a.price - b.price)[0];
+    const fresh = typeInfo.get(r.roomTypeId);
     const info = rooms.find(room => room.roomTypeId === r.roomTypeId || room.typeName === r.roomTypeName || room.roomId === r.roomId);
     return { id: String(r.roomId), roomId: r.roomId, roomTypeId: r.roomTypeId, typeName: r.roomTypeName, hotelId: r.hotelId, hotelName: checked!.hotelName, hotelAddress: checked!.hotelAddress, requestedGuests: guests, checkIn, checkOut,
       name: r.roomTypeName, tag: t('rooms.left', { count: group.length }), floor: '', remainingRooms: group.length,
-      image: info?.image || '/room-placeholder.svg',
+      image: fresh?.image || info?.image || '/room-placeholder.svg',
       specs: [{ icon: 'person', text: t('rooms.capacity', { count: r.capacity }) }, { icon: 'meeting_room', text: t('rooms.left', { count: group.length }) }],
-      features: info?.features || [],
+      features: fresh?.features.length ? fresh.features : info?.features || [],
       packages: [{ id: 'base', name: t('rooms.avgPrice'), description: t('rooms.avgPriceNote'), pricePerNight: r.price }],
-      cancellationPolicy: info?.cancellationPolicy || t('rooms.policyFallback'),
+      cancellationPolicy: fresh?.policy || info?.cancellationPolicy || t('rooms.policyFallback'),
     };
   });
   const field = 'mt-1.5 block h-11 w-full rounded-full border border-outline-variant/60 bg-surface-container-lowest px-4 text-sm font-normal text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15';

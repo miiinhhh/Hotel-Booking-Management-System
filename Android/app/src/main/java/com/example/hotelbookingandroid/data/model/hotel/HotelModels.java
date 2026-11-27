@@ -60,6 +60,8 @@ public final class HotelModels {
         public List<Amenity> amenities;
         /** Số phòng trống cùng hạng (app tự gộp; không có trong JSON). */
         public transient int availableCount = 1;
+        /** Các phòng trống cùng hạng (app tự gộp), phòng đại diện đứng đầu. */
+        public transient java.util.List<Long> sameTypeRoomIds;
     }
 
     /** GET /api/discovery/hotels/{id} */

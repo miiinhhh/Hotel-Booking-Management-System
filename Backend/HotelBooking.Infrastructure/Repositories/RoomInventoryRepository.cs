@@ -85,26 +85,32 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
             (r.RoomTypeId == null || typeIds.Contains(r.RoomTypeId.Value)) && r.StartDate < checkOut && r.EndDate >= checkIn).ToListAsync(ct);
         return NightlyRateCalculator.PriceRooms(rooms, checkIn, checkOut, histories, rules);
     }
-    public async Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct)
+    /// <summary>
+    /// Ngày không đặt được cho khách. Khách đặt theo HẠNG phòng nên tính trên mọi phòng cùng hạng với <paramref name="roomId"/>:
+    /// một đêm bị chặn khi số phòng cùng hạng còn trống ít hơn <paramref name="quantity"/> (đã đặt, đang giữ chỗ hoặc khóa bán).
+    /// </summary>
+    public async Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct, int quantity = 1)
     {
         await Hotel(hotelId, ct);
-        if (!await Stock().AnyAsync(room => room.HotelId == hotelId && room.RoomId == roomId, ct))
-            throw new NotFoundException("Active room not found in this hotel.");
+        var room = await Stock().Where(r => r.HotelId == hotelId && r.RoomId == roomId).Select(r => new { r.RoomTypeId }).FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("Active room not found in this hotel.");
+        var typeRoomIds = await Stock().Where(r => r.HotelId == hotelId && r.RoomTypeId == room.RoomTypeId).Select(r => r.RoomId).ToListAsync(ct);
+        quantity = Math.Max(1, quantity);
 
         var now = DateTime.UtcNow;
         var toExclusive = to.AddDays(1);
         var bookingRanges = await db.BookingDetails.AsNoTracking()
-            .Where(detail => detail.RoomId == roomId && detail.Booking.CheckInDate < toExclusive && detail.Booking.CheckOutDate > from &&
+            .Where(detail => typeRoomIds.Contains(detail.RoomId) && detail.Booking.CheckInDate < toExclusive && detail.Booking.CheckOutDate > from &&
                 (detail.Booking.BookingStatus == BookingStatus.Confirmed || detail.Booking.BookingStatus == BookingStatus.CheckedIn ||
                  (detail.Booking.BookingStatus == BookingStatus.Pending && (detail.Booking.HoldExpiresAt == null || detail.Booking.HoldExpiresAt > now))))
-            .Select(detail => new { detail.Booking.CheckInDate, detail.Booking.CheckOutDate })
+            .Select(detail => new { detail.RoomId, detail.Booking.CheckInDate, detail.Booking.CheckOutDate })
             .ToListAsync(ct);
 
         var windowStart = from.ToDateTime(TimeOnly.MinValue);
         var windowEnd = toExclusive.ToDateTime(TimeOnly.MinValue);
         var lockRanges = await db.Set<RoomEmergencyLock>().AsNoTracking()
-            .Where(roomLock => roomLock.RoomId == roomId && !roomLock.IsReleased && roomLock.StartsAt < windowEnd && roomLock.EndsAt > windowStart)
-            .Select(roomLock => new { roomLock.StartsAt, roomLock.EndsAt })
+            .Where(roomLock => typeRoomIds.Contains(roomLock.RoomId) && !roomLock.IsReleased && roomLock.StartsAt < windowEnd && roomLock.EndsAt > windowStart)
+            .Select(roomLock => new { roomLock.RoomId, roomLock.StartsAt, roomLock.EndsAt })
             .ToListAsync(ct);
 
         var unavailable = new List<DateOnly>();
@@ -112,9 +118,10 @@ public sealed class RoomInventoryRepository(HotelBookingDBContext db) : IRoomInv
         {
             var dayStart = day.ToDateTime(TimeOnly.MinValue);
             var dayEnd = day.AddDays(1).ToDateTime(TimeOnly.MinValue);
-            if (bookingRanges.Any(range => range.CheckInDate <= day && range.CheckOutDate > day) ||
-                lockRanges.Any(range => range.StartsAt < dayEnd && range.EndsAt > dayStart))
-                unavailable.Add(day);
+            var busy = bookingRanges.Where(r => r.CheckInDate <= day && r.CheckOutDate > day).Select(r => r.RoomId)
+                .Concat(lockRanges.Where(r => r.StartsAt < dayEnd && r.EndsAt > dayStart).Select(r => r.RoomId))
+                .ToHashSet();
+            if (typeRoomIds.Count - busy.Count < quantity) unavailable.Add(day);
         }
         return unavailable;
     }

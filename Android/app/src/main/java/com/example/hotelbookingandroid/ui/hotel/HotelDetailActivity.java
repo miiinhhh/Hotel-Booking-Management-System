@@ -127,11 +127,23 @@ public class HotelDetailActivity extends AppCompatActivity {
         if (h.rooms != null) {
             for (HotelModels.DiscoveryRoom r : h.rooms) {
                 HotelModels.DiscoveryRoom first = byType.get(r.roomTypeId);
-                if (first == null) { r.availableCount = 1; byType.put(r.roomTypeId, r); }
-                else {
+                if (first == null) {
+                    r.availableCount = 1;
+                    r.sameTypeRoomIds = new java.util.ArrayList<>();
+                    r.sameTypeRoomIds.add(r.roomId);
+                    byType.put(r.roomTypeId, r);
+                } else {
                     int count = first.availableCount + 1;
-                    if (r.pricePerNight < first.pricePerNight) { r.availableCount = count; byType.put(r.roomTypeId, r); }
-                    else first.availableCount = count;
+                    java.util.List<Long> ids = first.sameTypeRoomIds;
+                    if (r.pricePerNight < first.pricePerNight) {
+                        ids.add(0, r.roomId);
+                        r.sameTypeRoomIds = ids;
+                        r.availableCount = count;
+                        byType.put(r.roomTypeId, r);
+                    } else {
+                        ids.add(r.roomId);
+                        first.availableCount = count;
+                    }
                 }
             }
         }
@@ -146,10 +158,25 @@ public class HotelDetailActivity extends AppCompatActivity {
             return;
         }
         HotelModels.SearchCriteria c = viewModel.criteria();
-        if (room.capacity < c.totalGuests()) {
-            UiUtils.toast(this, getString(R.string.err_capacity, room.capacity));
+        int max = Math.min(Math.max(1, room.availableCount), MAX_ROOMS_PER_BOOKING);
+        if (max <= 1) { startCheckout(room, c, 1); return; }
+        // Nhiều phòng cùng hạng còn trống: cho khách chọn số phòng (tối đa 5 phòng/đơn).
+        String[] options = new String[max];
+        for (int i = 0; i < max; i++) options[i] = getString(R.string.rooms_quantity_option, i + 1);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(getString(R.string.rooms_quantity_title, room.name))
+                .setItems(options, (d, which) -> startCheckout(room, c, which + 1))
+                .show();
+    }
+
+    /** Khớp BookingLimits.MaxRoomsPerBooking ở Backend. */
+    private static final int MAX_ROOMS_PER_BOOKING = 5;
+
+    private void startCheckout(HotelModels.DiscoveryRoom room, HotelModels.SearchCriteria c, int quantity) {
+        if (room.capacity * quantity < c.totalGuests()) {
+            UiUtils.toast(this, getString(R.string.err_capacity, room.capacity * quantity));
             return;
         }
-        CheckoutActivity.start(this, CheckoutActivity.Args.of(hotel, room, c));
+        CheckoutActivity.start(this, CheckoutActivity.Args.of(hotel, room, c, quantity));
     }
 }

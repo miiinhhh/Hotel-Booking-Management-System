@@ -33,6 +33,10 @@ export interface Room {
   /** Khách đặt theo HẠNG phòng: số phòng cụ thể do hệ thống xếp tạm, lễ tân xếp lại khi nhận phòng. */
   roomTypeId?: number;
   typeName?: string;
+  /** Số phòng khách chọn cho hạng này (mặc định 1). */
+  quantity?: number;
+  /** Các phòng trống cụ thể đã chọn (sau khi xác nhận ngày), gửi khi đặt. */
+  roomIds?: number[];
   remainingBadgeColor?: 'error' | 'secondary' | 'neutral';
   image: string;
   imageAlt?: string;

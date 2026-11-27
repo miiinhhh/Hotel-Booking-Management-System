@@ -89,17 +89,36 @@ public sealed class DiscoveryRepository(HotelDb hotels, ContentDb content, Hotel
             ?? throw new NotFoundException("Active hotel not found.");
         var available = await new RoomInventoryRepository(bookings).Available(hotelId, request.CheckIn, request.CheckOut, ct);
         var roomIds = available.Select(r => r.RoomId).ToArray();
-        var roomImages = await content.RoomImages.AsNoTracking().Where(x => roomIds.Contains(x.RoomId) && x.IsPrimary).ToDictionaryAsync(x => x.RoomId, x => x.ImageUrl, ct);
+        // Khách đặt theo HẠNG phòng: ảnh lấy từ mọi phòng cùng hạng (kể cả phòng đang bận),
+        // ưu tiên ảnh khách sạn tự tải lên (/api/...) hơn ảnh mẫu, cuối cùng là ảnh chính của khách sạn.
+        var typeIds = available.Select(r => r.RoomTypeId).Distinct().ToArray();
+        var typeRooms = await bookings.Set<InventoryRoom>().AsNoTracking().Where(r => typeIds.Contains(r.RoomTypeId))
+            .Select(r => new { r.RoomId, r.RoomTypeId }).ToListAsync(ct);
+        var typeRoomIds = typeRooms.Select(r => r.RoomId).ToArray();
+        var primaries = await content.RoomImages.AsNoTracking().Where(x => typeRoomIds.Contains(x.RoomId) && x.IsPrimary)
+            .Select(x => new { x.RoomId, x.ImageUrl }).ToListAsync(ct);
+        static bool Uploaded(string? url) => url != null && url.StartsWith("/api/", StringComparison.Ordinal);
+        var typeOfRoom = typeRooms.ToDictionary(r => r.RoomId, r => r.RoomTypeId);
+        var typeUploaded = primaries.Where(x => Uploaded(x.ImageUrl)).GroupBy(x => typeOfRoom[x.RoomId]).ToDictionary(g => g.Key, g => g.OrderBy(x => x.RoomId).First().ImageUrl);
+        var typeAny = primaries.GroupBy(x => typeOfRoom[x.RoomId]).ToDictionary(g => g.Key, g => g.OrderBy(x => x.RoomId).First().ImageUrl);
+        var ownImage = primaries.ToDictionary(x => x.RoomId, x => x.ImageUrl);
         var roomAmenities = await content.RoomAmenities.AsNoTracking().Include(x => x.Amenity)
             .Where(x => roomIds.Contains(x.RoomId) && x.Amenity.IsActive).ToListAsync(ct);
         var amenities = await content.HotelAmenities.AsNoTracking().Where(x => x.HotelId == hotelId && x.Amenity.IsActive).Select(x => x.Amenity).ToListAsync(ct);
         var images = await content.HotelImages.AsNoTracking().Where(x => x.HotelId == hotelId).OrderBy(x => x.DisplayOrder).ThenBy(x => x.ImageId).ToListAsync(ct);
         var policy = await content.Set<HotelDiscoverySettings>().AsNoTracking().SingleOrDefaultAsync(x => x.HotelId == hotelId, ct);
+        var hotelCover = images.FirstOrDefault(x => x.IsPrimary)?.ImageUrl ?? images.FirstOrDefault()?.ImageUrl;
+        string? ImageOf(long roomId, int typeId)
+        {
+            var own = ownImage.GetValueOrDefault(roomId);
+            if (Uploaded(own)) return own;
+            return typeUploaded.GetValueOrDefault(typeId) ?? own ?? typeAny.GetValueOrDefault(typeId) ?? hotelCover;
+        }
         return new(hotelId, hotel.HotelName, hotel.Address, hotel.City, hotel.Description,
             new(hotel.CheckInTime.ToString("HH:mm"), hotel.CheckOutTime.ToString("HH:mm"), policy?.CancellationPolicy),
             images.Select(Map).ToList(), amenities.Select(Map).ToList(),
             available.Select(r => new DiscoveryRoom(r.RoomId, r.RoomTypeId, r.RoomTypeName, r.RoomNumber, r.Floor, r.Price, r.Capacity,
-                roomImages.GetValueOrDefault(r.RoomId), roomAmenities.Where(x => x.RoomId == r.RoomId).Select(x => Map(x.Amenity)).ToList())).ToList(), request.CheckIn, request.CheckOut);
+                ImageOf(r.RoomId, r.RoomTypeId), roomAmenities.Where(x => x.RoomId == r.RoomId).Select(x => Map(x.Amenity)).ToList())).ToList(), request.CheckIn, request.CheckOut);
     }
     public async Task SetPolicyAsync(int hotelId, string? policy, CancellationToken ct)
     {

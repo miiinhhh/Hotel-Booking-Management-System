@@ -18,7 +18,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, durationNights = 1, on
   const [selectedPackageId, setSelectedPackageId] = useState<string | undefined>(defaultPackageId);
   const selectedPackage = room.packages?.find((p) => p.id === selectedPackageId);
   const pricePerNight = selectedPackage?.pricePerNight ?? room.allInclusiveDetail?.pricePerNight ?? 0;
-  const totalPrice = pricePerNight * durationNights;
+  // Chọn số phòng cùng hạng (tối đa số phòng còn trống, không quá 5 phòng/đơn).
+  const maxQuantity = Math.max(1, Math.min(room.remainingRooms || 1, 5));
+  const [quantity, setQuantity] = useState(1);
+  const totalPrice = pricePerNight * durationNights * quantity;
   const extraFeatures = Math.max(0, room.features.length - MAX_FEATURES);
   const multiplePackages = (room.packages?.length ?? 0) > 1;
 
@@ -86,11 +89,20 @@ export const RoomCard: React.FC<RoomCardProps> = ({ room, durationNights = 1, on
       <div className="flex shrink-0 flex-row items-end justify-between gap-3 border-t border-outline-variant/30 bg-surface-container-low/40 p-5 md:w-56 md:flex-col md:items-stretch md:justify-end md:border-l md:border-t-0">
         <div className="md:text-right">
           <p className="text-sm text-on-surface-variant">{t('rooms.priceNight', { price: formatMoney(pricePerNight, locale) })}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">{t('rooms.totalFor', { count: durationNights })}</p>
+          <p className="mt-1 text-xs text-on-surface-variant">{quantity > 1 ? t('rooms.totalForRooms', { count: durationNights, rooms: quantity }) : t('rooms.totalFor', { count: durationNights })}</p>
           <p className="text-2xl font-bold tracking-tight text-on-surface">{formatMoney(totalPrice, locale)}</p>
           <p className="text-[11px] text-on-surface-variant">{t('rooms.indicative')}</p>
         </div>
-        <button type="button" onClick={() => onBookRoom?.(room, selectedPackageId, totalPrice)}
+        {maxQuantity > 1 && (
+          <label className="flex items-center justify-between gap-2 text-sm text-on-surface-variant md:justify-end">
+            {t('rooms.quantity')}
+            <select value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} aria-label={t('rooms.quantity')}
+              className="h-9 rounded-full border border-outline-variant/60 bg-surface-container-lowest px-3 font-semibold text-on-surface">
+              {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        )}
+        <button type="button" onClick={() => onBookRoom?.({ ...room, quantity }, selectedPackageId, totalPrice)}
           className="inline-flex items-center justify-center gap-1 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90">
           {t('rooms.chooseAndBook')}<span className="material-symbols-outlined text-[18px]">chevron_right</span>
         </button>

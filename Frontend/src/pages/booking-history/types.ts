@@ -30,6 +30,8 @@ export interface BookingItem {
   status: BookingStatus;
   statusLabel: string;
   statusCountdown?: string;
+  /** Hạn giữ phòng chờ đặt cọc (UTC). */
+  holdExpiresAt?: string;
   depositBadge?: string;
   paymentStatus?: string;
   paidAmount?: number;

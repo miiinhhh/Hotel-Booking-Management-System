@@ -23,7 +23,7 @@ public sealed class InventoryAccessException() : Exception("The room is outside 
 public interface IRoomInventoryRepository
 {
     Task<IReadOnlyList<AvailableRoom>> Available(int hotelId, DateOnly checkIn, DateOnly checkOut, CancellationToken ct);
-    Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct);
+    Task<IReadOnlyList<DateOnly>> UnavailableDates(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct, int quantity = 1);
     Task<IReadOnlyList<RoomLockDto>> CreateLocks(int hotelId, CreateRoomLockRequest request, long actorId, bool isAdmin, CancellationToken ct);
     Task<IReadOnlyList<RoomLockDto>> ListLocks(int hotelId, long actorId, bool isAdmin, CancellationToken ct);
     Task<RoomLockDto> Release(int hotelId, long lockId, long actorId, bool isAdmin, CancellationToken ct);
@@ -36,12 +36,12 @@ public sealed class RoomInventoryService(IRoomInventoryRepository repository)
             throw new DomainRuleException("Check-in must be today or later; select a stay of 1–90 nights.");
         return new(request.CheckIn, request.CheckOut, await repository.Available(hotelId, request.CheckIn, request.CheckOut, ct));
     }
-    public async Task<RoomAvailabilityCalendar> Calendar(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct)
+    public async Task<RoomAvailabilityCalendar> Calendar(int hotelId, long roomId, DateOnly from, DateOnly to, CancellationToken ct, int quantity = 1)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         if (hotelId <= 0 || roomId <= 0 || from < today || to < from || to.DayNumber - from.DayNumber > 180)
             throw new DomainRuleException("Calendar range must start today or later and contain at most 181 days.");
-        return new(roomId, from, to, await repository.UnavailableDates(hotelId, roomId, from, to, ct));
+        return new(roomId, from, to, await repository.UnavailableDates(hotelId, roomId, from, to, ct, Math.Clamp(quantity, 1, 10)));
     }
     public Task<IReadOnlyList<RoomLockDto>> CreateLocks(int hotelId, CreateRoomLockRequest request, long actorId, bool isAdmin, CancellationToken ct)
     {

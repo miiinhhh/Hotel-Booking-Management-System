@@ -1,3 +1,4 @@
+import { HoldCountdown, useHoldSecondsLeft } from '../../../components/booking/HoldCountdown';
 import React, { useState } from 'react';
 import { previewCancelBooking } from '../../../services/bookingApi';
 import { BookingItem } from '../types';
@@ -15,6 +16,8 @@ interface BookingTicketCardProps {
   onRebook?: (booking: BookingItem) => void;
   onReschedule?: (booking: BookingItem) => void;
   onViewDetails?: (booking: BookingItem) => void;
+  /** Hết 15 phút giữ phòng: tải lại danh sách để đơn chuyển sang hết hạn. */
+  onHoldExpired?: () => void;
 }
 
 const BTN_PRIMARY = 'w-full py-2.5 px-4 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
@@ -23,7 +26,7 @@ const BTN_SOFT = 'w-full py-2 px-4 rounded-full bg-surface-container hover:bg-su
 
 /** Thẻ một đơn đặt phòng: chỉ hiển thị dữ liệu thật và các thao tác hệ thống hỗ trợ. */
 export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
-  booking, onCopyCode, onOpenCancelModal, onOpenReviewModal, onPayNow, onRebook, onReschedule, onViewDetails,
+  booking, onCopyCode, onOpenCancelModal, onOpenReviewModal, onPayNow, onRebook, onReschedule, onViewDetails, onHoldExpired,
 }) => {
   const { hasPermission } = useAuth();
   const { t, locale } = useLanguage();
@@ -34,6 +37,8 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
   const canCancel = hasPermission(SELF_PERMISSIONS.bookingCancel);
   const canReview = hasPermission(SELF_PERMISSIONS.reviewManage);
   const isPending = booking.status === 'pending';
+  const holdLeft = useHoldSecondsLeft(isPending ? booking.holdExpiresAt : null, onHoldExpired);
+  const holdExpired = holdLeft === 0;
   const isCompleted = booking.status === 'completed';
   const isCancelled = booking.status === 'cancelled';
   const isConfirmed = booking.status === 'confirmed';
@@ -127,7 +132,9 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
             {(booking.remainingAmount ?? 0) > 0 && <> · {t('ticket.remaining')}: <strong className="text-on-surface">{money(booking.remainingAmount)}</strong></>}
           </p>
         )}
-        {isPending && <p className="text-sm text-on-surface-variant">{t('ticket.pendingNote')}</p>}
+        {isPending && (booking.holdExpiresAt
+          ? <HoldCountdown expiresAt={booking.holdExpiresAt} />
+          : <p className="text-sm text-on-surface-variant">{t('ticket.pendingNote')}</p>)}
         {isCompleted && <p className="flex items-center gap-1.5 text-sm text-on-surface-variant"><span className="material-symbols-outlined text-[18px] text-primary">sentiment_satisfied</span>{t('ticket.completedNote')}</p>}
         {isCancelled && (
           <p className="flex items-start gap-1.5 text-sm">
@@ -163,7 +170,7 @@ export const BookingTicketCard: React.FC<BookingTicketCardProps> = ({
 
         {isPending && (
           <>
-            {canPay && (
+            {canPay && !holdExpired && (
               <button type="button" onClick={() => onPayNow?.(booking, 'Deposit')} className={BTN_PRIMARY}>
                 <span className="material-symbols-outlined text-[18px]">payment</span>{t('ticket.payNow', { amount: money(booking.depositDue || booking.totalAmount) })}
               </button>

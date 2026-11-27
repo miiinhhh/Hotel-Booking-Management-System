@@ -48,12 +48,12 @@ export const RoomDateRangePicker: React.FC<RoomDateRangePickerProps> = ({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    roomApi.calendar(hotelId, Number(room.id), today, calendarEnd)
+    roomApi.calendar(hotelId, Number(room.id), today, calendarEnd, room.quantity ?? 1)
       .then(result => { if (active) setUnavailable(new Set(result.unavailableDates)); })
       .catch(reason => { if (active) setError(reason instanceof Error ? reason.message : t('picker.loadFailed')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [calendarEnd, hotelId, room.id, today]);
+  }, [calendarEnd, hotelId, room.id, room.quantity, today]);
 
   useEffect(() => {
     const stopDragging = () => setDragging(false);

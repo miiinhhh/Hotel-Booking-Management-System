@@ -34,17 +34,22 @@ public class CheckoutActivity extends AppCompatActivity {
         public int hotelId;
         public String hotelName;
         public long roomId;
+        /** Tất cả phòng của đơn (nhiều phòng cùng hạng). */
+        public java.util.ArrayList<Long> roomIds = new java.util.ArrayList<>();
         public String roomName;
         public String checkIn;
         public String checkOut;
         public int guests;
 
-        public static Args of(HotelModels.HotelDetail hotel, HotelModels.DiscoveryRoom room, HotelModels.SearchCriteria c) {
+        public static Args of(HotelModels.HotelDetail hotel, HotelModels.DiscoveryRoom room, HotelModels.SearchCriteria c, int quantity) {
             Args a = new Args();
             a.hotelId = hotel.hotelId;
             a.hotelName = hotel.name;
             a.roomId = room.roomId;
-            a.roomName = room.name; // đặt theo hạng phòng; số phòng xếp khi nhận phòng
+            java.util.List<Long> pool = room.sameTypeRoomIds != null ? room.sameTypeRoomIds : java.util.Collections.singletonList(room.roomId);
+            for (int i = 0; i < Math.min(quantity, pool.size()); i++) a.roomIds.add(pool.get(i));
+            // Đặt theo hạng phòng; số phòng cụ thể do lễ tân xếp khi nhận phòng.
+            a.roomName = a.roomIds.size() > 1 ? a.roomIds.size() + " × " + room.name : room.name;
             a.checkIn = hotel.checkIn;
             a.checkOut = hotel.checkOut;
             a.guests = c.totalGuests();

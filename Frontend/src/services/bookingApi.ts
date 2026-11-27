@@ -59,6 +59,7 @@ export interface BookingListDto {
   roomTypeName?: string;
   /** Số phòng, chỉ có khi đã nhận phòng. */
   roomNumbers?: string | null;
+  holdExpiresAt?: string | null;
   imageUrl?: string;
   refundAmount?: number;
   refundedAt?: string;

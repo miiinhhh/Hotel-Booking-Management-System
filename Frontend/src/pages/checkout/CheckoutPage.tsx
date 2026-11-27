@@ -84,6 +84,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   };
 
   const paymentMethod = selectedPaymentMethod === 'pay_at_hotel' ? 'Cash' : 'Deposit';
+  // Đơn nhiều phòng cùng hạng: gửi đủ các phòng đã chọn.
+  const bookingRoomIds = bookingData.roomIds && bookingData.roomIds.length ? bookingData.roomIds : bookingData.roomId ? [bookingData.roomId] : [];
 
   const applyPrice = (data: import('../../services/bookingApi').PriceCalculationResult, coupon = '') => {
     setBookingData((prev) => ({
@@ -111,7 +113,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     let active = true;
 
     calculatePrice({
-      roomIds: [bookingData.roomId],
+      roomIds: bookingRoomIds,
       checkInDate: bookingData.checkIn,
       checkOutDate: bookingData.checkOut,
       paymentMethod,
@@ -129,7 +131,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     return () => {
       active = false;
     };
-  }, [bookingData.roomId, bookingData.checkIn, bookingData.checkOut, paymentMethod, calculatePrice]);
+  }, [bookingData.roomId, bookingRoomIds.join(','), bookingData.checkIn, bookingData.checkOut, paymentMethod, calculatePrice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Áp dụng Voucher với Cache Invalidation
   const handleApplyCoupon = async (code: string): Promise<boolean> => {
@@ -143,7 +145,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       // Hủy bỏ voucher
       invalidateVoucherCache();
       const fallbackData = await calculatePrice({
-        roomIds: [bookingData.roomId],
+        roomIds: bookingRoomIds,
         checkInDate: bookingData.checkIn,
         checkOutDate: bookingData.checkOut,
         paymentMethod,
@@ -153,7 +155,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
 
     const data = await calculatePrice({
-      roomIds: [bookingData.roomId],
+      roomIds: bookingRoomIds,
       checkInDate: bookingData.checkIn,
       checkOutDate: bookingData.checkOut,
       paymentMethod,
@@ -194,7 +196,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         specialRequests: [...specialRequests.filter((r) => r.selected).map((r) => r.label), additionalNotes]
           .filter(Boolean)
           .join('; '),
-        rooms: [{ roomId: bookingData.roomId }],
+        rooms: bookingRoomIds.map((roomId) => ({ roomId })),
         guests: [
           {
             fullName: contactInfo.isBookingForOther

@@ -20,6 +20,7 @@ public class BookingServices : IBookingService
     private readonly IPaymentRepository? _paymentRepository;
     private readonly IRoomRepository? _roomRepository;
     private readonly IBookingNotificationPublisher? _notificationPublisher;
+    private readonly HotelBooking.Application.Common.BookingLimits _limits;
 
     public BookingServices(
         IBookingRepository bookingRepository,
@@ -37,8 +38,10 @@ public class BookingServices : IBookingService
         ICancellationPolicyService? cancellationPolicyService,
         IPaymentRepository? paymentRepository,
         IRoomRepository? roomRepository,
-        IBookingNotificationPublisher? notificationPublisher = null)
+        IBookingNotificationPublisher? notificationPublisher = null,
+        Microsoft.Extensions.Options.IOptions<HotelBooking.Application.Common.BookingLimits>? limits = null)
     {
+        _limits = limits?.Value ?? new HotelBooking.Application.Common.BookingLimits();
         _bookingRepository = bookingRepository;
         _pricingService = pricingService;
         _voucherRepository = voucherRepository;
@@ -63,6 +66,10 @@ public class BookingServices : IBookingService
 
         if (request.Rooms.Any(r => r.RoomId <= 0) || request.Rooms.Select(r => r.RoomId).Distinct().Count() != request.Rooms.Count)
             return ApiResponse<BookingResponseDto>.FailureResult("Room IDs must be positive and distinct.");
+
+        // Chống giữ phòng hàng loạt: chỉ giới hạn đơn giữ phòng mà chưa trả tiền (BookingLimits trong appsettings).
+        var limitError = await CheckBookingLimitsAsync(customerId, request);
+        if (limitError != null) return ApiResponse<BookingResponseDto>.FailureResult(limitError);
 
         // 2. Kiểm tra xung đột lịch. Khách đặt theo HẠNG PHÒNG: phòng hệ thống xếp tạm đã có người giữ
         //    thì tự chuyển sang phòng khác cùng hạng còn trống; lễ tân có thể đổi phòng lại khi check-in.
@@ -329,6 +336,7 @@ public class BookingServices : IBookingService
             CreatedAt = b.CreatedAt,
             HotelName = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.HotelName,
             RoomTypeName = display.GetValueOrDefault(b.BookingDetails?.FirstOrDefault()?.RoomId ?? 0)?.RoomTypeName,
+            HoldExpiresAt = b.BookingStatus == BookingStatus.Pending ? b.HoldExpiresAt : null,
             // Khách đặt theo hạng phòng: số phòng chỉ báo cho khách khi đã nhận phòng; nhân viên luôn thấy.
             RoomNumbers = isAdmin || isStaff || b.BookingStatus is BookingStatus.CheckedIn or BookingStatus.CheckedOut or BookingStatus.Completed
                 ? string.Join(", ", (b.BookingDetails ?? []).Select(d => display.GetValueOrDefault(d.RoomId)?.RoomNumber).Where(n => !string.IsNullOrEmpty(n)))
@@ -744,6 +752,27 @@ public class BookingServices : IBookingService
         }
 
         return ApiResponse<BookingResponseDto>.SuccessResult(MapToResponseDto(booking), "Đổi lịch đặt phòng thành công.");
+    }
+
+    private async Task<string?> CheckBookingLimitsAsync(long customerId, CreateBookingRequest request)
+    {
+        if (_limits.MaxRoomsPerBooking > 0 && request.Rooms.Count > _limits.MaxRoomsPerBooking)
+            return $"Mỗi đơn đặt tối đa {_limits.MaxRoomsPerBooking} phòng. Đoàn đông hơn vui lòng liên hệ khách sạn.";
+
+        var stats = await _bookingRepository.GetCustomerBookingStatsAsync(customerId);
+        var payAtHotel = string.Equals(request.PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase);
+        if (payAtHotel)
+        {
+            if (_limits.NoShowsToBlockPayAtHotel > 0 && stats.NoShows >= _limits.NoShowsToBlockPayAtHotel)
+                return "Tài khoản của bạn đã nhiều lần không đến nhận phòng nên cần đặt cọc qua VNPay để giữ phòng. Vui lòng chọn thanh toán VNPay.";
+            if (_limits.MaxPayAtHotelUpcoming > 0 && stats.UpcomingPayAtHotel >= _limits.MaxPayAtHotelUpcoming)
+                return $"Bạn đang có {stats.UpcomingPayAtHotel} đơn thanh toán tại khách sạn chưa đến ngày nhận phòng (tối đa {_limits.MaxPayAtHotelUpcoming}). Vui lòng đặt cọc qua VNPay cho đơn mới.";
+        }
+        else if (_limits.MaxPendingHolds > 0 && stats.ActiveHolds >= _limits.MaxPendingHolds)
+        {
+            return $"Bạn đang có {stats.ActiveHolds} đơn chờ thanh toán. Hãy hoàn tất thanh toán hoặc hủy một đơn trước khi đặt thêm.";
+        }
+        return null;
     }
 
     /// <summary>Phòng cùng hạng còn trống mà nhân viên có thể chuyển đơn sang (trong phân khu của mình).</summary>

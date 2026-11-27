@@ -270,6 +270,17 @@ public class BookingRepository : IBookingRepository
     public Task<bool> AreRoomsAvailableForRescheduleAsync(long bookingId, IReadOnlyCollection<long> roomIds, DateOnly checkIn, DateOnly checkOut)
         => new RoomInventoryRepository(_context).AreFree(roomIds, checkIn, checkOut, bookingId);
     public Task<bool> TrySaveReservedAsync(Booking booking) => new RoomInventoryRepository(_context).Reserve(booking, updating: true);
+    public async Task<HotelBooking.Application.Common.CustomerBookingStats> GetCustomerBookingStatsAsync(long customerId)
+    {
+        var now = DateTime.UtcNow;
+        var today = DateOnly.FromDateTime(now);
+        var mine = _context.Bookings.AsNoTracking().Where(b => b.CustomerId == customerId);
+        var holds = await mine.CountAsync(b => b.BookingStatus == BookingStatus.Pending && b.HoldExpiresAt != null && b.HoldExpiresAt > now);
+        var payAtHotel = await mine.CountAsync(b => b.PaymentMethod == "Cash" && b.PaymentStatus == "Unpaid"
+            && (b.BookingStatus == BookingStatus.Pending || b.BookingStatus == BookingStatus.Confirmed) && b.CheckOutDate > today);
+        var noShows = await mine.CountAsync(b => b.BookingStatus == BookingStatus.Cancelled && b.CancellationReason != null && b.CancellationReason.StartsWith("No-Show"));
+        return new(holds, payAtHotel, noShows);
+    }
     public Task<long?> FindAlternativeRoomAsync(long roomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<long> exclude)
         => new RoomInventoryRepository(_context).FindAlternative(roomId, checkIn, checkOut, exclude);
     public Task<List<RoomChangeOption>> RoomChangeOptionsAsync(long bookingId, long currentRoomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<int>? areaIds)

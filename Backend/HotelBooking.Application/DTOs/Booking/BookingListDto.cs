@@ -18,6 +18,8 @@ public class BookingListDto
     public string? RoomTypeName { get; set; }
     /// <summary>Số phòng — chỉ có khi khách đã nhận phòng (trước đó lễ tân có thể xếp lại phòng).</summary>
     public string? RoomNumbers { get; set; }
+    /// <summary>Hạn giữ phòng chờ đặt cọc (UTC); hết hạn thì phòng được mở lại.</summary>
+    public DateTime? HoldExpiresAt { get; set; }
     public string? ImageUrl { get; set; }
     public decimal? RefundAmount { get; set; }
     public DateTime? RefundedAt { get; set; }

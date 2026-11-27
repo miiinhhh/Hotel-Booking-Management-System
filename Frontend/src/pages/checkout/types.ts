@@ -16,6 +16,8 @@ export interface SpecialRequestOption {
 
 export interface CheckoutBookingData {
   roomId?: number;
+  /** Tất cả phòng của đơn (nhiều phòng cùng hạng). */
+  roomIds?: number[];
   hotelId?: number;
   checkIn?: string;
   checkOut?: string;

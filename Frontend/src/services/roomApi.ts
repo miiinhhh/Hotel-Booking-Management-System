@@ -73,7 +73,8 @@ export const roomApi = {
   updateRoom: (id: number, roomId: number, input: Omit<RoomDto, 'roomId' | 'hotelId' | 'areaId' | 'price' | 'capacity' | 'isActive'>) => request<RoomDto>(`${hotel(id)}/rooms/${roomId}`, 'PUT', input),
   deleteRoom: (id: number, roomId: number) => request<void>(`${hotel(id)}/rooms/${roomId}`, 'DELETE'),
   availability: (id: number, checkIn: string, checkOut: string) => request<Availability>(`${hotel(id)}/rooms/availability?${new URLSearchParams({ checkIn, checkOut })}`),
-  calendar: (id: number, roomId: number, from: string, to: string) => request<RoomAvailabilityCalendar>(`${hotel(id)}/rooms/${roomId}/calendar?${new URLSearchParams({ from, to })}`),
+  /** Ngày hết phòng của cả HẠNG phòng (theo số phòng cần đặt). */
+  calendar: (id: number, roomId: number, from: string, to: string, quantity = 1) => request<RoomAvailabilityCalendar>(`${hotel(id)}/rooms/${roomId}/calendar?${new URLSearchParams({ from, to, quantity: String(quantity) })}`),
   locks: (id: number) => request<RoomLock[]>(`${hotel(id)}/rooms/emergency-locks`),
   lock: (id: number, input: LockInput) => request<RoomLock[]>(`${hotel(id)}/rooms/emergency-locks`, 'POST', input),
   release: (id: number, lockId: number) => request<RoomLock>(`${hotel(id)}/rooms/emergency-locks/${lockId}/release`, 'PATCH'),

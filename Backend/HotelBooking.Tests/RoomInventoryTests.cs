@@ -81,6 +81,23 @@ public sealed class RoomInventoryTests
         Assert.DoesNotContain(Day.AddDays(2), booked);
     }
     [Fact]
+    public async Task CustomerCalendarCountsWholeRoomTypeAndRequestedQuantity()
+    {
+        // Khách đặt theo hạng phòng: phòng 1 đã đặt nhưng phòng 2 cùng hạng còn trống → 1 phòng vẫn đặt được, 2 phòng thì không.
+        using var db = Database();
+        var repo = new RoomInventoryRepository(db);
+        db.Bookings.Add(Booking(1));
+        await db.SaveChangesAsync();
+
+        var oneRoom = await repo.UnavailableDates(1, 2, Day.AddDays(-1), Day.AddDays(3), default);
+        var twoRooms = await repo.UnavailableDates(1, 2, Day.AddDays(-1), Day.AddDays(3), default, quantity: 2);
+        var viaBookedRoom = await repo.UnavailableDates(1, 1, Day.AddDays(-1), Day.AddDays(3), default);
+
+        Assert.Empty(oneRoom);
+        Assert.Empty(viaBookedRoom);
+        Assert.Equal([Day, Day.AddDays(1)], twoRooms);
+    }
+    [Fact]
     public async Task LockReleasePreservesAuditAndRestoresAvailability()
     {
         using var db = Database(); var repo = new RoomInventoryRepository(db);

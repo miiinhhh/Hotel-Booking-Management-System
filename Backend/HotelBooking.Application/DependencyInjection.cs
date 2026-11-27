@@ -11,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IBookingService, BookingServices>();
+        services.AddOptions<HotelBooking.Application.Common.BookingLimits>();
         services.AddScoped<HotelBooking.Application.Reviews.ReviewService>();
         services.AddScoped<HotelBooking.Application.Reviews.ReviewAiService>();
         services.AddScoped<RoomInventoryService>();

@@ -281,6 +281,7 @@ export const BookingHistoryPage: React.FC<BookingHistoryPageProps> = ({
                     onRebook={() => onNavigateSearch?.()}
                     onReschedule={(b) => setRescheduleTarget(b)}
                     onViewDetails={(b) => setDetailBooking(b)}
+                    onHoldExpired={() => void refetch()}
                   />
                 ))
               ) : (

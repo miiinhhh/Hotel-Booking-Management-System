@@ -40,6 +40,9 @@ public interface IBookingRepository
     /// <summary>Các phòng cùng hạng còn trống cho đơn (bỏ qua chính đơn), lọc theo phân khu nếu có.</summary>
     Task<List<RoomChangeOption>> RoomChangeOptionsAsync(long bookingId, long currentRoomId, DateOnly checkIn, DateOnly checkOut, IReadOnlyCollection<int>? areaIds)
         => Task.FromResult(new List<RoomChangeOption>());
+    /// <summary>Số đơn giữ phòng chưa trả tiền và số lần không đến của khách (áp dụng BookingLimits).</summary>
+    Task<HotelBooking.Application.Common.CustomerBookingStats> GetCustomerBookingStatsAsync(long customerId)
+        => Task.FromResult(new HotelBooking.Application.Common.CustomerBookingStats(0, 0, 0));
     Task UpdateAsync(Booking booking);
     Task AddStatusHistoryAsync(BookingStatusHistory history);
     Task SaveChangesAsync();

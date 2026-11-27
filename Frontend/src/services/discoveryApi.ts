@@ -53,7 +53,8 @@ export function toHotelDetail(h: HotelDetailData, selection: DiscoverySelection,
   for (const r of h.rooms) { const key = String(r.roomTypeId ?? r.name); groups.set(key, [...(groups.get(key) ?? []), r]); }
   const rooms: Room[] = Array.from(groups.values()).map(group => {
     const r = [...group].sort((a, b) => a.pricePerNight - b.pricePerNight)[0];
-    const image = group.find(x => x.imageUrl)?.imageUrl ?? null;
+    // Ưu tiên ảnh do khách sạn tự tải lên (/api/...) hơn ảnh mẫu.
+    const image = group.find(x => x.imageUrl?.startsWith('/api/'))?.imageUrl ?? group.find(x => x.imageUrl)?.imageUrl ?? null;
     return { id: String(r.roomId), roomId: r.roomId, roomTypeId: r.roomTypeId, typeName: r.name, hotelId: h.hotelId, hotelName: h.name, hotelAddress: h.address, checkIn: h.checkIn, checkOut: h.checkOut, requestedGuests: selection.adults + selection.children, name: r.name, tag: `Còn ${group.length} phòng`, floor: '', remainingRooms: group.length, image: mediaUrl(image), specs: [{ icon: 'person', text: `${r.capacity} khách` }, { icon: 'meeting_room', text: `Còn ${group.length} phòng` }], features: r.amenities.map(a => ({ icon: 'check', text: a.name })), packages: [{ id: 'base', name: 'Giá tham khảo', description: 'Giá được máy chủ xác nhận khi đặt.', pricePerNight: r.pricePerNight }], cancellationPolicy: policy };
   });
   const images = [...h.images].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));

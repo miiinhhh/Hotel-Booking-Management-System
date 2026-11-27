@@ -72,6 +72,8 @@ builder.Services.AddDbContext<HotelBookingDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+// Giới hạn chống giữ phòng hàng loạt (mục "BookingLimits" trong appsettings).
+builder.Services.Configure<HotelBooking.Application.Common.BookingLimits>(builder.Configuration.GetSection(HotelBooking.Application.Common.BookingLimits.Section));
 builder.Services.Configure<AdvancedAuthOptions>(builder.Configuration.GetSection(AdvancedAuthOptions.SectionName));
 builder.Services.Configure<AuthDeliveryOptions>(builder.Configuration.GetSection(AuthDeliveryOptions.SectionName));
 builder.Services.Configure<GoogleAuthOptions>(builder.Configuration.GetSection(GoogleAuthOptions.SectionName));

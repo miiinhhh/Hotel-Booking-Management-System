@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useLanguage, formatMoney } from '../../i18n/LanguageContext';
-import { getPaymentStatusByTxnRef, VnPayCallbackResult } from '../../services/paymentApi';
+import { getPaymentStatusByTxnRef, VnPayCallbackResult, createVnPayPayment } from '../../services/paymentApi';
+import { apiClient } from '../../services/apiClient';
+import { HoldCountdown, useHoldSecondsLeft } from '../../components/booking/HoldCountdown';
 
 interface VnPayReturnPageProps {
   onNavigateHome: () => void;
@@ -24,6 +26,25 @@ export const VnPayReturnPage: React.FC<VnPayReturnPageProps> = ({
   const urlMessage = query.get('message') || '';
   const urlSuccess = query.get('success') === 'true';
   const urlAmount = Number(query.get('amount')) || 0;
+  const urlBookingId = Number(query.get('bookingId')) || 0;
+
+  // Thanh toán thất bại nhưng đơn còn trong 15 phút giữ phòng → cho thanh toán lại ngay tại đây.
+  const [hold, setHold] = useState<{ bookingId: number; expiresAt: string } | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const holdLeft = useHoldSecondsLeft(hold?.expiresAt);
+  const loadHold = async (bookingId: number) => {
+    if (!bookingId) return;
+    const res = await apiClient<{ bookingStatus: string; holdExpiresAt: string | null }>(`/api/bookings/${bookingId}`);
+    if (res.success && res.data && res.data.bookingStatus === 'Pending' && res.data.holdExpiresAt) setHold({ bookingId, expiresAt: res.data.holdExpiresAt });
+  };
+  const retryPayment = async () => {
+    if (!hold || retrying) return;
+    setRetrying(true);
+    const res = await createVnPayPayment(hold.bookingId, 'Deposit');
+    if (res.success && res.data?.paymentUrl) { window.location.href = res.data.paymentUrl; return; }
+    setRetrying(false);
+    setError(res.message || t('vnpay.retryFailed'));
+  };
 
   const verifyPayment = async (txnRef: string) => {
     setLoading(true);
@@ -108,6 +129,12 @@ export const VnPayReturnPage: React.FC<VnPayReturnPageProps> = ({
   // Chỉ công nhận thành công khi máy chủ phản hồi trạng thái Paid thực tế
   const isSuccess = result?.status === 'Paid';
   const isPending = result?.status === 'Pending';
+
+  // Thất bại (không phải Paid, không còn chờ VNPay xác nhận): kiểm tra đơn còn giữ phòng để cho thanh toán lại.
+  const failed = !loading && !isSuccess && !isPending;
+  useEffect(() => {
+    if (failed) void loadHold(result?.bookingId || urlBookingId);
+  }, [failed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main className="w-full pt-28 pb-16 bg-background min-h-screen flex items-center justify-center px-4">
@@ -236,6 +263,15 @@ export const VnPayReturnPage: React.FC<VnPayReturnPageProps> = ({
                 {error || result?.message || t('vnpay.failedDefault')}
               </p>
             </div>
+
+            {hold && <HoldCountdown expiresAt={hold.expiresAt} className="justify-center" />}
+            {hold && (holdLeft ?? 0) > 0 && (
+              <button type="button" disabled={retrying} onClick={() => void retryPayment()}
+                className="w-full h-12 rounded-full bg-primary font-semibold text-on-primary shadow-sm hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-lg">{retrying ? 'progress_activity' : 'payment'}</span>
+                {retrying ? t('vnpay.retrying') : t('vnpay.retry')}
+              </button>
+            )}
 
             <div className="bg-surface-container-low rounded-xl p-4 text-sm text-left text-on-surface-variant space-y-1">
               <p>{t('vnpay.failedTip1')}</p>
